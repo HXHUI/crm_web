@@ -1,0 +1,1231 @@
+<template>
+  <div class="organization-structure">
+    <div class="layout-container">
+      <!-- 左侧部门树 -->
+      <div class="sidebar">
+        <div class="search-section">
+          <el-input
+            v-model="searchKeyword"
+            placeholder="搜索成员、部门"
+            :prefix-icon="Search"
+            clearable
+            class="search-input"
+          />
+          <el-dropdown @command="handleAddAction" trigger="click">
+            <el-button type="primary" :icon="Plus" class="add-button">
+              添加
+            </el-button>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item command="add-department">添加部门</el-dropdown-item>
+                <el-dropdown-item command="add-member">添加成员</el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
+        </div>
+        
+        <div class="department-tree">
+          <el-tree
+            :data="departmentTree"
+            :props="treeProps"
+            node-key="id"
+            :expand-on-click-node="false"
+            :default-expand-all="true"
+            @node-click="handleDepartmentClick"
+            class="tree"
+          >
+            <template #default="{ node, data }">
+              <div class="tree-node" :class="{ 'is-selected': currentDepartment.id === data.id }">
+                <div class="node-content" @click="handleDepartmentClick(data)">
+                  <el-icon class="node-icon">
+                    <OfficeBuilding v-if="data.type === 'company' || data.isTenant" />
+                    <Folder v-else />
+                  </el-icon>
+                  <span class="node-name">{{ data.name }}</span>
+                </div>
+                <div class="node-actions">
+                  <el-dropdown
+                    v-if="data.type === 'department' || (data.type === 'company' && data.isTenant)"
+                    @command="(command: string) => handleDepartmentAction(command, data)"
+                    trigger="click"
+                    @click.stop
+                    class="action-dropdown"
+                  >
+                    <el-icon class="more-icon"><MoreFilled /></el-icon>
+                    <template #dropdown>
+                      <el-dropdown-menu>
+                        <el-dropdown-item command="add-sub">添加子部门</el-dropdown-item>
+                        <el-dropdown-item 
+                          v-if="data.type === 'department'"
+                          command="edit"
+                        >修改名称</el-dropdown-item>
+                        <el-dropdown-item 
+                          v-if="data.type === 'department'"
+                          command="set-manager"
+                        >设置负责人</el-dropdown-item>
+                        <el-dropdown-item 
+                          v-if="data.type === 'department'"
+                          command="move-up"
+                        >上移</el-dropdown-item>
+                        <el-dropdown-item 
+                          v-if="data.type === 'department'"
+                          command="move-down"
+                        >下移</el-dropdown-item>
+                        <el-dropdown-item 
+                          v-if="data.type === 'department'"
+                          command="delete" 
+                          :disabled="(data.children && data.children.length > 0) || (data.memberCount && data.memberCount > 0)"
+                          divided
+                        >
+                          <span v-if="(data.children && data.children.length > 0) || (data.memberCount && data.memberCount > 0)">
+                            删除 (有子部门或成员)
+                          </span>
+                          <span v-else>删除</span>
+                        </el-dropdown-item>
+                        <el-dropdown-item command="info" disabled>
+                          {{ data.type === 'company' ? '租户ID' : '部门ID' }}: {{ data.id }}
+                        </el-dropdown-item>
+                      </el-dropdown-menu>
+                    </template>
+                  </el-dropdown>
+                </div>
+              </div>
+            </template>
+          </el-tree>
+        </div>
+      </div>
+
+      <!-- 右侧成员列表 -->
+      <div class="main-content">
+        <div class="content-header">
+          <div class="header-info">
+            <h2 class="department-title">{{ currentDepartment.name }} · {{ currentDepartment.memberCount }}人</h2>
+          </div>
+          
+          <div class="header-actions">
+            <el-button type="primary" :icon="Plus" @click="handleAddMember">
+              添加成员
+            </el-button>
+            <el-dropdown @command="handleBatchAction">
+              <el-button>
+                批量导入/导出<el-icon class="el-icon--right"><arrow-down /></el-icon>
+              </el-button>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item command="import">批量导入</el-dropdown-item>
+                  <el-dropdown-item command="export">批量导出</el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
+            <el-button @click="handleBatchEdit">批量设置成员信息</el-button>
+            <el-button @click="handleBatchDelete">删除</el-button>
+            <el-button @click="handleWechatInvite">微信邀请</el-button>
+          </div>
+        </div>
+
+        <!-- 提示信息 -->
+        <div v-if="currentDepartment.unjoinedCount > 0" class="notice-banner">
+          <el-icon><Warning /></el-icon>
+          <span>当前部门尚有{{ currentDepartment.unjoinedCount }}人未加入</span>
+          <el-link type="primary">立即邀请</el-link>
+          <el-link type="primary">导出</el-link>
+        </div>
+
+        <!-- 成员表格 -->
+        <div class="member-table">
+          <el-table
+            :data="currentDepartment.members"
+            style="width: 100%"
+            @selection-change="handleSelectionChange"
+            v-loading="loading"
+          >
+            <el-table-column type="selection" width="55" />
+            <el-table-column prop="user.username" label="姓名" width="180">
+              <template #default="scope">
+                <div class="member-name">
+                  <el-avatar :size="32" :src="scope.row.user?.avatar">
+                    {{ scope.row.user?.username?.charAt(0) || '?' }}
+                  </el-avatar>
+                  <span class="name-text">{{ scope.row.user?.username || '未设置' }}</span>
+                </div>
+              </template>
+            </el-table-column>
+            <el-table-column label="角色" width="150" show-overflow-tooltip>
+              <template #default="scope">
+                <span v-if="scope.row.memberRoles && scope.row.memberRoles.length > 0">
+                  {{ scope.row.memberRoles.map(mr => mr.role?.name || '未知角色').join('; ') }}
+                </span>
+                <span v-else>-</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="部门" width="150" show-overflow-tooltip>
+              <template #default="scope">
+                <span v-if="scope.row.departments && scope.row.departments.length > 0">
+                  {{ scope.row.departments.map(dept => dept.name).join('; ') }}
+                </span>
+                <span v-else>-</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="user.phone" label="手机" width="140">
+              <template #default="scope">
+                <span>{{ scope.row.user?.phone || '-' }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="user.email" label="邮箱" min-width="200">
+              <template #default="scope">
+                <span>{{ scope.row.user?.email || '-' }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="isManager" label="部门负责人" width="120" align="center">
+              <template #default="scope">
+                <el-tag v-if="scope.row.isManager" type="success" size="small">是</el-tag>
+                <span v-else>否</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" width="120" fixed="right">
+              <template #default="scope">
+                <el-button type="text" size="small" @click="handleEditMember(scope.row)">
+                  编辑
+                </el-button>
+                <el-button type="text" size="small" @click="handleDeleteMember(scope.row)">
+                  删除
+                </el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
+      </div>
+    </div>
+
+    <!-- 部门管理对话框 -->
+    <el-dialog
+      v-model="departmentDialogVisible"
+      :title="departmentDialogTitle"
+      width="500px"
+      @close="resetDepartmentForm"
+    >
+      <el-form
+        ref="departmentFormRef"
+        :model="departmentForm"
+        :rules="departmentFormRules"
+        label-width="80px"
+      >
+        <el-form-item label="部门名称" prop="name">
+          <el-input v-model="departmentForm.name" placeholder="请输入部门名称" />
+        </el-form-item>
+        <el-form-item label="部门描述" prop="description">
+          <el-input
+            v-model="departmentForm.description"
+            type="textarea"
+            :rows="3"
+            placeholder="请输入部门描述"
+          />
+        </el-form-item>
+        <el-form-item label="上级部门" prop="parentId">
+          <el-tree-select
+            v-model="departmentForm.parentId"
+            :data="departmentTreeOptions"
+            :props="{ value: 'id', label: 'name', children: 'children' }"
+            placeholder="请选择上级部门"
+            clearable
+            check-strictly
+          />
+          <div v-if="departmentForm.parentId === null" class="text-sm text-gray-500 mt-1">
+            将在租户根节点下创建根级部门
+          </div>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="departmentDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="handleSubmitDepartment" :loading="departmentSubmitting">
+          确定
+        </el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 设置负责人对话框 -->
+    <el-dialog
+      v-model="managerDialogVisible"
+      title="设置部门负责人"
+      width="400px"
+    >
+      <el-form label-width="80px">
+        <el-form-item label="部门">
+          <el-input :value="currentDepartment.name" disabled />
+        </el-form-item>
+        <el-form-item label="负责人">
+          <el-select
+            v-model="selectedManagerId"
+            placeholder="请选择负责人"
+            filterable
+            style="width: 100%"
+          >
+            <el-option
+              v-for="member in availableManagers"
+              :key="member.id"
+              :label="member.user?.username || member.user?.realName || '未设置'"
+              :value="member.id"
+            />
+          </el-select>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="managerDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="handleSetManager" :loading="managerSubmitting">
+          确定
+        </el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 添加成员对话框 -->
+    <el-dialog
+      v-model="memberDialogVisible"
+      :title="memberDialogTitle"
+      width="600px"
+      :close-on-click-modal="false"
+    >
+      <el-form
+        ref="memberFormRef"
+        :model="memberForm"
+        :rules="memberFormRules"
+        label-width="100px"
+      >
+        <el-form-item label="用户名" prop="username">
+          <el-input
+            v-model="memberForm.username"
+            placeholder="请输入用户名"
+            maxlength="50"
+            show-word-limit
+          />
+        </el-form-item>
+        <el-form-item label="手机号码" prop="phone">
+          <el-input
+            v-model="memberForm.phone"
+            placeholder="请输入手机号码"
+            maxlength="11"
+          />
+        </el-form-item>
+        <el-form-item label="邮箱" prop="email">
+          <el-input
+            v-model="memberForm.email"
+            placeholder="请输入邮箱（可选）"
+            maxlength="100"
+          />
+        </el-form-item>
+        <el-form-item label="所属部门" prop="departmentId">
+          <el-tree-select
+            v-model="memberForm.departmentId"
+            :data="departmentTreeOptions"
+            :props="{ value: 'id', label: 'name', children: 'children' }"
+            placeholder="请选择所属部门"
+            clearable
+            check-strictly
+          />
+        </el-form-item>
+        <el-form-item label="职位角色" prop="roleIds">
+          <el-select
+            v-model="memberForm.roleIds"
+            placeholder="请选择职位角色（可多选）"
+            multiple
+            style="width: 100%"
+          >
+            <el-option
+              v-for="role in availableRoles"
+              :key="role.id"
+              :label="role.name"
+              :value="role.id"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="密码">
+          <el-input
+            v-model="memberForm.password"
+            placeholder="默认密码：88888888"
+            disabled
+          />
+          <div class="text-sm text-gray-500 mt-1">
+            默认密码为 88888888，用户首次登录后可自行修改
+          </div>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="memberDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="handleSubmitMember" :loading="memberSubmitting">
+          确定
+        </el-button>
+      </template>
+    </el-dialog>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, reactive, computed, onMounted } from 'vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { 
+  Plus, 
+  Search, 
+  OfficeBuilding, 
+  Folder, 
+  MoreFilled, 
+  Warning,
+  ArrowDown
+} from '@element-plus/icons-vue'
+import { 
+  getDepartmentTree, 
+  getDepartmentMembers, 
+  createDepartment, 
+  updateDepartment, 
+  deleteDepartment,
+  addDepartmentMember,
+  removeDepartmentMember,
+  type Department,
+  type Member,
+  type CreateDepartmentDto,
+  type UpdateDepartmentDto
+} from '@/api/department'
+import { userApi, type CreateUserDto } from '@/api/user'
+import { roleApi, type Role } from '@/api/role'
+import { useAuthStore } from '@/stores/modules/auth'
+
+// 搜索关键词
+const searchKeyword = ref('')
+const loading = ref(false)
+const selectedMembers = ref<any[]>([])
+
+// 部门管理相关
+const departmentDialogVisible = ref(false)
+const departmentDialogTitle = ref('')
+const departmentSubmitting = ref(false)
+const departmentFormRef = ref()
+const departmentForm = reactive<CreateDepartmentDto & { id?: string }>({
+  name: '',
+  description: '',
+  parentId: undefined
+})
+
+const departmentFormRules = {
+  name: [
+    { required: true, message: '请输入部门名称', trigger: 'blur' },
+    { min: 2, max: 50, message: '部门名称长度在 2 到 50 个字符', trigger: 'blur' }
+  ]
+}
+
+// 负责人管理相关
+const managerDialogVisible = ref(false)
+const managerSubmitting = ref(false)
+const selectedManagerId = ref('')
+const availableManagers = ref<Member[]>([])
+
+// 当前操作的部门
+const currentOperationDepartment = ref<Department | null>(null)
+
+// 部门树数据
+const departmentTree = ref<Department[]>([])
+
+// 当前选中的部门
+const currentDepartment = ref<any>({
+  id: '',
+  name: '',
+  memberCount: 0,
+  unjoinedCount: 0,
+  members: []
+})
+
+// 认证状态
+const authStore = useAuthStore()
+
+// 成员对话框相关
+const memberDialogVisible = ref(false)
+const memberDialogTitle = ref('添加成员')
+const memberSubmitting = ref(false)
+const memberFormRef = ref()
+
+// 成员表单数据
+const memberForm = reactive<CreateUserDto>({
+  username: '',
+  email: '',
+  phone: '',
+  password: '88888888',
+  tenantId: '',
+  departmentId: '',
+  roleIds: []
+})
+
+// 成员表单验证规则
+const memberFormRules = {
+  username: [
+    { required: true, message: '请输入用户名', trigger: 'blur' },
+    { min: 2, max: 50, message: '用户名长度在 2 到 50 个字符', trigger: 'blur' }
+  ],
+  phone: [
+    { required: true, message: '请输入手机号码', trigger: 'blur' },
+    { pattern: /^1[3-9]\d{9}$/, message: '请输入正确的手机号码', trigger: 'blur' }
+  ],
+  email: [
+    { type: 'email', message: '请输入正确的邮箱地址', trigger: 'blur' }
+  ],
+  departmentId: [
+    { required: true, message: '请选择所属部门', trigger: 'change' }
+  ]
+}
+
+// 可用角色列表
+const availableRoles = ref<Role[]>([])
+
+// 树形组件配置
+const treeProps = {
+  children: 'children',
+  label: 'name'
+}
+
+// 部门树选项（用于选择上级部门）
+const departmentTreeOptions = computed(() => {
+  const convertToOptions = (departments: Department[]): any[] => {
+    return departments.map(dept => ({
+      id: dept.id,
+      name: dept.name,
+      children: dept.children ? convertToOptions(dept.children) : []
+    }))
+  }
+  
+  // 添加租户根节点作为选项
+  const options = convertToOptions(departmentTree.value)
+  if (departmentTree.value.length > 0) {
+    const tenantNode = departmentTree.value[0] as any
+    if (tenantNode.type === 'company' && tenantNode.isTenant) {
+      // 在选项列表开头添加租户根节点
+      options.unshift({
+        id: null, // 使用null表示租户根节点
+        name: tenantNode.name,
+        children: []
+      })
+    }
+  }
+  
+  return options
+})
+
+// 加载部门树
+const loadDepartmentTree = async () => {
+  try {
+    loading.value = true
+    const response = await getDepartmentTree()
+    departmentTree.value = response.data || []
+    
+    // 如果有部门，默认选中第一个
+    if (departmentTree.value.length > 0) {
+      handleDepartmentClick(departmentTree.value[0])
+    }
+  } catch (error) {
+    console.error('加载部门树失败:', error)
+    ElMessage.error('加载部门树失败')
+  } finally {
+    loading.value = false
+  }
+}
+
+// 处理部门点击
+const handleDepartmentClick = async (data: any) => {
+  try {
+    loading.value = true
+    
+    // 如果是租户根节点，显示所有成员
+    if (data.isTenant) {
+      // 这里可以调用获取所有成员的接口，暂时使用部门成员接口
+      const response = await getDepartmentMembers(data.id, {
+        page: 1,
+        limit: 100
+      })
+      
+      currentDepartment.value = {
+        id: data.id,
+        name: data.name,
+        memberCount: data.memberCount || 0,
+        unjoinedCount: 0,
+        members: response.data.members || []
+      }
+    } else {
+      // 普通部门，显示部门成员
+      const response = await getDepartmentMembers(data.id, {
+        page: 1,
+        limit: 100
+      })
+      
+      currentDepartment.value = {
+        id: data.id,
+        name: data.name,
+        memberCount: data.memberCount || 0,
+        unjoinedCount: 0,
+        members: response.data.members || []
+      }
+    }
+  } catch (error) {
+    console.error('加载部门成员失败:', error)
+    ElMessage.error('加载部门成员失败')
+  } finally {
+    loading.value = false
+  }
+}
+
+// 处理添加操作
+const handleAddAction = (command: string) => {
+  switch (command) {
+    case 'add-department':
+      openDepartmentDialog('add')
+      break
+    case 'add-member':
+      handleAddMember()
+      break
+  }
+}
+
+// 处理部门操作
+const handleDepartmentAction = async (command: string, data: any) => {
+  currentOperationDepartment.value = data
+  
+  switch (command) {
+    case 'add-sub':
+      // 如果是租户根节点，创建根级部门（parentId为null）
+      if (data.type === 'company' && data.isTenant) {
+        openDepartmentDialog('add', null)
+      } else {
+        openDepartmentDialog('add', data.id)
+      }
+      break
+    case 'edit':
+      // 租户根节点不能编辑
+      if (data.type === 'company' && data.isTenant) {
+        ElMessage.warning('租户名称不能在此处修改')
+        return
+      }
+      openDepartmentDialog('edit', undefined, data)
+      break
+    case 'set-manager':
+      // 租户根节点不能设置负责人
+      if (data.type === 'company' && data.isTenant) {
+        ElMessage.warning('租户不能设置负责人')
+        return
+      }
+      await openManagerDialog(data)
+      break
+    case 'move-up':
+      // 租户根节点不能移动
+      if (data.type === 'company' && data.isTenant) {
+        ElMessage.warning('租户不能移动')
+        return
+      }
+      await handleMoveDepartment(data, 'up')
+      break
+    case 'move-down':
+      // 租户根节点不能移动
+      if (data.type === 'company' && data.isTenant) {
+        ElMessage.warning('租户不能移动')
+        return
+      }
+      await handleMoveDepartment(data, 'down')
+      break
+    case 'delete':
+      // 租户根节点不能删除
+      if (data.type === 'company' && data.isTenant) {
+        ElMessage.warning('租户不能删除')
+        return
+      }
+      await handleDeleteDepartment(data)
+      break
+    case 'info':
+      ElMessage.info(`${data.type === 'company' ? '租户ID' : '部门ID'}: ${data.id}`)
+      break
+  }
+}
+
+// 处理删除部门
+const handleDeleteDepartment = async (department: any) => {
+  try {
+    // 检查是否有子部门
+    if (department.children && department.children.length > 0) {
+      ElMessage.warning('该部门下还有子部门，请先删除子部门')
+      return
+    }
+
+    // 检查是否有成员
+    if (department.memberCount && department.memberCount > 0) {
+      ElMessage.warning('该部门下还有成员，请先移除所有成员')
+      return
+    }
+
+    // 确认删除
+    await ElMessageBox.confirm(
+      `确定要删除部门 "${department.name}" 吗？\n\n删除后将无法恢复！`, 
+      '确认删除', 
+      {
+        confirmButtonText: '确定删除',
+        cancelButtonText: '取消',
+        type: 'warning',
+        dangerouslyUseHTMLString: false
+      }
+    )
+
+    // 执行删除
+    const result = await deleteDepartment(department.id)
+    ElMessage.success(result.message)
+    
+    // 重新加载部门树
+    await loadDepartmentTree()
+    
+    // 如果删除的是当前选中的部门，清空右侧内容
+    if (currentDepartment.value.id === department.id) {
+      currentDepartment.value = {
+        id: '',
+        name: '',
+        memberCount: 0,
+        unjoinedCount: 0,
+        members: []
+      }
+      selectedMembers.value = []
+    }
+  } catch (error: any) {
+    if (error === 'cancel') {
+      return
+    }
+    
+    console.error('删除部门失败:', error)
+    
+    // 根据错误类型显示不同的提示
+    if (error.response?.data?.message) {
+      ElMessage.error(error.response.data.message)
+    } else if (error.message) {
+      ElMessage.error(error.message)
+    } else {
+      ElMessage.error('删除部门失败，请稍后重试')
+    }
+  }
+}
+
+// 处理添加成员
+const handleAddMember = async () => {
+  try {
+    // 检查租户信息
+    if (!authStore.tenant?.id) {
+      ElMessage.error('租户信息未找到，请重新登录')
+      return
+    }
+    
+    console.log('当前租户信息:', authStore.tenant)
+    
+    // 设置租户ID
+    memberForm.tenantId = authStore.tenant.id
+    
+    // 加载可用角色
+    const rolesResponse = await roleApi.getOptions()
+    if (rolesResponse.code === 200) {
+      availableRoles.value = rolesResponse.data
+    }
+    
+    // 重置表单
+    Object.assign(memberForm, {
+      username: '',
+      email: '',
+      phone: '',
+      password: '88888888',
+      tenantId: authStore.tenant.id,
+      departmentId: currentDepartment.value.id || '',
+      roleIds: []
+    })
+    
+    console.log('成员表单数据:', memberForm)
+    
+    memberDialogTitle.value = '添加成员'
+    memberDialogVisible.value = true
+  } catch (error) {
+    console.error('加载角色列表失败:', error)
+    ElMessage.error('加载角色列表失败')
+  }
+}
+
+// 处理部门移动
+const handleMoveDepartment = async (department: Department, direction: 'up' | 'down') => {
+  try {
+    // 这里需要调用后端API来更新部门的sortOrder
+    // 暂时显示提示信息
+    ElMessage.info(`${direction === 'up' ? '上移' : '下移'}部门功能开发中...`)
+    
+    // TODO: 实现部门排序功能
+    // await updateDepartmentSortOrder(department.id, direction)
+    // await loadDepartmentTree()
+  } catch (error) {
+    console.error('移动部门失败:', error)
+    ElMessage.error('移动部门失败')
+  }
+}
+
+// 处理提交成员
+const handleSubmitMember = async () => {
+  if (!memberFormRef.value) return
+  
+  try {
+    await memberFormRef.value.validate()
+    memberSubmitting.value = true
+    
+    // 创建用户
+    const response = await userApi.create(memberForm)
+    
+    if (response.code === 201) {
+      ElMessage.success('添加成员成功')
+      memberDialogVisible.value = false
+      
+      // 重新加载部门树和当前部门成员
+      await loadDepartmentTree()
+      if (currentDepartment.value.id) {
+        await handleDepartmentClick({ id: currentDepartment.value.id })
+      }
+    }
+  } catch (error: any) {
+    console.error('添加成员失败:', error)
+    
+    // 根据错误类型显示不同的提示
+    if (error.response?.data?.message) {
+      ElMessage.error(error.response.data.message)
+    } else if (error.message) {
+      ElMessage.error(error.message)
+    } else {
+      ElMessage.error('添加成员失败，请稍后重试')
+    }
+  } finally {
+    memberSubmitting.value = false
+  }
+}
+
+// 打开部门对话框
+const openDepartmentDialog = (type: 'add' | 'edit', parentId?: string | null, department?: any) => {
+  if (type === 'add') {
+    if (parentId === null) {
+      // 在租户根节点下添加根级部门
+      departmentDialogTitle.value = '添加根级部门'
+    } else if (parentId) {
+      // 在指定部门下添加子部门
+      departmentDialogTitle.value = '添加子部门'
+    } else {
+      // 添加普通部门
+      departmentDialogTitle.value = '添加部门'
+    }
+    resetDepartmentForm()
+    departmentForm.parentId = parentId || undefined
+  } else {
+    departmentDialogTitle.value = '编辑部门'
+    departmentForm.id = department?.id
+    departmentForm.name = department?.name || ''
+    departmentForm.description = department?.description || ''
+    departmentForm.parentId = department?.parentId
+  }
+  departmentDialogVisible.value = true
+}
+
+// 重置部门表单
+const resetDepartmentForm = () => {
+  departmentForm.id = undefined
+  departmentForm.name = ''
+  departmentForm.description = ''
+  departmentForm.parentId = undefined
+  departmentFormRef.value?.clearValidate()
+}
+
+// 提交部门表单
+const handleSubmitDepartment = async () => {
+  if (!departmentFormRef.value) return
+  
+  try {
+    await departmentFormRef.value.validate()
+    departmentSubmitting.value = true
+    
+    if (departmentForm.id) {
+      // 编辑部门
+      const updateData: UpdateDepartmentDto = {
+        name: departmentForm.name,
+        description: departmentForm.description,
+        parentId: departmentForm.parentId
+      }
+      await updateDepartment(departmentForm.id, updateData)
+      ElMessage.success('更新部门成功')
+    } else {
+      // 创建部门
+      const createData: CreateDepartmentDto = {
+        name: departmentForm.name,
+        description: departmentForm.description,
+        parentId: departmentForm.parentId === null ? 'root' : departmentForm.parentId
+      }
+      await createDepartment(createData)
+      ElMessage.success('创建部门成功')
+    }
+    
+    departmentDialogVisible.value = false
+    await loadDepartmentTree() // 重新加载部门树
+  } catch (error) {
+    console.error('提交部门失败:', error)
+    ElMessage.error('操作失败')
+  } finally {
+    departmentSubmitting.value = false
+  }
+}
+
+// 打开设置负责人对话框
+const openManagerDialog = async (department: Department) => {
+  currentOperationDepartment.value = department
+  selectedManagerId.value = department.managerId || ''
+  
+  try {
+    // 获取所有成员作为负责人候选
+    const response = await getDepartmentMembers(department.id, {
+      page: 1,
+      limit: 100
+    })
+    availableManagers.value = response.data.members || []
+    managerDialogVisible.value = true
+  } catch (error) {
+    console.error('获取成员列表失败:', error)
+    ElMessage.error('获取成员列表失败')
+  }
+}
+
+// 设置部门负责人
+const handleSetManager = async () => {
+  if (!currentOperationDepartment.value) return
+  
+  try {
+    managerSubmitting.value = true
+    
+    // 这里需要调用设置负责人的API，暂时用更新部门API
+    const updateData: UpdateDepartmentDto = {
+      managerId: selectedManagerId.value || undefined
+    }
+    await updateDepartment(currentOperationDepartment.value.id, updateData)
+    
+    ElMessage.success('设置负责人成功')
+    managerDialogVisible.value = false
+    await loadDepartmentTree() // 重新加载部门树
+  } catch (error) {
+    console.error('设置负责人失败:', error)
+    ElMessage.error('设置负责人失败')
+  } finally {
+    managerSubmitting.value = false
+  }
+}
+
+// 处理批量操作
+const handleBatchAction = (command: string) => {
+  switch (command) {
+    case 'import':
+      ElMessage.info('批量导入功能开发中...')
+      break
+    case 'export':
+      ElMessage.info('批量导出功能开发中...')
+      break
+  }
+}
+
+// 处理批量编辑
+const handleBatchEdit = () => {
+  ElMessage.info('批量设置成员信息功能开发中...')
+}
+
+// 处理批量删除
+const handleBatchDelete = () => {
+  if (selectedMembers.value.length === 0) {
+    ElMessage.warning('请先选择要删除的成员')
+    return
+  }
+  ElMessage.info(`批量删除 ${selectedMembers.value.length} 个成员`)
+}
+
+// 处理微信邀请
+const handleWechatInvite = () => {
+  ElMessage.info('微信邀请功能开发中...')
+}
+
+// 处理成员选择变化
+const handleSelectionChange = (selection: any[]) => {
+  selectedMembers.value = selection
+}
+
+// 处理编辑成员
+const handleEditMember = (member: any) => {
+  ElMessage.info(`编辑成员: ${member.name || '未设置'}`)
+}
+
+// 处理删除成员
+const handleDeleteMember = async (member: Member) => {
+  try {
+    await ElMessageBox.confirm(`确定要删除成员 "${member.user?.username || '未设置'}" 吗？`, '确认删除', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+    
+    await removeDepartmentMember(currentDepartment.value.id, member.id)
+    ElMessage.success('删除成功')
+    
+    // 重新加载当前部门成员
+    await handleDepartmentClick(currentDepartment.value as Department)
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('删除成员失败:', error)
+      ElMessage.error('删除成员失败')
+    }
+  }
+}
+
+// 组件挂载时加载数据
+onMounted(() => {
+  loadDepartmentTree()
+})
+</script>
+
+<style scoped>
+.organization-structure {
+  height: 100vh;
+  background: #f5f7fa;
+}
+
+.layout-container {
+  display: flex;
+  height: 100%;
+}
+
+/* 左侧边栏 */
+.sidebar {
+  width: 300px;
+  background: #fff;
+  border-right: 1px solid #e6e6e6;
+  display: flex;
+  flex-direction: column;
+}
+
+.search-section {
+  padding: 16px;
+  border-bottom: 1px solid #e6e6e6;
+  display: flex;
+  gap: 12px;
+}
+
+.search-input {
+  flex: 1;
+}
+
+.add-button {
+  flex-shrink: 0;
+}
+
+.department-tree {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 0;
+}
+
+.tree {
+  background: transparent;
+  border: none;
+}
+
+.tree-node {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding: 8px 16px;
+  cursor: pointer;
+  transition: all 0.3s;
+  position: relative;
+}
+
+.tree-node:hover {
+  background-color: #f5f7fa;
+}
+
+.tree-node:hover .node-actions {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.tree-node.is-selected {
+  background-color: #ecf5ff;
+  color: #409eff;
+}
+
+.tree-node.is-selected .node-actions {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.node-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  cursor: pointer;
+}
+
+.node-icon {
+  font-size: 16px;
+  color: #606266;
+}
+
+.node-name {
+  font-size: 14px;
+  color: #303133;
+  font-weight: 500;
+}
+
+
+.node-actions {
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+  display: flex;
+  align-items: center;
+  pointer-events: none;
+}
+
+.action-dropdown {
+  margin-left: 8px;
+}
+
+.more-icon {
+  font-size: 14px;
+  color: #c0c4cc;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: all 0.3s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+}
+
+.more-icon:hover {
+  background-color: #f0f0f0;
+  color: #606266;
+}
+
+/* 右侧主内容区 */
+.main-content {
+  flex: 1;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.content-header {
+  padding: 15px;
+  border-bottom: 1px solid #e6e6e6;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.header-info {
+  flex: 1;
+}
+
+.department-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: #303133;
+  margin: 0 0 8px 0;
+}
+
+.api-info {
+  font-size: 12px;
+  color: #409eff;
+  margin: 0;
+}
+
+.header-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* 提示横幅 */
+.notice-banner {
+  background: #fff7e6;
+  border: 1px solid #ffd591;
+  border-radius: 4px;
+  padding: 12px 16px;
+  margin: 0 0 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #d46b08;
+}
+
+.notice-banner .el-icon {
+  color: #faad14;
+}
+
+/* 成员表格 */
+.member-table {
+  flex: 1;
+  padding: 0 0 24px;
+  overflow: auto;
+}
+
+.member-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.name-text {
+  font-size: 14px;
+  color: #303133;
+}
+
+/* 表格样式优化 */
+:deep(.el-table) {
+  border: none;
+  border-radius: 0;
+}
+
+:deep(.el-table th) {
+  background-color: #fafafa;
+  color: #606266;
+  font-weight: 600;
+  padding: 12px 8px;
+}
+
+:deep(.el-table td) {
+  padding: 12px 8px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+:deep(.el-table tr:hover > td) {
+  background-color: #f5f7fa;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .layout-container {
+    flex-direction: column;
+  }
+  
+  .sidebar {
+    width: 100%;
+    height: 200px;
+  }
+  
+  .header-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .header-actions .el-button {
+    width: 100%;
+  }
+}
+
+</style>
