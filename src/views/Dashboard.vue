@@ -1,108 +1,74 @@
 <template>
   <div class="dashboard">
-    <div class="dashboard-header">
-      <h1 class="dashboard-title">仪表盘</h1>
-        <p class="dashboard-subtitle">
-          欢迎回来，{{ currentUser?.username }}
-          <span v-if="isTenantOwner" class="owner-badge">（租户负责人）</span>
-        </p>
-      <p class="tenant-info">当前租户：{{ currentTenant?.name }}</p>
+    <!-- 共享过滤条件 -->
+    <div class="shared-filters">
+      <div class="filters-container">
+        <el-select
+          v-model="scopeFilter"
+          placeholder="选择范围"
+          size="default"
+          style="width: 140px; margin-right: 12px"
+        >
+          <el-option label="本人及下属" value="me_and_subordinates" />
+          <el-option label="全部" value="all" />
+        </el-select>
+        <el-select
+          v-model="periodFilter"
+          placeholder="选择周期"
+          size="default"
+          style="width: 120px"
+          @change="handleFilterChange"
+        >
+          <el-option label="本周" value="week" />
+          <el-option label="本月" value="month" />
+          <el-option label="本季度" value="quarter" />
+          <el-option label="本年" value="year" />
+        </el-select>
+      </div>
     </div>
-    
-    <!-- 统计卡片 -->
-    <div class="stats-grid">
-      <el-card class="stat-card">
-        <div class="stat-content">
-          <div class="stat-icon customer">
-            <el-icon><User /></el-icon>
-          </div>
-          <div class="stat-info">
-            <div class="stat-number">{{ stats.customers }}</div>
-            <div class="stat-label">客户总数</div>
-          </div>
-        </div>
-      </el-card>
-      
-      <el-card class="stat-card">
-        <div class="stat-content">
-          <div class="stat-icon opportunity">
-            <el-icon><TrendCharts /></el-icon>
-          </div>
-          <div class="stat-info">
-            <div class="stat-number">{{ stats.opportunities }}</div>
-            <div class="stat-label">商机总数</div>
-          </div>
-        </div>
-      </el-card>
-      
-      <el-card class="stat-card">
-        <div class="stat-content">
-          <div class="stat-icon activity">
-            <el-icon><Calendar /></el-icon>
-          </div>
-          <div class="stat-info">
-            <div class="stat-number">{{ stats.activities }}</div>
-            <div class="stat-label">活动总数</div>
-          </div>
-        </div>
-      </el-card>
-      
-      <el-card class="stat-card">
-        <div class="stat-content">
-          <div class="stat-icon revenue">
-            <el-icon><Money /></el-icon>
-          </div>
-          <div class="stat-info">
-            <div class="stat-number">¥{{ stats.revenue.toLocaleString() }}</div>
-            <div class="stat-label">总销售额</div>
-          </div>
-        </div>
-      </el-card>
+
+    <!-- 销售简报 -->
+    <SalesBrief :scope-filter="scopeFilter" :period-filter="periodFilter" />
+
+    <!-- 第一行：客户分布地图、客户来源分布、销售漏斗 -->
+    <div class="first-row-layout">
+      <div class="chart-item map-item">
+        <CustomerMap :scope-filter="scopeFilter" />
+      </div>
+
+      <div class="chart-item source-item">
+        <CustomerSourceDistribution :scope-filter="scopeFilter" />
+      </div>
+
+      <div class="chart-item funnel-item">
+        <SalesFunnel :scope-filter="scopeFilter" />
+      </div>
     </div>
-    
-    <!-- 图表区域 -->
-    <div class="charts-grid">
-      <el-card class="chart-card">
-        <template #header>
-          <div class="card-header">
-            <span>销售趋势</span>
-            <el-button-group>
-              <el-button size="small" :type="chartPeriod === 'week' ? 'primary' : ''" @click="chartPeriod = 'week'">周</el-button>
-              <el-button size="small" :type="chartPeriod === 'month' ? 'primary' : ''" @click="chartPeriod = 'month'">月</el-button>
-              <el-button size="small" :type="chartPeriod === 'year' ? 'primary' : ''" @click="chartPeriod = 'year'">年</el-button>
-            </el-button-group>
-          </div>
-        </template>
-        <div class="chart-container">
-          <div class="chart-placeholder">
-            <el-icon><TrendCharts /></el-icon>
-            <p>销售趋势图表</p>
-          </div>
-        </div>
-      </el-card>
-      
-      <el-card class="chart-card">
-        <template #header>
-          <div class="card-header">
-            <span>客户来源分布</span>
-          </div>
-        </template>
-        <div class="chart-container">
-          <div class="chart-placeholder">
-            <el-icon><PieChart /></el-icon>
-            <p>客户来源分布图</p>
-          </div>
-        </div>
-      </el-card>
+
+    <!-- 第二行：数据汇总、客户遗忘提醒、排行榜 -->
+    <div class="second-row-layout">
+      <div class="column-item">
+        <DataSummary :scope-filter="scopeFilter" :period-filter="periodFilter" />
+      </div>
+
+      <div class="column-item">
+        <CustomerReminder :scope-filter="scopeFilter" />
+      </div>
+
+      <div class="column-item">
+        <RankingList :scope-filter="scopeFilter" :period-filter="periodFilter" />
+      </div>
     </div>
-    
+
     <!-- 最近活动 -->
     <div class="recent-activities">
       <el-card>
         <template #header>
           <div class="card-header">
             <span>最近活动</span>
-            <el-button type="primary" size="small" @click="$router.push('/activities')">查看全部</el-button>
+            <el-button type="primary" size="small" @click="$router.push('/activities')"
+              >查看全部</el-button
+            >
           </div>
         </template>
         <el-timeline>
@@ -115,7 +81,9 @@
             <el-card>
               <h4>{{ activity.title }}</h4>
               <p>{{ activity.description }}</p>
-              <el-tag :type="getActivityTypeColor(activity.type)">{{ getActivityTypeName(activity.type) }}</el-tag>
+              <el-tag :type="getActivityTypeColor(activity.type)">{{
+                getActivityTypeName(activity.type)
+              }}</el-tag>
             </el-card>
           </el-timeline-item>
         </el-timeline>
@@ -128,6 +96,13 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useAuthStore } from '@/stores/modules/auth'
 import type { Activity } from '@/types'
+import SalesBrief from '@/components/SalesBrief.vue'
+import DataSummary from '@/components/DataSummary.vue'
+import CustomerReminder from '@/components/CustomerReminder.vue'
+import SalesFunnel from '@/components/SalesFunnel.vue'
+import CustomerSourceDistribution from '@/components/CustomerSourceDistribution.vue'
+import CustomerMap from '@/components/CustomerMap.vue'
+import RankingList from '@/components/RankingList.vue'
 
 const authStore = useAuthStore()
 
@@ -140,12 +115,22 @@ const isTenantOwner = computed(() => authStore.isTenantOwner)
 // 图表周期
 const chartPeriod = ref<'week' | 'month' | 'year'>('month')
 
+// 过滤条件
+const scopeFilter = ref('me_and_subordinates')
+const periodFilter = ref('month')
+
+// 处理过滤条件变化
+const handleFilterChange = () => {
+  // 过滤条件变化时，子组件会自动响应
+  console.log('过滤条件变化:', { scopeFilter: scopeFilter.value, periodFilter: periodFilter.value })
+}
+
 // 统计数据
 const stats = reactive({
   customers: 0,
   opportunities: 0,
   activities: 0,
-  revenue: 0
+  revenue: 0,
 })
 
 // 最近活动
@@ -158,7 +143,7 @@ const getActivityTypeColor = (type: string) => {
     meeting: 'success',
     email: 'info',
     task: 'warning',
-    note: 'default'
+    note: 'default',
   }
   return colorMap[type] || 'default'
 }
@@ -170,7 +155,7 @@ const getActivityTypeName = (type: string) => {
     meeting: '会议',
     email: '邮件',
     task: '任务',
-    note: '备注'
+    note: '备注',
   }
   return nameMap[type] || type
 }
@@ -184,7 +169,7 @@ const loadData = async () => {
     stats.opportunities = 23
     stats.activities = 89
     stats.revenue = 1250000
-    
+
     // 模拟最近活动数据
     recentActivities.value = [
       {
@@ -200,7 +185,7 @@ const loadData = async () => {
         owner: {} as any,
         tenant: {} as any,
         createdAt: '2024-01-15T10:00:00Z',
-        updatedAt: '2024-01-15T11:30:00Z'
+        updatedAt: '2024-01-15T11:30:00Z',
       },
       {
         id: '2',
@@ -215,7 +200,7 @@ const loadData = async () => {
         owner: {} as any,
         tenant: {} as any,
         createdAt: '2024-01-14T14:00:00Z',
-        updatedAt: '2024-01-14T14:30:00Z'
+        updatedAt: '2024-01-14T14:30:00Z',
       },
       {
         id: '3',
@@ -230,8 +215,8 @@ const loadData = async () => {
         owner: {} as any,
         tenant: {} as any,
         createdAt: '2024-01-13T09:00:00Z',
-        updatedAt: '2024-01-13T09:15:00Z'
-      }
+        updatedAt: '2024-01-13T09:15:00Z',
+      },
     ]
   } catch (error) {
     console.error('加载数据失败:', error)
@@ -252,11 +237,43 @@ onMounted(() => {
   margin-bottom: 24px;
 }
 
-.dashboard-title {
-  font-size: 24px;
-  font-weight: 600;
-  color: #303133;
-  margin: 0 0 8px 0;
+.shared-filters {
+  margin-bottom: 24px;
+  padding: 16px 20px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.filters-container {
+  display: flex;
+  align-items: center;
+}
+
+/* 第一行布局：客户分布地图、客户来源分布、销售漏斗 */
+.first-row-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 20px;
+  margin-bottom: 24px;
+}
+
+/* 第二行布局：数据汇总、客户遗忘提醒、排行榜 */
+.second-row-layout {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  margin-bottom: 24px;
+}
+
+.chart-item {
+  display: flex;
+  flex-direction: column;
+}
+
+.column-item {
+  display: flex;
+  flex-direction: column;
 }
 
 .dashboard-subtitle {
@@ -385,13 +402,42 @@ onMounted(() => {
   box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
 }
 
+@media (max-width: 1200px) {
+  .first-row-layout {
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+
+  .first-row-layout .funnel-item {
+    grid-column: 1 / -1;
+  }
+
+  .second-row-layout {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+}
+
+@media (max-width: 900px) {
+  .first-row-layout {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+}
+
 @media (max-width: 768px) {
   .stats-grid {
     grid-template-columns: 1fr;
   }
-  
-  .charts-grid {
+
+  .first-row-layout {
     grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .second-row-layout {
+    grid-template-columns: 1fr;
+    gap: 12px;
   }
 }
 </style>

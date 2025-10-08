@@ -92,6 +92,9 @@ export interface QueryCustomerDto {
   status?: 'lead' | 'qualified' | 'proposal' | 'negotiation' | 'closed_won' | 'closed_lost'
   source?: string
   industry?: string
+  province?: string
+  city?: string
+  district?: string
   page?: number
   limit?: number
 }
@@ -119,7 +122,9 @@ export interface CreateContactDto {
 
 // 客户管理API
 export const customerApi = {
-  getList: (params?: QueryCustomerDto): Promise<{ code: number; message: string; data: CustomerListResponse }> => {
+  getList: (
+    params?: QueryCustomerDto,
+  ): Promise<{ code: number; message: string; data: CustomerListResponse }> => {
     return request.get('/customers', { params })
   },
 
@@ -131,7 +136,10 @@ export const customerApi = {
     return request.post('/customers', data)
   },
 
-  update: (id: string, data: UpdateCustomerDto): Promise<{ code: number; message: string; data: Customer }> => {
+  update: (
+    id: string,
+    data: UpdateCustomerDto,
+  ): Promise<{ code: number; message: string; data: Customer }> => {
     return request.patch(`/customers/${id}`, data)
   },
 
@@ -148,11 +156,17 @@ export const customerApi = {
   },
 
   // 联系人相关API
-  createContact: (customerId: string, data: CreateContactDto): Promise<{ code: number; message: string; data: Contact }> => {
+  createContact: (
+    customerId: string,
+    data: CreateContactDto,
+  ): Promise<{ code: number; message: string; data: Contact }> => {
     return request.post(`/customers/${customerId}/contacts`, data)
   },
 
-  updateContact: (contactId: string, data: Partial<CreateContactDto>): Promise<{ code: number; message: string; data: Contact }> => {
+  updateContact: (
+    contactId: string,
+    data: Partial<CreateContactDto>,
+  ): Promise<{ code: number; message: string; data: Contact }> => {
     return request.patch(`/customers/contacts/${contactId}`, data)
   },
 
@@ -161,7 +175,9 @@ export const customerApi = {
   },
 
   // 公海、私海管理API
-  getPublicList: (params?: QueryCustomerDto): Promise<{ code: number; message: string; data: CustomerListResponse }> => {
+  getPublicList: (
+    params?: QueryCustomerDto,
+  ): Promise<{ code: number; message: string; data: CustomerListResponse }> => {
     return request.get('/customers/public', { params })
   },
 
@@ -171,7 +187,7 @@ export const customerApi = {
 
   releaseCustomer: (id: string): Promise<{ code: number; message: string }> => {
     return request.post(`/customers/${id}/release`)
-  }
+  },
 }
 
 export default customerApi

@@ -27,12 +27,27 @@
                 style="width: 120px"
               >
                 <el-option label="全部" :value="undefined" />
-                <el-option label="潜在客户" value="lead" />
-                <el-option label="资格确认" value="qualification" />
-                <el-option label="提案" value="proposal" />
-                <el-option label="谈判" value="negotiation" />
-                <el-option label="成交" value="closed_won" />
-                <el-option label="失败" value="closed_lost" />
+                <el-option label="初步接触" value="initial_contact" />
+                <el-option label="需求分析" value="needs_analysis" />
+                <el-option label="方案/报价" value="proposal_quote" />
+                <el-option label="谈判审核" value="negotiation_review" />
+                <el-option label="赢单" value="closed_won" />
+                <el-option label="输单" value="closed_lost" />
+              </el-select>
+            </el-form-item>
+            <el-form-item>
+              <el-select
+                v-model="searchForm.status"
+                placeholder="商机状态"
+                clearable
+                style="width: 120px"
+              >
+                <el-option label="全部" :value="undefined" />
+                <el-option label="积极跟进" value="active" />
+                <el-option label="等待客户" value="waiting_client" />
+                <el-option label="已搁置" value="on_hold" />
+                <el-option label="面临风险" value="at_risk" />
+                <el-option label="已结束" value="closed" />
               </el-select>
             </el-form-item>
             <el-form-item>
@@ -42,12 +57,10 @@
           </el-form>
         </div>
         <div class="toolbar-right">
-          <el-button type="primary" :icon="Plus" @click="goToCreate">
-            新增商机
-          </el-button>
-          <el-button 
-            type="danger" 
-            :icon="Delete" 
+          <el-button type="primary" :icon="Plus" @click="goToCreate"> 新增商机 </el-button>
+          <el-button
+            type="danger"
+            :icon="Delete"
             :disabled="selectedRows.length === 0"
             @click="handleBatchDelete"
           >
@@ -80,10 +93,15 @@
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column prop="probability" label="成交概率" width="100" align="center">
+          <el-table-column prop="status" label="状态" width="120">
             <template #default="{ row }">
-              {{ row.probability }}%
+              <el-tag :type="getStatusType(row.status)">
+                {{ getStatusName(row.status) }}
+              </el-tag>
             </template>
+          </el-table-column>
+          <el-table-column prop="probability" label="成交概率" width="100" align="center">
+            <template #default="{ row }"> {{ row.probability }}% </template>
           </el-table-column>
           <el-table-column prop="expectedCloseDate" label="预计成交日期" width="150">
             <template #default="{ row }">
@@ -98,28 +116,13 @@
           </el-table-column>
           <el-table-column label="操作" width="260" fixed="right">
             <template #default="{ row }">
-              <el-button
-                type="primary"
-                size="small"
-                :icon="View"
-                @click="viewOpportunity(row)"
-              >
+              <el-button type="primary" size="small" :icon="View" @click="viewOpportunity(row)">
                 查看
               </el-button>
-              <el-button
-                type="warning"
-                size="small"
-                :icon="Edit"
-                @click="editOpportunity(row)"
-              >
+              <el-button type="warning" size="small" :icon="Edit" @click="editOpportunity(row)">
                 编辑
               </el-button>
-              <el-button
-                type="danger"
-                size="small"
-                :icon="Delete"
-                @click="deleteOpportunity(row)"
-              >
+              <el-button type="danger" size="small" :icon="Delete" @click="deleteOpportunity(row)">
                 删除
               </el-button>
             </template>
@@ -148,12 +151,7 @@
       width="600px"
       :close-on-click-modal="false"
     >
-      <el-form
-        ref="formRef"
-        :model="formData"
-        :rules="formRules"
-        label-width="100px"
-      >
+      <el-form ref="formRef" :model="formData" :rules="formRules" label-width="100px">
         <el-form-item label="商机标题" prop="title">
           <el-input
             v-model="formData.title"
@@ -183,12 +181,21 @@
         </el-form-item>
         <el-form-item label="商机阶段" prop="stage">
           <el-select v-model="formData.stage" placeholder="请选择商机阶段" style="width: 100%">
-            <el-option label="潜在客户" value="lead" />
-            <el-option label="资格确认" value="qualification" />
-            <el-option label="提案" value="proposal" />
-            <el-option label="谈判" value="negotiation" />
-            <el-option label="成交" value="closed_won" />
-            <el-option label="失败" value="closed_lost" />
+            <el-option label="初步接触" value="initial_contact" />
+            <el-option label="需求分析" value="needs_analysis" />
+            <el-option label="方案/报价" value="proposal_quote" />
+            <el-option label="谈判审核" value="negotiation_review" />
+            <el-option label="赢单" value="closed_won" />
+            <el-option label="输单" value="closed_lost" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="商机状态" prop="status">
+          <el-select v-model="formData.status" placeholder="请选择商机状态" style="width: 100%">
+            <el-option label="积极跟进" value="active" />
+            <el-option label="等待客户" value="waiting_client" />
+            <el-option label="已搁置" value="on_hold" />
+            <el-option label="面临风险" value="at_risk" />
+            <el-option label="已结束" value="closed" />
           </el-select>
         </el-form-item>
         <el-form-item label="成交概率" prop="probability">
@@ -224,9 +231,7 @@
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="submitLoading" @click="handleSubmit">
-          确定
-        </el-button>
+        <el-button type="primary" :loading="submitLoading" @click="handleSubmit"> 确定 </el-button>
       </template>
     </el-dialog>
   </div>
@@ -237,7 +242,12 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Search, Refresh, Edit, Delete, View } from '@element-plus/icons-vue'
-import opportunityApi, { type Opportunity, type CreateOpportunityDto, type UpdateOpportunityDto, type QueryOpportunityDto } from '@/api/opportunity'
+import opportunityApi, {
+  type Opportunity,
+  type CreateOpportunityDto,
+  type UpdateOpportunityDto,
+  type QueryOpportunityDto,
+} from '@/api/opportunity'
 import customerApi from '@/api/customer'
 import { useAuthStore } from '@/stores/modules/auth'
 
@@ -247,7 +257,8 @@ const authStore = useAuthStore()
 // 搜索表单
 const searchForm = reactive({
   search: '',
-  stage: undefined as string | undefined
+  stage: undefined as string | undefined,
+  status: undefined as string | undefined,
 })
 
 // 商机列表
@@ -259,7 +270,7 @@ const selectedRows = ref<Opportunity[]>([])
 const pagination = reactive({
   page: 1,
   pageSize: 10,
-  total: 0
+  total: 0,
 })
 
 // 对话框相关
@@ -274,35 +285,30 @@ const formData = reactive<CreateOpportunityDto & { id?: string }>({
   description: '',
   value: 0,
   currency: 'CNY',
-  stage: 'lead',
+  stage: 'initial_contact',
+  status: 'active',
   probability: 0,
   expectedCloseDate: '',
-  customerId: ''
+  customerId: '',
 })
 
 // 表单验证规则
 const formRules = {
   title: [
     { required: true, message: '请输入商机标题', trigger: 'blur' },
-    { min: 2, max: 100, message: '商机标题长度在 2 到 100 个字符', trigger: 'blur' }
+    { min: 2, max: 100, message: '商机标题长度在 2 到 100 个字符', trigger: 'blur' },
   ],
-  customerId: [
-    { required: true, message: '请选择关联客户', trigger: 'change' }
-  ],
+  customerId: [{ required: true, message: '请选择关联客户', trigger: 'change' }],
   value: [
     { required: true, message: '请输入商机价值', trigger: 'blur' },
-    { type: 'number', min: 0, message: '商机价值必须大于等于0', trigger: 'blur' }
+    { type: 'number', min: 0, message: '商机价值必须大于等于0', trigger: 'blur' },
   ],
-  stage: [
-    { required: true, message: '请选择商机阶段', trigger: 'change' }
-  ],
+  stage: [{ required: true, message: '请选择商机阶段', trigger: 'change' }],
   probability: [
     { required: true, message: '请输入成交概率', trigger: 'blur' },
-    { type: 'number', min: 0, max: 100, message: '成交概率必须在0-100之间', trigger: 'blur' }
+    { type: 'number', min: 0, max: 100, message: '成交概率必须在0-100之间', trigger: 'blur' },
   ],
-  expectedCloseDate: [
-    { required: true, message: '请选择预计成交日期', trigger: 'change' }
-  ]
+  expectedCloseDate: [{ required: true, message: '请选择预计成交日期', trigger: 'change' }],
 }
 
 // 可用客户列表
@@ -311,12 +317,12 @@ const availableCustomers = ref<Array<{ id: string; name: string }>>([])
 // 获取阶段类型
 const getStageType = (stage: string) => {
   const typeMap: Record<string, string> = {
-    lead: 'info',
-    qualification: 'warning',
-    proposal: 'primary',
-    negotiation: 'warning',
+    initial_contact: 'info',
+    needs_analysis: 'warning',
+    proposal_quote: 'primary',
+    negotiation_review: 'warning',
     closed_won: 'success',
-    closed_lost: 'danger'
+    closed_lost: 'danger',
   }
   return typeMap[stage] || 'default'
 }
@@ -324,14 +330,38 @@ const getStageType = (stage: string) => {
 // 获取阶段名称
 const getStageName = (stage: string) => {
   const nameMap: Record<string, string> = {
-    lead: '潜在客户',
-    qualification: '资格确认',
-    proposal: '提案',
-    negotiation: '谈判',
-    closed_won: '成交',
-    closed_lost: '失败'
+    initial_contact: '初步接触',
+    needs_analysis: '需求分析',
+    proposal_quote: '方案/报价',
+    negotiation_review: '谈判审核',
+    closed_won: '赢单',
+    closed_lost: '输单',
   }
   return nameMap[stage] || stage
+}
+
+// 获取状态类型
+const getStatusType = (status: string) => {
+  const typeMap: Record<string, string> = {
+    active: 'success',
+    waiting_client: 'warning',
+    on_hold: 'info',
+    at_risk: 'danger',
+    closed: 'default',
+  }
+  return typeMap[status] || 'default'
+}
+
+// 获取状态名称
+const getStatusName = (status: string) => {
+  const nameMap: Record<string, string> = {
+    active: '积极跟进',
+    waiting_client: '等待客户',
+    on_hold: '已搁置',
+    at_risk: '面临风险',
+    closed: '已结束',
+  }
+  return nameMap[status] || status
 }
 
 // 格式化日期
@@ -345,7 +375,7 @@ const formatCurrency = (value: number) => {
     style: 'currency',
     currency: 'CNY',
     minimumFractionDigits: 0,
-    maximumFractionDigits: 2
+    maximumFractionDigits: 2,
   }).format(value)
 }
 
@@ -356,10 +386,10 @@ const loadOpportunities = async () => {
     const params = {
       ...searchForm,
       page: pagination.page,
-      limit: pagination.pageSize
+      limit: pagination.pageSize,
     }
     const response = await opportunityApi.getList(params)
-    
+
     if (response.code === 200) {
       opportunities.value = response.data.opportunities
       pagination.total = response.data.total
@@ -377,9 +407,9 @@ const loadAvailableCustomers = async () => {
   try {
     const response = await customerApi.getList({ page: 1, limit: 1000 })
     if (response.code === 200) {
-      availableCustomers.value = response.data.customers.map(customer => ({
+      availableCustomers.value = response.data.customers.map((customer) => ({
         id: customer.id,
-        name: customer.name
+        name: customer.name,
       }))
     }
   } catch (error) {
@@ -397,7 +427,8 @@ const handleSearch = () => {
 const handleReset = () => {
   Object.assign(searchForm, {
     search: '',
-    stage: undefined
+    stage: undefined,
+    status: undefined,
   })
   pagination.page = 1
   loadOpportunities()
@@ -433,7 +464,7 @@ const editOpportunity = (opportunity: Opportunity) => {
     stage: opportunity.stage,
     probability: Number(opportunity.probability) || 0, // 确保转换为数字
     expectedCloseDate: opportunity.expectedCloseDate.split('T')[0], // 只取日期部分
-    customerId: opportunity.customerId
+    customerId: opportunity.customerId,
   })
   // 清除表单验证状态
   if (formRef.value) {
@@ -448,9 +479,9 @@ const deleteOpportunity = async (opportunity: Opportunity) => {
     await ElMessageBox.confirm(`确定要删除商机"${opportunity.title}"吗？`, '提示', {
       confirmButtonText: '确定',
       cancelButtonText: '取消',
-      type: 'warning'
+      type: 'warning',
     })
-    
+
     await opportunityApi.delete(opportunity.id)
     ElMessage.success('删除成功')
     loadOpportunities()
@@ -471,10 +502,10 @@ const goToCreate = () => {
     description: '',
     value: 0,
     currency: 'CNY',
-    stage: 'lead',
+    stage: 'initial_contact',
     probability: 0,
     expectedCloseDate: '',
-    customerId: ''
+    customerId: '',
   })
   // 清除表单验证状态
   if (formRef.value) {
@@ -525,10 +556,10 @@ const handleBatchDelete = async () => {
     await ElMessageBox.confirm(`确定要删除选中的 ${selectedRows.value.length} 个商机吗？`, '提示', {
       confirmButtonText: '确定',
       cancelButtonText: '取消',
-      type: 'warning'
+      type: 'warning',
     })
-    
-    const ids = selectedRows.value.map(row => row.id)
+
+    const ids = selectedRows.value.map((row) => row.id)
     await opportunityApi.deleteBatch(ids)
     ElMessage.success('批量删除成功')
     loadOpportunities()

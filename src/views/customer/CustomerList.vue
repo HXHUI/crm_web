@@ -54,31 +54,50 @@
                 clearable
                 style="width: 160px"
               >
-                <el-option v-for="s in sourceOptions" :key="s.key" :label="s.label" :value="s.key" />
+                <el-option
+                  v-for="s in sourceOptions"
+                  :key="s.key"
+                  :label="s.label"
+                  :value="s.key"
+                />
               </el-select>
             </el-form-item>
             <el-form-item>
-              <el-select v-model="searchForm.industry" placeholder="行业" clearable style="width: 180px">
-                <el-option v-for="i in industryOptions" :key="i.key" :label="i.label" :value="i.key" />
+              <el-select
+                v-model="searchForm.industry"
+                placeholder="行业"
+                clearable
+                style="width: 180px"
+              >
+                <el-option
+                  v-for="i in industryOptions"
+                  :key="i.key"
+                  :label="i.label"
+                  :value="i.key"
+                />
               </el-select>
             </el-form-item>
             <el-form-item>
-              <el-button type="primary" :icon="Search" @click="handleSearch">
-                搜索
-              </el-button>
-              <el-button :icon="Refresh" @click="handleReset">
-                重置
-              </el-button>
+              <el-cascader
+                v-model="searchForm.region"
+                :options="regionOptions"
+                placeholder="所在地区"
+                clearable
+                style="width: 200px"
+                :props="{ expandTrigger: 'hover' }"
+              />
+            </el-form-item>
+            <el-form-item>
+              <el-button type="primary" :icon="Search" @click="handleSearch"> 搜索 </el-button>
+              <el-button :icon="Refresh" @click="handleReset"> 重置 </el-button>
             </el-form-item>
           </el-form>
         </div>
         <div class="toolbar-right">
-          <el-button type="primary" :icon="Plus" @click="goToCreate">
-            新增客户
-          </el-button>
-          <el-button 
-            type="danger" 
-            :icon="Delete" 
+          <el-button type="primary" :icon="Plus" @click="goToCreate"> 新增客户 </el-button>
+          <el-button
+            type="danger"
+            :icon="Delete"
             :disabled="selectedRows.length === 0"
             @click="handleBatchDelete"
           >
@@ -99,9 +118,9 @@
           <el-table-column type="selection" width="55" />
           <el-table-column prop="name" label="客户名称" min-width="150">
             <template #default="{ row }">
-              <el-button 
-                type="primary" 
-                link 
+              <el-button
+                type="primary"
+                link
                 @click="viewCustomerDetail(row)"
                 class="text-left p-0 h-auto font-normal"
               >
@@ -128,6 +147,15 @@
           <el-table-column prop="source" label="来源" width="120" show-overflow-tooltip>
             <template #default="{ row }">
               <span v-if="row.source">{{ getSourceLabel(row.source) }}</span>
+              <span v-else class="text-gray-400">-</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="所在地区" width="200" show-overflow-tooltip>
+            <template #default="{ row }">
+              <div v-if="getRegionDisplay(row)" class="region-display">
+                <el-icon class="region-icon"><Location /></el-icon>
+                <span>{{ getRegionDisplay(row) }}</span>
+              </div>
               <span v-else class="text-gray-400">-</span>
             </template>
           </el-table-column>
@@ -177,20 +205,10 @@
           </el-table-column>
           <el-table-column label="操作" width="180" fixed="right">
             <template #default="{ row }">
-              <el-button
-                type="warning"
-                size="small"
-                :icon="Edit"
-                @click="editCustomer(row)"
-              >
+              <el-button type="warning" size="small" :icon="Edit" @click="editCustomer(row)">
                 编辑
               </el-button>
-              <el-button
-                type="danger"
-                size="small"
-                :icon="Delete"
-                @click="deleteCustomer(row)"
-              >
+              <el-button type="danger" size="small" :icon="Delete" @click="deleteCustomer(row)">
                 删除
               </el-button>
             </template>
@@ -219,12 +237,7 @@
       width="600px"
       :close-on-click-modal="false"
     >
-      <el-form
-        ref="formRef"
-        :model="formData"
-        :rules="formRules"
-        label-width="100px"
-      >
+      <el-form ref="formRef" :model="formData" :rules="formRules" label-width="100px">
         <el-form-item label="客户名称" prop="name">
           <el-input
             v-model="formData.name"
@@ -267,20 +280,19 @@
           </div>
         </el-form-item>
         <el-form-item label="所在地区">
-          <el-cascader v-model="customerRegion" :options="regionOptions" style="width: 100%" placeholder="省/市/区" />
+          <el-cascader
+            v-model="customerRegion"
+            :options="regionOptions"
+            style="width: 100%"
+            placeholder="省/市/区"
+          />
         </el-form-item>
         <el-form-item label="详细地址">
           <el-input v-model="formData.addressDetail" placeholder="街道、楼层等" />
         </el-form-item>
         <el-form-item label="负责人">
-          <el-input
-            :value="currentUser?.username || '当前用户'"
-            disabled
-            style="width: 100%"
-          />
-          <div class="text-sm text-gray-500 mt-1">
-            新建客户时，负责人默认为当前登录用户
-          </div>
+          <el-input :value="currentUser?.username || '当前用户'" disabled style="width: 100%" />
+          <div class="text-sm text-gray-500 mt-1">新建客户时，负责人默认为当前登录用户</div>
         </el-form-item>
         <el-form-item label="公司名称" prop="companyName" v-if="formData.type === 'company'">
           <el-input
@@ -338,12 +350,9 @@
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="submitLoading" @click="handleSubmit">
-          确定
-        </el-button>
+        <el-button type="primary" :loading="submitLoading" @click="handleSubmit"> 确定 </el-button>
       </template>
     </el-dialog>
-
 
     <!-- 客户详情抽屉 -->
     <el-drawer
@@ -358,19 +367,31 @@
         <!-- 左侧导航按钮 -->
         <div class="left-nav">
           <ul class="side-menu with-timeline">
-            <li class="side-item" :class="{ active: activeTab === 'activities' }" @click="activeTab = 'activities'">
+            <li
+              class="side-item"
+              :class="{ active: activeTab === 'activities' }"
+              @click="activeTab = 'activities'"
+            >
               <span class="item-btn">
                 <el-icon class="item-icon"><Clock /></el-icon>
                 <span class="item-text">活动</span>
               </span>
             </li>
-            <li class="side-item" :class="{ active: activeTab === 'opportunities' }" @click="activeTab = 'opportunities'">
+            <li
+              class="side-item"
+              :class="{ active: activeTab === 'opportunities' }"
+              @click="activeTab = 'opportunities'"
+            >
               <span class="item-btn">
                 <el-icon class="item-icon"><TrendCharts /></el-icon>
                 <span class="item-text">商机</span>
               </span>
             </li>
-            <li class="side-item" :class="{ active: activeTab === 'contacts' }" @click="activeTab = 'contacts'">
+            <li
+              class="side-item"
+              :class="{ active: activeTab === 'contacts' }"
+              @click="activeTab = 'contacts'"
+            >
               <span class="item-btn">
                 <el-icon class="item-icon"><User /></el-icon>
                 <span class="item-text">联系人</span>
@@ -391,11 +412,15 @@
               <div class="customer-meta">
                 <div class="meta-item">
                   <span class="meta-label">客户来源:</span>
-                  <span class="meta-value">{{ selectedCustomer.source ? getSourceLabel(selectedCustomer.source) : '-' }}</span>
+                  <span class="meta-value">{{
+                    selectedCustomer.source ? getSourceLabel(selectedCustomer.source) : '-'
+                  }}</span>
                 </div>
                 <div class="meta-item">
                   <span class="meta-label">客户类型:</span>
-                  <span class="meta-value">{{ selectedCustomer.type === 'individual' ? '个人' : '企业' }}</span>
+                  <span class="meta-value">{{
+                    selectedCustomer.type === 'individual' ? '个人' : '企业'
+                  }}</span>
                 </div>
                 <div class="meta-item">
                   <span class="meta-label">负责人:</span>
@@ -415,12 +440,17 @@
             <div class="info-grid">
               <div class="info-item">
                 <label>行业：</label>
-                <span>{{ selectedCustomer.industry ? getIndustryLabel(selectedCustomer.industry) : '-' }}</span>
+                <span>{{
+                  selectedCustomer.industry ? getIndustryLabel(selectedCustomer.industry) : '-'
+                }}</span>
               </div>
               <div class="info-item">
                 <label>客户池类型：</label>
                 <span>
-                  <el-tag :type="selectedCustomer.poolType === 'private' ? 'success' : 'info'" size="small">
+                  <el-tag
+                    :type="selectedCustomer.poolType === 'private' ? 'success' : 'info'"
+                    size="small"
+                  >
                     {{ selectedCustomer.poolType === 'private' ? '私海' : '公海' }}
                   </el-tag>
                 </span>
@@ -431,7 +461,11 @@
               </div>
               <div class="info-item">
                 <label>所在地区：</label>
-                <span>{{ [selectedCustomer.province, selectedCustomer.city, selectedCustomer.district].filter(Boolean).join(' / ') || '-' }}</span>
+                <span>{{
+                  [selectedCustomer.province, selectedCustomer.city, selectedCustomer.district]
+                    .filter(Boolean)
+                    .join(' / ') || '-'
+                }}</span>
               </div>
               <div class="info-item">
                 <label>详细地址：</label>
@@ -439,12 +473,18 @@
               </div>
               <div class="info-item">
                 <label>客户来源：</label>
-                <span>{{ selectedCustomer.source ? getSourceLabel(selectedCustomer.source) : '-' }}</span>
+                <span>{{
+                  selectedCustomer.source ? getSourceLabel(selectedCustomer.source) : '-'
+                }}</span>
               </div>
               <div class="info-item">
                 <label>客户等级：</label>
                 <span>
-                  <el-tag v-if="selectedCustomer.level" :type="getLevelType(selectedCustomer.level)" size="small">
+                  <el-tag
+                    v-if="selectedCustomer.level"
+                    :type="getLevelType(selectedCustomer.level)"
+                    size="small"
+                  >
                     {{ selectedCustomer.level }}级
                   </el-tag>
                   <span v-else>-</span>
@@ -452,7 +492,11 @@
               </div>
               <div class="info-item">
                 <label>预计价值：</label>
-                <span class="estimated-value">{{ selectedCustomer.estimatedValue ? formatCurrency(selectedCustomer.estimatedValue) : '-' }}</span>
+                <span class="estimated-value">{{
+                  selectedCustomer.estimatedValue
+                    ? formatCurrency(selectedCustomer.estimatedValue)
+                    : '-'
+                }}</span>
               </div>
               <div class="info-item full-width" v-if="selectedCustomer.description">
                 <label>客户描述：</label>
@@ -468,9 +512,11 @@
               <!-- 快速跟进输入框 -->
               <div class="quick-follow-up">
                 <div class="follow-up-input">
-                  <el-avatar :size="32" class="user-avatar">{{ getUserName(selectedCustomer.owner)?.charAt(0) || 'A' }}</el-avatar>
-                  <el-input 
-                    placeholder="写跟进..." 
+                  <el-avatar :size="32" class="user-avatar">{{
+                    getUserName(selectedCustomer.owner)?.charAt(0) || 'A'
+                  }}</el-avatar>
+                  <el-input
+                    placeholder="写跟进..."
                     v-model="quickFollowUpText"
                     @focus="isFollowUpExpanded = true"
                     @keyup.enter="handleQuickFollowUpSubmit"
@@ -480,7 +526,12 @@
                 <div v-if="isFollowUpExpanded" class="follow-up-advance">
                   <el-form :model="followUpForm" label-width="96px" class="follow-form">
                     <el-form-item label="活动描述">
-                      <el-input v-model="followUpForm.description" type="textarea" :rows="2" placeholder="补充说明" />
+                      <el-input
+                        v-model="followUpForm.description"
+                        type="textarea"
+                        :rows="2"
+                        placeholder="补充说明"
+                      />
                     </el-form-item>
                     <el-form-item label="活动类型">
                       <el-select v-model="followUpForm.type" placeholder="请选择">
@@ -492,10 +543,18 @@
                       </el-select>
                     </el-form-item>
                     <el-form-item label="计划开始时间">
-                      <el-date-picker v-model="followUpForm.plannedStartTime" type="datetime" placeholder="选择时间" />
+                      <el-date-picker
+                        v-model="followUpForm.plannedStartTime"
+                        type="datetime"
+                        placeholder="选择时间"
+                      />
                     </el-form-item>
                     <el-form-item label="计划结束时间">
-                      <el-date-picker v-model="followUpForm.plannedEndTime" type="datetime" placeholder="选择时间" />
+                      <el-date-picker
+                        v-model="followUpForm.plannedEndTime"
+                        type="datetime"
+                        placeholder="选择时间"
+                      />
                     </el-form-item>
                     <el-form-item label="优先级">
                       <el-select v-model="followUpForm.priority" placeholder="请选择">
@@ -506,13 +565,33 @@
                       </el-select>
                     </el-form-item>
                     <el-form-item label="负责人">
-                      <el-select v-model="followUpForm.assignees" multiple filterable placeholder="默认当前用户" @visible-change="(v:boolean)=>{ if(v) loadAssignees() }">
-                        <el-option v-for="m in assigneeOptions" :key="m.id" :label="m.name" :value="m.id" />
+                      <el-select
+                        v-model="followUpForm.assignees"
+                        multiple
+                        filterable
+                        placeholder="默认当前用户"
+                        @visible-change="
+                          (v: boolean) => {
+                            if (v) loadAssignees()
+                          }
+                        "
+                      >
+                        <el-option
+                          v-for="m in assigneeOptions"
+                          :key="m.id"
+                          :label="m.name"
+                          :value="m.id"
+                        />
                       </el-select>
                     </el-form-item>
                     <div class="follow-actions">
                       <el-button @click="resetFollowUp">取消</el-button>
-                      <el-button type="primary" :loading="savingFollow" @click="handleQuickFollowUpSubmit">保存</el-button>
+                      <el-button
+                        type="primary"
+                        :loading="savingFollow"
+                        @click="handleQuickFollowUpSubmit"
+                        >保存</el-button
+                      >
                     </div>
                   </el-form>
                 </div>
@@ -520,13 +599,47 @@
 
               <!-- 活动筛选工具栏 -->
               <div class="activity-toolbar">
-                <el-input v-model="activityFilters.keyword" placeholder="搜索标题/描述" clearable style="width: 220px" @keyup.enter="refreshActivities" />
-                <el-select v-model="activityFilters.status" placeholder="状态" clearable style="width: 140px" @change="refreshActivities">
-                  <el-option v-for="s in activityStatusOptions" :key="s.value" :label="s.label" :value="s.value" />
+                <el-input
+                  v-model="activityFilters.keyword"
+                  placeholder="搜索标题/描述"
+                  clearable
+                  style="width: 220px"
+                  @keyup.enter="refreshActivities"
+                />
+                <el-select
+                  v-model="activityFilters.status"
+                  placeholder="状态"
+                  clearable
+                  style="width: 140px"
+                  @change="refreshActivities"
+                >
+                  <el-option
+                    v-for="s in activityStatusOptions"
+                    :key="s.value"
+                    :label="s.label"
+                    :value="s.value"
+                  />
                 </el-select>
-                <el-select v-model="activityFilters.ownerId" placeholder="负责人(全部)" clearable filterable style="width: 180px" @visible-change="(v:boolean)=>{ if(v) loadAssignees() }" @change="refreshActivities">
+                <el-select
+                  v-model="activityFilters.ownerId"
+                  placeholder="负责人(全部)"
+                  clearable
+                  filterable
+                  style="width: 180px"
+                  @visible-change="
+                    (v: boolean) => {
+                      if (v) loadAssignees()
+                    }
+                  "
+                  @change="refreshActivities"
+                >
                   <el-option :label="'全部'" :value="''" />
-                  <el-option v-for="m in assigneeOptions" :key="m.id" :label="m.name" :value="m.id" />
+                  <el-option
+                    v-for="m in assigneeOptions"
+                    :key="m.id"
+                    :label="m.name"
+                    :value="m.id"
+                  />
                 </el-select>
                 <el-button :icon="Search" @click="refreshActivities">查询</el-button>
                 <el-button :icon="Refresh" @click="resetActivityFilters">重置</el-button>
@@ -536,47 +649,77 @@
                 <el-empty description="暂无活动记录" />
               </div>
               <div v-else class="activity-groups">
-                <div 
-                  v-for="(group, gi) in groupedActivities" 
+                <div
+                  v-for="(group, gi) in groupedActivities"
                   :key="group.date"
                   class="activity-group"
                 >
                   <div class="group-header">{{ group.date }}</div>
                   <div class="group-items">
-                    <div v-for="act in group.items" :key="act.id" class="group-item" @mouseenter="hoveredActivityId = act.id" @mouseleave="hoveredActivityId = ''">
+                    <div
+                      v-for="act in group.items"
+                      :key="act.id"
+                      class="group-item"
+                      @mouseenter="hoveredActivityId = act.id"
+                      @mouseleave="hoveredActivityId = ''"
+                    >
                       <div class="line1">
-                        <div class="user-avatar">{{ ((act as any).ownerDisplay || getUserName((act as any).owner))?.charAt(0) || 'A' }}</div>
+                        <div class="user-avatar">
+                          {{
+                            ((act as any).ownerDisplay || getUserName((act as any).owner))?.charAt(
+                              0,
+                            ) || 'A'
+                          }}
+                        </div>
                         <div class="user-info">
-                          <span class="user-name">{{ (act as any).ownerDisplay || getUserName((act as any).owner) }}</span>
+                          <span class="user-name">{{
+                            (act as any).ownerDisplay || getUserName((act as any).owner)
+                          }}</span>
                           <el-tag
                             class="activity-type"
                             size="small"
                             :type="getTypeColor(act.type)"
                             effect="dark"
                           >
-                            <el-icon class="type-icon" style="margin-right:4px;">
+                            <el-icon class="type-icon" style="margin-right: 4px">
                               <component :is="getActivityTypeIcon(act.type)" />
                             </el-icon>
                             {{ getTypeName(act.type) }}
                           </el-tag>
                         </div>
                       </div>
-                      <div class="line2">{{ formatTime(act.actualStartTime || act.plannedStartTime || act.createdAt) }}
-                        <el-tag size="small" class="status-tag" :type="getActivityStatusType(act.status)" style="margin-left:8px;">{{ getActivityStatusName(act.status) }}</el-tag>
+                      <div class="line2">
+                        {{
+                          formatTime(act.actualStartTime || act.plannedStartTime || act.createdAt)
+                        }}
+                        <el-tag
+                          size="small"
+                          class="status-tag"
+                          :type="getActivityStatusType(act.status)"
+                          style="margin-left: 8px"
+                          >{{ getActivityStatusName(act.status) }}</el-tag
+                        >
                       </div>
                       <div class="line3 title-line">{{ act.title }}</div>
                       <div v-if="act.description" class="desc-line">{{ act.description }}</div>
-                      
+
                       <div class="next-contact">
                         <el-icon class="clock-icon"><Clock /></el-icon>
                         下次联系时间: {{ formatDate(act.plannedEndTime) }}
                       </div>
-                      <div class="activity-actions" :class="{ visible: hoveredActivityId === act.id }">
+                      <div
+                        class="activity-actions"
+                        :class="{ visible: hoveredActivityId === act.id }"
+                      >
                         <template v-if="act.status === 'planned' && isOwner(act)">
-                          <el-button type="primary" size="small" @click="startActivity(act)">开始</el-button>
+                          <el-button type="primary" size="small" @click="startActivity(act)"
+                            >开始</el-button
+                          >
                         </template>
                         <template v-else-if="act.status === 'in_progress' && isOwner(act)">
-                          <el-button type="success" size="small" @click="openCompleteDialog(act)">完成</el-button>
+                          <el-button type="success" size="small" @click="openCompleteDialog(act)"
+                            >完成</el-button
+                          >
                         </template>
                       </div>
                     </div>
@@ -585,104 +728,101 @@
               </div>
             </div>
 
-            <!-- 联系人内容 -->
+            <!-- 联系人内容（列表显示） -->
             <div v-if="activeTab === 'contacts'" class="tab-content">
-              <div v-if="customerContacts.length > 0" class="contacts-list">
-                <el-card 
-                  v-for="contact in customerContacts" 
-                  :key="contact.id" 
-                  class="contact-card"
-                  shadow="hover"
-                >
-                  <div class="contact-header">
-                    <div class="contact-name">
-                      <el-icon class="contact-icon">
-                        <User />
-                      </el-icon>
-                      {{ contact.name }}
-                      <el-tag v-if="contact.isPrimary" type="success" size="small" class="primary-tag">
-                        主要联系人
-                      </el-tag>
-                    </div>
-                    <el-tag :type="getContactTypeColor(contact.type)" size="small">
-                      {{ getContactTypeName(contact.type) }}
-                    </el-tag>
-                  </div>
-                  <div class="contact-info">
-                    <div v-if="contact.position" class="contact-item">
-                      <span class="contact-label">职位：</span>
-                      <span class="contact-value">{{ contact.position }}</span>
-                    </div>
-                    <div v-if="contact.department" class="contact-item">
-                      <span class="contact-label">部门：</span>
-                      <span class="contact-value">{{ contact.department }}</span>
-                    </div>
-                    <div v-if="contact.phone" class="contact-item">
-                      <span class="contact-label">手机：</span>
-                      <span class="contact-value">{{ contact.phone }}</span>
-                    </div>
-                    <div v-if="contact.telephone" class="contact-item">
-                      <span class="contact-label">电话：</span>
-                      <span class="contact-value">{{ contact.telephone }}</span>
-                    </div>
-                    <div v-if="contact.email" class="contact-item">
-                      <span class="contact-label">邮箱：</span>
-                      <span class="contact-value">{{ contact.email }}</span>
-                    </div>
-                    <div v-if="contact.notes" class="contact-item">
-                      <span class="contact-label">备注：</span>
-                      <span class="contact-value">{{ contact.notes }}</span>
-                    </div>
-                  </div>
-                </el-card>
+              <div v-if="customerContacts.length > 0" class="list-padding">
+                <div style="display: flex; justify-content: flex-end; margin-bottom: 8px">
+                  <el-button type="primary" size="small" @click="openCreateContact"
+                    >新增联系人</el-button
+                  >
+                </div>
+                <el-table :data="customerContacts" border style="width: 100%">
+                  <el-table-column prop="name" label="联系人" min-width="140">
+                    <template #default="{ row }">
+                      {{ row.name }}
+                      <el-tag
+                        v-if="row.isPrimary"
+                        type="success"
+                        size="small"
+                        style="margin-left: 6px"
+                        >主要</el-tag
+                      >
+                    </template>
+                  </el-table-column>
+                  <el-table-column prop="type" label="类型" width="120">
+                    <template #default="{ row }">
+                      <el-tag :type="getContactTypeColor(row.type)" size="small">{{
+                        getContactTypeName(row.type)
+                      }}</el-tag>
+                    </template>
+                  </el-table-column>
+                  <el-table-column prop="position" label="职位" width="140" />
+                  <el-table-column prop="department" label="部门" width="140" />
+                  <el-table-column prop="phone" label="手机" width="140" />
+                  <el-table-column prop="telephone" label="电话" width="140" />
+                  <el-table-column
+                    prop="email"
+                    label="邮箱"
+                    min-width="180"
+                    show-overflow-tooltip
+                  />
+                  <el-table-column label="操作" width="160" fixed="right">
+                    <template #default="{ row }">
+                      <el-button size="small" type="primary" @click="openEditContact(row)"
+                        >编辑</el-button
+                      >
+                      <el-button size="small" type="danger" @click="deleteContact(row)"
+                        >删除</el-button
+                      >
+                    </template>
+                  </el-table-column>
+                </el-table>
               </div>
               <div v-else class="empty-state">
                 <el-empty description="暂无联系人" />
               </div>
             </div>
 
-            <!-- 商机内容 -->
+            <!-- 商机内容（列表显示） -->
             <div v-if="activeTab === 'opportunities'" class="tab-content">
-              <div v-if="customerOpportunities.length > 0" class="opportunities-list">
-                <el-card 
-                  v-for="opportunity in customerOpportunities" 
-                  :key="opportunity.id" 
-                  class="opportunity-card"
-                  shadow="hover"
-                >
-                  <div class="opportunity-header">
-                    <div class="opportunity-title">
-                      <el-icon class="opportunity-icon">
-                        <TrendCharts />
-                      </el-icon>
-                      {{ opportunity.title }}
-                    </div>
-                    <el-tag :type="getStageType(opportunity.stage)" size="small">
-                      {{ getStageName(opportunity.stage) }}
-                    </el-tag>
-                  </div>
-                  <div class="opportunity-description" v-if="opportunity.description">
-                    {{ opportunity.description }}
-                  </div>
-                  <div class="opportunity-meta">
-                    <div class="meta-item">
-                      <span class="meta-label">金额：</span>
-                      <span class="meta-value">{{ formatCurrency(opportunity.value) }}</span>
-                    </div>
-                    <div class="meta-item">
-                      <span class="meta-label">概率：</span>
-                      <span class="meta-value">{{ opportunity.probability }}%</span>
-                    </div>
-                    <div class="meta-item">
-                      <span class="meta-label">预计成交：</span>
-                      <span class="meta-value">{{ formatDate(opportunity.expectedCloseDate) }}</span>
-                    </div>
-                    <div class="meta-item">
-                      <span class="meta-label">负责人：</span>
-                      <span class="meta-value">{{ getUserName(opportunity.owner) }}</span>
-                    </div>
-                  </div>
-                </el-card>
+              <div v-if="customerOpportunities.length > 0" class="list-padding">
+                <div style="display: flex; justify-content: flex-end; margin-bottom: 8px">
+                  <el-button type="primary" size="small" @click="openCreateOpportunity"
+                    >新增商机</el-button
+                  >
+                </div>
+                <el-table :data="customerOpportunities" border style="width: 100%">
+                  <el-table-column prop="title" label="商机名称" min-width="180" />
+                  <el-table-column prop="stage" label="阶段" width="120">
+                    <template #default="{ row }">
+                      <el-tag :type="getStageType(row.stage)" size="small">{{
+                        getStageName(row.stage)
+                      }}</el-tag>
+                    </template>
+                  </el-table-column>
+                  <el-table-column prop="value" label="金额" width="120" align="right">
+                    <template #default="{ row }">{{ formatCurrency(row.value) }}</template>
+                  </el-table-column>
+                  <el-table-column prop="probability" label="概率" width="100" align="center">
+                    <template #default="{ row }">{{ row.probability }}%</template>
+                  </el-table-column>
+                  <el-table-column prop="expectedCloseDate" label="预计成交" width="160">
+                    <template #default="{ row }">{{ formatDate(row.expectedCloseDate) }}</template>
+                  </el-table-column>
+                  <el-table-column label="负责人" width="120">
+                    <template #default="{ row }">{{ getUserName(row.owner) }}</template>
+                  </el-table-column>
+                  <el-table-column label="操作" width="160" fixed="right">
+                    <template #default="{ row }">
+                      <el-button size="small" type="primary" @click="openEditOpportunity(row)"
+                        >编辑</el-button
+                      >
+                      <el-button size="small" type="danger" @click="deleteOpportunity(row)"
+                        >删除</el-button
+                      >
+                    </template>
+                  </el-table-column>
+                </el-table>
               </div>
               <div v-else class="empty-state">
                 <el-empty description="暂无商机" />
@@ -701,12 +841,171 @@
         <el-input v-model="completeDialog.outcome" placeholder="请输入结果/结论" />
       </el-form-item>
       <el-form-item label="完成内容">
-        <el-input v-model="completeDialog.content" type="textarea" :rows="4" placeholder="请输入完成的详细内容" />
+        <el-input
+          v-model="completeDialog.content"
+          type="textarea"
+          :rows="4"
+          placeholder="请输入完成的详细内容"
+        />
       </el-form-item>
     </el-form>
     <template #footer>
       <el-button @click="completeDialog.visible = false">取消</el-button>
       <el-button type="primary" @click="submitComplete">确定</el-button>
+    </template>
+  </el-dialog>
+
+  <!-- 新增/编辑商机对话框 -->
+  <el-dialog v-model="opportunityDialog.visible" :title="opportunityDialog.title" width="600px">
+    <el-form
+      ref="opportunityFormRef"
+      :model="opportunityForm"
+      :rules="opportunityRules"
+      label-width="100px"
+    >
+      <el-form-item label="商机标题" prop="title">
+        <el-input
+          v-model="opportunityForm.title"
+          placeholder="请输入商机标题"
+          maxlength="100"
+          show-word-limit
+        />
+      </el-form-item>
+      <el-form-item label="关联客户" prop="customerId">
+        <el-input
+          :model-value="selectedCustomer ? selectedCustomer.name : ''"
+          disabled
+          placeholder="关联客户"
+        />
+      </el-form-item>
+      <el-form-item label="商机价值" prop="value">
+        <el-input-number
+          v-model="opportunityForm.value"
+          placeholder="请输入商机价值"
+          :min="0"
+          :precision="2"
+          style="width: 100%"
+        />
+      </el-form-item>
+      <el-form-item label="商机阶段" prop="stage">
+        <el-select v-model="opportunityForm.stage" placeholder="请选择商机阶段" style="width: 100%">
+          <el-option label="初步接触" value="initial_contact" />
+          <el-option label="需求分析" value="needs_analysis" />
+          <el-option label="方案/报价" value="proposal_quote" />
+          <el-option label="谈判审核" value="negotiation_review" />
+          <el-option label="赢单" value="closed_won" />
+          <el-option label="输单" value="closed_lost" />
+        </el-select>
+      </el-form-item>
+      <el-form-item label="商机状态" prop="status">
+        <el-select
+          v-model="opportunityForm.status"
+          placeholder="请选择商机状态"
+          style="width: 100%"
+        >
+          <el-option label="积极跟进" value="active" />
+          <el-option label="等待客户" value="waiting_client" />
+          <el-option label="已搁置" value="on_hold" />
+          <el-option label="面临风险" value="at_risk" />
+          <el-option label="已结束" value="closed" />
+        </el-select>
+      </el-form-item>
+      <el-form-item label="成交概率" prop="probability">
+        <el-input-number
+          v-model="opportunityForm.probability"
+          placeholder="请输入成交概率"
+          :min="0"
+          :max="100"
+          style="width: 100%"
+        />
+        <div class="text-sm text-gray-500 mt-1">请输入0-100之间的数字</div>
+      </el-form-item>
+      <el-form-item label="预计成交日期" prop="expectedCloseDate">
+        <el-date-picker
+          v-model="opportunityForm.expectedCloseDate"
+          type="date"
+          placeholder="请选择预计成交日期"
+          style="width: 100%"
+          format="YYYY-MM-DD"
+          value-format="YYYY-MM-DD"
+        />
+      </el-form-item>
+      <el-form-item label="商机描述" prop="description">
+        <el-input
+          v-model="opportunityForm.description"
+          type="textarea"
+          placeholder="请输入商机描述"
+          :rows="3"
+          maxlength="500"
+          show-word-limit
+        />
+      </el-form-item>
+    </el-form>
+    <template #footer>
+      <el-button @click="opportunityDialog.visible = false">取消</el-button>
+      <el-button type="primary" :loading="opportunityDialog.saving" @click="submitOpportunity"
+        >确定</el-button
+      >
+    </template>
+  </el-dialog>
+
+  <!-- 新增/编辑联系人对话框 -->
+  <el-dialog v-model="contactDialog.visible" :title="contactDialog.title" width="600px">
+    <el-form ref="contactFormRef" :model="contactForm" :rules="contactRules" label-width="100px">
+      <el-form-item label="联系人姓名" prop="name">
+        <el-input
+          v-model="contactForm.name"
+          placeholder="请输入联系人姓名"
+          maxlength="100"
+          show-word-limit
+        />
+      </el-form-item>
+      <el-form-item label="职位" prop="position">
+        <el-input v-model="contactForm.position" placeholder="请输入职位" />
+      </el-form-item>
+      <el-form-item label="部门" prop="department">
+        <el-input v-model="contactForm.department" placeholder="请输入部门" />
+      </el-form-item>
+      <el-form-item label="联系人类型" prop="type">
+        <el-select v-model="contactForm.type" placeholder="请选择联系人类型" style="width: 100%">
+          <el-option label="主要联系人" value="primary" />
+          <el-option label="次要联系人" value="secondary" />
+          <el-option label="决策者" value="decision_maker" />
+          <el-option label="影响者" value="influencer" />
+          <el-option label="使用者" value="user" />
+        </el-select>
+      </el-form-item>
+      <el-form-item label="邮箱" prop="email">
+        <el-input v-model="contactForm.email" placeholder="请输入邮箱" />
+      </el-form-item>
+      <el-form-item label="手机号" prop="phone">
+        <el-input v-model="contactForm.phone" placeholder="请输入手机号" />
+      </el-form-item>
+      <el-form-item label="座机" prop="telephone">
+        <el-input v-model="contactForm.telephone" placeholder="请输入座机" />
+      </el-form-item>
+      <el-form-item label="关联客户" prop="customerId">
+        <el-input :model-value="selectedCustomer?.name" disabled placeholder="关联客户" />
+      </el-form-item>
+      <el-form-item label="是否主要联系人" prop="isPrimary">
+        <el-switch v-model="contactForm.isPrimary" />
+      </el-form-item>
+      <el-form-item label="备注" prop="remark">
+        <el-input
+          v-model="contactForm.remark"
+          type="textarea"
+          :rows="3"
+          maxlength="500"
+          show-word-limit
+          placeholder="请输入备注"
+        />
+      </el-form-item>
+    </el-form>
+    <template #footer>
+      <el-button @click="contactDialog.visible = false">取消</el-button>
+      <el-button type="primary" :loading="contactDialog.saving" @click="submitContact"
+        >确定</el-button
+      >
     </template>
   </el-dialog>
 </template>
@@ -715,10 +1014,34 @@
 import { ref, reactive, onMounted, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Search, Refresh, Edit, Delete, TrendCharts, Calendar, User, Clock, Star, Message, ChatDotRound, Filter, Phone, VideoCamera, EditPen, Document } from '@element-plus/icons-vue'
+import {
+  Plus,
+  Search,
+  Refresh,
+  Edit,
+  Delete,
+  TrendCharts,
+  Calendar,
+  User,
+  Clock,
+  Star,
+  Message,
+  ChatDotRound,
+  Filter,
+  Phone,
+  VideoCamera,
+  EditPen,
+  Document,
+  Location,
+} from '@element-plus/icons-vue'
 import { Close } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/stores/modules/auth'
-import customerApi, { type Customer, type CreateCustomerDto, type UpdateCustomerDto, type QueryCustomerDto } from '@/api/customer'
+import customerApi, {
+  type Customer,
+  type CreateCustomerDto,
+  type UpdateCustomerDto,
+  type QueryCustomerDto,
+} from '@/api/customer'
 import opportunityApi from '@/api/opportunity'
 import activityApi from '@/api/activity'
 import contactApi from '@/api/contact'
@@ -728,11 +1051,12 @@ import commonApi from '@/api/common'
 
 const router = useRouter()
 const authStore = useAuthStore()
-const currentMemberId = computed(() =>
-  ((authStore as any)?.currentMember?.id)
-  || ((authStore as any)?.member?.id)
-  || ((authStore as any)?.user?.memberId)
-  || ''
+const currentMemberId = computed(
+  () =>
+    (authStore as any)?.currentMember?.id ||
+    (authStore as any)?.member?.id ||
+    (authStore as any)?.user?.memberId ||
+    '',
 )
 const isOwner = (act: any) => {
   const actOwnerId = act?.ownerId || act?.owner?.id
@@ -741,14 +1065,24 @@ const isOwner = (act: any) => {
 }
 
 // 搜索表单
-const searchForm = reactive<{ search?: string; type?: 'individual' | 'company'; status?: any; source?: string; industry?: string; page?: number; limit?: number}>({
+const searchForm = reactive<{
+  search?: string
+  type?: 'individual' | 'company'
+  status?: any
+  source?: string
+  industry?: string
+  region?: string[]
+  page?: number
+  limit?: number
+}>({
   search: '',
   type: undefined,
   status: undefined,
   source: undefined,
   industry: undefined,
+  region: undefined,
   page: 1,
-  limit: 10
+  limit: 10,
 })
 
 // 客户列表
@@ -760,7 +1094,7 @@ const selectedRows = ref<Customer[]>([])
 const pagination = reactive({
   page: 1,
   pageSize: 10,
-  total: 0
+  total: 0,
 })
 
 // 对话框相关
@@ -807,14 +1141,10 @@ const formData = reactive<CreateCustomerDto & { id?: string }>({
 const formRules = {
   name: [
     { required: true, message: '请输入客户名称', trigger: 'blur' },
-    { min: 2, max: 100, message: '客户名称长度在 2 到 100 个字符', trigger: 'blur' }
+    { min: 2, max: 100, message: '客户名称长度在 2 到 100 个字符', trigger: 'blur' },
   ],
-  type: [
-    { required: true, message: '请选择客户类型', trigger: 'change' }
-  ],
-  status: [
-    { required: true, message: '请选择客户状态', trigger: 'change' }
-  ]
+  type: [{ required: true, message: '请选择客户类型', trigger: 'change' }],
+  status: [{ required: true, message: '请选择客户状态', trigger: 'change' }],
 }
 
 // 计算属性（如需显示当前用户，可从全局store注入，此处先留空）
@@ -828,7 +1158,7 @@ const getStatusType = (status: string) => {
     proposal: 'primary',
     negotiation: 'warning',
     closed_won: 'success',
-    closed_lost: 'danger'
+    closed_lost: 'danger',
   }
   return typeMap[status] || 'default'
 }
@@ -841,7 +1171,7 @@ const getStatusName = (status: string) => {
     proposal: '提案中',
     negotiation: '谈判中',
     closed_won: '成交客户',
-    closed_lost: '流失客户'
+    closed_lost: '流失客户',
   }
   return nameMap[status] || status
 }
@@ -872,7 +1202,7 @@ const getSizeName = (size: string) => {
     small: '小型',
     medium: '中型',
     large: '大型',
-    enterprise: '超大型'
+    enterprise: '超大型',
   }
   return sizeMap[size] || size
 }
@@ -883,7 +1213,7 @@ const getLevelType = (level: string) => {
     A: 'success',
     B: 'primary',
     C: 'warning',
-    D: 'danger'
+    D: 'danger',
   }
   return typeMap[level] || 'default'
 }
@@ -894,8 +1224,17 @@ const formatCurrency = (value: number) => {
     style: 'currency',
     currency: 'CNY',
     minimumFractionDigits: 0,
-    maximumFractionDigits: 2
+    maximumFractionDigits: 2,
   }).format(value)
+}
+
+// 获取地区显示文本
+const getRegionDisplay = (customer: Customer) => {
+  const parts = []
+  if (customer.province) parts.push(customer.province)
+  if (customer.city) parts.push(customer.city)
+  if (customer.district) parts.push(customer.district)
+  return parts.length > 0 ? parts.join(' ') : null
 }
 
 // 加载客户列表
@@ -905,12 +1244,25 @@ const loadCustomers = async () => {
     const params = {
       ...searchForm,
       page: Number(pagination.page),
-      limit: Number(pagination.pageSize)
+      limit: Number(pagination.pageSize),
     }
+
+    // 处理地区筛选参数
+    if (searchForm.region && searchForm.region.length > 0) {
+      ;(params as any).province = searchForm.region[0]
+      if (searchForm.region.length > 1) {
+        ;(params as any).city = searchForm.region[1]
+      }
+      if (searchForm.region.length > 2) {
+        ;(params as any).district = searchForm.region[2]
+      }
+      delete (params as any).region
+    }
+
     console.log('Loading customers with params:', params)
     const response = await customerApi.getList(params)
     console.log('Customer API response:', response)
-    
+
     if (response.code === 200) {
       customers.value = response.data.customers
       pagination.total = response.data.total
@@ -938,8 +1290,9 @@ const handleReset = () => {
     status: undefined,
     source: undefined,
     industry: undefined,
+    region: undefined,
     page: 1,
-    limit: 10
+    limit: 10,
   })
   pagination.page = 1
   loadCustomers()
@@ -957,7 +1310,6 @@ const handleCurrentChange = (page: number) => {
   pagination.page = page
   loadCustomers()
 }
-
 
 // 查看客户详情（抽屉）
 const viewCustomerDetail = (customer: Customer) => {
@@ -986,15 +1338,21 @@ const closeDrawer = () => {
 const loadCustomerDetails = async (customerId: string) => {
   try {
     loadingDetails.value = true
-    
+
     // 并行加载客户详情、商机、联系人和活动
-    const [customerResponse, opportunitiesResponse, contactsResponse, activitiesResponse] = await Promise.all([
-      customerApi.getDetail(customerId),
-      opportunityApi.getList({ customerId, page: 1, limit: 100 }),
-      contactApi.getList({ customerId, page: 1, limit: 100 }),
-      activityApi.getList({ relatedToType: 'customer', relatedToId: customerId, page: 1, limit: 100 })
-    ])
-    
+    const [customerResponse, opportunitiesResponse, contactsResponse, activitiesResponse] =
+      await Promise.all([
+        customerApi.getDetail(customerId),
+        opportunityApi.getList({ customerId, page: 1, limit: 100 }),
+        contactApi.getList({ customerId, page: 1, limit: 100 }),
+        activityApi.getList({
+          relatedToType: 'customer',
+          relatedToId: customerId,
+          page: 1,
+          limit: 100,
+        }),
+      ])
+
     customerDetails.value = customerResponse.data
     const oppData = (opportunitiesResponse as any)?.data
     const contactData = (contactsResponse as any)?.data
@@ -1002,7 +1360,7 @@ const loadCustomerDetails = async (customerId: string) => {
     customerOpportunities.value = oppData?.opportunities || []
     customerContacts.value = contactData?.contacts || []
     customerActivities.value = actData?.activities || []
-    
+
     // 生成时间线数据
     generateTimelineData()
   } catch (error) {
@@ -1016,9 +1374,9 @@ const loadCustomerDetails = async (customerId: string) => {
 // 生成时间线数据
 const generateTimelineData = () => {
   const timeline: any[] = []
-  
+
   // 添加商机数据
-  customerOpportunities.value.forEach(opportunity => {
+  customerOpportunities.value.forEach((opportunity) => {
     timeline.push({
       type: 'opportunity',
       id: opportunity.id,
@@ -1031,13 +1389,19 @@ const generateTimelineData = () => {
       updatedAt: opportunity.updatedAt,
       owner: opportunity.owner,
       // 查找该商机相关的活动
-      activities: customerActivities.value.filter(activity => activity.relatedToType === 'opportunity' && activity.relatedToId === opportunity.id)
+      activities: customerActivities.value.filter(
+        (activity) =>
+          activity.relatedToType === 'opportunity' && activity.relatedToId === opportunity.id,
+      ),
     })
   })
-  
+
   // 添加独立活动数据（不关联商机的活动）
-  const independentActivities = customerActivities.value.filter(activity => activity.relatedToType === 'customer' && activity.relatedToId === selectedCustomer.value?.id)
-  independentActivities.forEach(activity => {
+  const independentActivities = customerActivities.value.filter(
+    (activity) =>
+      activity.relatedToType === 'customer' && activity.relatedToId === selectedCustomer.value?.id,
+  )
+  independentActivities.forEach((activity) => {
     timeline.push({
       type: 'activity',
       id: activity.id,
@@ -1050,13 +1414,13 @@ const generateTimelineData = () => {
       createdAt: activity.createdAt,
       updatedAt: activity.updatedAt,
       owner: activity.owner,
-      activities: [] // 独立活动没有子活动
+      activities: [], // 独立活动没有子活动
     })
   })
-  
+
   // 按时间排序（最新的在前）
   timeline.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-  
+
   timelineData.value = timeline
 }
 
@@ -1064,16 +1428,23 @@ const generateTimelineData = () => {
 const groupedActivities = computed(() => {
   const acts = customerActivities.value || []
   const map: Record<string, any[]> = {}
-  acts.forEach(a => {
+  acts.forEach((a) => {
     const day = formatDateOnly(a.actualStartTime || a.plannedStartTime || a.createdAt)
     // 统一owner显示字段
-    ;(a as any).ownerDisplay = getUserName((a as any).owner || (a as any).ownerName || (a as any).owner_username)
+    ;(a as any).ownerDisplay = getUserName(
+      (a as any).owner || (a as any).ownerName || (a as any).owner_username,
+    )
     if (!map[day]) map[day] = []
     map[day].push(a)
   })
   const groups = Object.keys(map)
     .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())
-    .map(date => ({ date, items: map[date].sort((x, y) => new Date(y.createdAt).getTime() - new Date(x.createdAt).getTime()) }))
+    .map((date) => ({
+      date,
+      items: map[date].sort(
+        (x, y) => new Date(y.createdAt).getTime() - new Date(x.createdAt).getTime(),
+      ),
+    }))
   return groups
 })
 
@@ -1096,7 +1467,7 @@ const getTimelineStatusType = (item: any) => {
       proposal: 'primary',
       negotiation: 'warning',
       closed_won: 'success',
-      closed_lost: 'danger'
+      closed_lost: 'danger',
     }
     return statusMap[item.status] || 'default'
   } else if (item.type === 'activity') {
@@ -1104,7 +1475,7 @@ const getTimelineStatusType = (item: any) => {
       planned: 'info',
       in_progress: 'warning',
       completed: 'success',
-      cancelled: 'danger'
+      cancelled: 'danger',
     }
     return statusMap[item.status] || 'default'
   }
@@ -1120,7 +1491,7 @@ const getTimelineStatusName = (item: any) => {
       proposal: '提案',
       negotiation: '谈判',
       closed_won: '成交',
-      closed_lost: '失败'
+      closed_lost: '失败',
     }
     return nameMap[item.status] || item.status
   } else if (item.type === 'activity') {
@@ -1128,7 +1499,7 @@ const getTimelineStatusName = (item: any) => {
       planned: '计划中',
       in_progress: '进行中',
       completed: '已完成',
-      cancelled: '已取消'
+      cancelled: '已取消',
     }
     return nameMap[item.status] || item.status
   }
@@ -1142,7 +1513,7 @@ const getTypeName = (type: string) => {
     meeting: '会议',
     email: '邮件',
     task: '任务',
-    note: '备注'
+    note: '备注',
   }
   return typeMap[type] || type
 }
@@ -1154,7 +1525,7 @@ const getTypeColor = (type: string) => {
     meeting: 'success',
     email: 'info',
     task: 'warning',
-    note: 'default'
+    note: 'default',
   }
   return colorMap[type] || 'default'
 }
@@ -1181,7 +1552,9 @@ const editCustomer = (customer: Customer) => {
     district: customer.district || '',
     addressDetail: customer.addressDetail || '',
   })
-  customerRegion.value = [formData.province, formData.city, formData.district].filter(Boolean) as string[]
+  customerRegion.value = [formData.province, formData.city, formData.district].filter(
+    Boolean,
+  ) as string[]
   dialogVisible.value = true
 }
 
@@ -1191,9 +1564,9 @@ const deleteCustomer = async (customer: Customer) => {
     await ElMessageBox.confirm(`确定要删除客户"${customer.name}"吗？`, '提示', {
       confirmButtonText: '确定',
       cancelButtonText: '取消',
-      type: 'warning'
+      type: 'warning',
     })
-    
+
     await customerApi.delete(customer.id)
     ElMessage.success('删除成功')
     loadCustomers()
@@ -1234,7 +1607,7 @@ const goToCreate = () => {
 // 提交表单
 const handleSubmit = async () => {
   if (!formRef.value) return
-  
+
   try {
     await formRef.value.validate()
     submitLoading.value = true
@@ -1242,7 +1615,7 @@ const handleSubmit = async () => {
     formData.province = customerRegion.value?.[0] || ''
     formData.city = customerRegion.value?.[1] || ''
     formData.district = customerRegion.value?.[2] || ''
-    
+
     if (formData.id) {
       // 编辑客户
       const { id, ...updateData } = formData
@@ -1253,7 +1626,7 @@ const handleSubmit = async () => {
       await customerApi.create(formData as CreateCustomerDto)
       ElMessage.success('创建客户成功')
     }
-    
+
     dialogVisible.value = false
     loadCustomers()
   } catch (error) {
@@ -1267,12 +1640,12 @@ const handleSubmit = async () => {
 // 获取商机阶段名称
 const getStageName = (stage: string) => {
   const stageMap: Record<string, string> = {
-    'prospecting': '潜在客户',
-    'qualification': '资格确认',
-    'proposal': '提案',
-    'negotiation': '谈判',
-    'closed_won': '成交',
-    'closed_lost': '失败'
+    initial_contact: '初步接触',
+    needs_analysis: '需求分析',
+    proposal_quote: '方案/报价',
+    negotiation_review: '谈判审核',
+    closed_won: '赢单',
+    closed_lost: '输单',
   }
   return stageMap[stage] || stage
 }
@@ -1280,12 +1653,12 @@ const getStageName = (stage: string) => {
 // 获取商机阶段类型颜色
 const getStageType = (stage: string) => {
   const typeMap: Record<string, string> = {
-    'prospecting': 'info',
-    'qualification': 'warning',
-    'proposal': 'primary',
-    'negotiation': 'warning',
-    'closed_won': 'success',
-    'closed_lost': 'danger'
+    initial_contact: 'info',
+    needs_analysis: 'warning',
+    proposal_quote: 'primary',
+    negotiation_review: 'warning',
+    closed_won: 'success',
+    closed_lost: 'danger',
   }
   return typeMap[stage] || 'default'
 }
@@ -1293,11 +1666,11 @@ const getStageType = (stage: string) => {
 // 获取联系人类型名称
 const getContactTypeName = (type: string) => {
   const typeMap: Record<string, string> = {
-    'primary': '主要联系人',
-    'secondary': '次要联系人',
-    'decision_maker': '决策者',
-    'influencer': '影响者',
-    'user': '使用者'
+    primary: '主要联系人',
+    secondary: '次要联系人',
+    decision_maker: '决策者',
+    influencer: '影响者',
+    user: '使用者',
   }
   return typeMap[type] || type
 }
@@ -1305,11 +1678,11 @@ const getContactTypeName = (type: string) => {
 // 获取联系人类型颜色
 const getContactTypeColor = (type: string) => {
   const colorMap: Record<string, string> = {
-    'primary': 'success',
-    'secondary': 'info',
-    'decision_maker': 'danger',
-    'influencer': 'warning',
-    'user': 'default'
+    primary: 'success',
+    secondary: 'info',
+    decision_maker: 'danger',
+    influencer: 'warning',
+    user: 'default',
   }
   return colorMap[type] || 'default'
 }
@@ -1323,7 +1696,7 @@ const handleSelectionChange = (selection: Customer[]) => {
 // 批量删除
 const handleBatchDelete = async () => {
   if (selectedRows.value.length === 0) return
-  
+
   try {
     await ElMessageBox.confirm(
       `确定要删除选中的 ${selectedRows.value.length} 个客户吗？`,
@@ -1331,13 +1704,13 @@ const handleBatchDelete = async () => {
       {
         confirmButtonText: '确定',
         cancelButtonText: '取消',
-        type: 'warning'
-      }
+        type: 'warning',
+      },
     )
-    
-    const ids = selectedRows.value.map(customer => customer.id)
+
+    const ids = selectedRows.value.map((customer) => customer.id)
     await customerApi.deleteBatch(ids)
-    
+
     ElMessage.success('批量删除客户成功')
     selectedRows.value = []
     loadCustomers()
@@ -1350,9 +1723,11 @@ const handleBatchDelete = async () => {
 }
 
 const sourceOptions = ref<{ key: string; label: string }[]>([])
-const getSourceLabel = (key?: string) => sourceOptions.value.find(s => s.key === key)?.label || key || '-'
+const getSourceLabel = (key?: string) =>
+  sourceOptions.value.find((s) => s.key === key)?.label || key || '-'
 const industryOptions = ref<{ key: string; label: string }[]>([])
-const getIndustryLabel = (key?: string) => industryOptions.value.find(i => i.key === key)?.label || key || '-'
+const getIndustryLabel = (key?: string) =>
+  industryOptions.value.find((i) => i.key === key)?.label || key || '-'
 const regionOptions = ref<any[]>([])
 const customerRegion = ref<string[]>([])
 
@@ -1379,8 +1754,12 @@ const loadAssignees = async () => {
     const tenantId = (selectedCustomer.value as any)?.tenantId
     const url = tenantId ? `/tenants/${tenantId}/members` : `/tenants/${''}/members`
     const resp = await request.get(url, { params: { page: 1, limit: 1000 } })
-    const list = (resp as any).data?.members || (resp as any).data?.items || (resp as any).data || []
-    assigneeOptions.value = list.map((m: any) => ({ id: m.id, name: m.nickname || m.user?.username || m.user?.name || '-' }))
+    const list =
+      (resp as any).data?.members || (resp as any).data?.items || (resp as any).data || []
+    assigneeOptions.value = list.map((m: any) => ({
+      id: m.id,
+      name: m.nickname || m.user?.username || m.user?.name || '-',
+    }))
     // 默认选中当前用户/负责人
     if (!followUpForm.assignees.length && assigneeOptions.value.length) {
       const currentId = assigneeOptions.value[0].id
@@ -1388,7 +1767,9 @@ const loadAssignees = async () => {
     }
   } catch (e) {
     // 回退：至少包含当前负责人
-    const fallbackName = selectedCustomer.value?.owner ? getUserName(selectedCustomer.value.owner) : '当前用户'
+    const fallbackName = selectedCustomer.value?.owner
+      ? getUserName(selectedCustomer.value.owner)
+      : '当前用户'
     const fallbackId = selectedCustomer.value?.owner?.id || 'current'
     assigneeOptions.value = [{ id: fallbackId, name: fallbackName }]
     if (!followUpForm.assignees.length) {
@@ -1400,7 +1781,7 @@ const loadAssignees = async () => {
 // 快速跟进 - 保存
 const handleQuickFollowUpSubmit = async () => {
   if (!quickFollowUpText.value.trim()) return
-  
+
   try {
     savingFollow.value = true
     // 组装活动DTO
@@ -1415,7 +1796,9 @@ const handleQuickFollowUpSubmit = async () => {
       priority: followUpForm.priority,
     } as any
 
-    const assignees = followUpForm.assignees?.length ? followUpForm.assignees : [assigneeOptions.value[0]?.id]
+    const assignees = followUpForm.assignees?.length
+      ? followUpForm.assignees
+      : [assigneeOptions.value[0]?.id]
     // 多负责人 -> 创建多条任务
     for (const assigneeId of assignees) {
       await activityApi.create({ ...basePayload, ownerId: assigneeId })
@@ -1447,7 +1830,11 @@ const resetFollowUp = (collapse = true) => {
 }
 
 // 活动筛选/刷新
-const activityFilters = reactive<{ keyword?: string; status?: string; ownerId?: string }>({ keyword: '', status: '', ownerId: '' })
+const activityFilters = reactive<{ keyword?: string; status?: string; ownerId?: string }>({
+  keyword: '',
+  status: '',
+  ownerId: '',
+})
 const activityStatusOptions = [
   { label: '计划中', value: 'planned' },
   { label: '进行中', value: 'in_progress' },
@@ -1564,14 +1951,17 @@ const submitComplete = async () => {
 }
 
 // 打开抽屉：默认加载活动（实时）
-watch(() => drawerVisible.value && selectedCustomer.value?.id, async (open) => {
-  if (open) {
-    activeTab.value = 'activities'
-    await loadActivities()
-  } else {
-    // 抽屉关闭时不做处理
-  }
-})
+watch(
+  () => drawerVisible.value && selectedCustomer.value?.id,
+  async (open) => {
+    if (open) {
+      activeTab.value = 'activities'
+      await loadActivities()
+    } else {
+      // 抽屉关闭时不做处理
+    }
+  },
+)
 
 watch(activeTab, async (tab) => {
   if (!drawerVisible.value || !selectedCustomer.value?.id) return
@@ -1598,8 +1988,17 @@ const loadActivities = async () => {
       ...a,
       ownerId: a.ownerId || a.owner?.id,
       owner: a.owner
-        ? { id: a.owner.id, username: a.owner.username || a.owner.nickname || a.owner.name || a.ownerUsername || a.ownerName || '-' }
-        : (a.ownerUsername || a.ownerName)
+        ? {
+            id: a.owner.id,
+            username:
+              a.owner.username ||
+              a.owner.nickname ||
+              a.owner.name ||
+              a.ownerUsername ||
+              a.ownerName ||
+              '-',
+          }
+        : a.ownerUsername || a.ownerName
           ? { id: a.ownerId || undefined, username: a.ownerUsername || a.ownerName }
           : null,
     }))
@@ -1618,9 +2017,249 @@ const loadContacts = async () => {
 const loadOpportunities = async () => {
   if (!selectedCustomer.value) return
   try {
-    const resp = await request.get('/opportunities', { params: { customerId: selectedCustomer.value.id, page: 1, limit: 100 } })
+    const resp = await request.get('/opportunities', {
+      params: { customerId: selectedCustomer.value.id, page: 1, limit: 100 },
+    })
     customerOpportunities.value = (resp as any).data?.opportunities || (resp as any).data || []
   } catch (e) {}
+}
+
+// 新增商机
+const openCreateOpportunity = () => {
+  opportunityDialog.visible = true
+  opportunityDialog.title = '新增商机'
+  Object.assign(opportunityForm, {
+    id: '',
+    title: '',
+    stage: 'initial_contact',
+    value: 0,
+    probability: 0,
+    expectedCloseDate: '',
+  })
+}
+
+// 编辑商机
+const openEditOpportunity = (opportunity: any) => {
+  opportunityDialog.visible = true
+  opportunityDialog.title = '编辑商机'
+  Object.assign(opportunityForm, {
+    id: opportunity.id,
+    title: opportunity.title,
+    stage: opportunity.stage,
+    value: opportunity.value,
+    probability: opportunity.probability,
+    expectedCloseDate: opportunity.expectedCloseDate,
+  })
+}
+
+// 删除商机
+const deleteOpportunity = async (opportunity: any) => {
+  try {
+    await ElMessageBox.confirm(`确定要删除商机"${opportunity.title}"吗？`, '提示', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning',
+    })
+
+    await opportunityApi.delete(opportunity.id)
+    ElMessage.success('删除成功')
+    loadOpportunities()
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('删除商机失败:', error)
+      ElMessage.error('删除商机失败')
+    }
+  }
+}
+
+// 提交商机
+const submitOpportunity = async () => {
+  if (!opportunityFormRef.value) return
+
+  try {
+    await opportunityFormRef.value.validate()
+    opportunityDialog.saving = true
+
+    const payload = {
+      ...opportunityForm,
+      customerId: selectedCustomer.value?.id,
+    }
+
+    if (opportunityForm.id) {
+      // 编辑商机
+      const { id, ...updateData } = payload as any
+      await opportunityApi.update(id, updateData)
+      ElMessage.success('更新商机成功')
+    } else {
+      // 新建商机（默认当前客户）
+      await opportunityApi.create(payload)
+      ElMessage.success('创建商机成功')
+    }
+
+    opportunityDialog.visible = false
+    loadOpportunities()
+  } catch (error) {
+    console.error('提交商机失败:', error)
+    ElMessage.error('操作失败，请稍后重试')
+  } finally {
+    opportunityDialog.saving = false
+  }
+}
+
+const opportunityFormRef = ref()
+const opportunityForm = reactive({
+  id: '',
+  title: '',
+  stage: 'initial_contact',
+  value: 0,
+  probability: 0,
+  expectedCloseDate: '',
+})
+const opportunityRules = {
+  title: [
+    { required: true, message: '请输入商机名称', trigger: 'blur' },
+    { min: 2, max: 100, message: '商机名称长度在 2 到 100 个字符', trigger: 'blur' },
+  ],
+  stage: [{ required: true, message: '请选择商机阶段', trigger: 'change' }],
+  value: [{ required: true, message: '请输入金额', trigger: 'blur' }],
+  probability: [{ required: true, message: '请输入概率', trigger: 'blur' }],
+  expectedCloseDate: [{ required: true, message: '请选择预计成交日期', trigger: 'change' }],
+}
+
+const opportunityDialog = reactive({ visible: false, title: '', saving: false })
+
+// 新增联系人
+const openCreateContact = () => {
+  contactDialog.title = '新建联系人'
+  contactDialog.visible = true
+  Object.assign(contactForm, {
+    id: '',
+    name: '',
+    position: '',
+    department: '',
+    type: 'secondary',
+    email: '',
+    phone: '',
+    telephone: '',
+    customerId: selectedCustomer.value?.id || '',
+    isPrimary: false,
+    remark: '',
+  })
+  if (contactFormRef.value) contactFormRef.value.clearValidate?.()
+}
+
+// 编辑联系人
+const openEditContact = (contact: any) => {
+  contactDialog.title = '编辑联系人'
+  contactDialog.visible = true
+  Object.assign(contactForm, {
+    id: contact.id,
+    name: contact.name,
+    position: contact.position || '',
+    department: contact.department || '',
+    type: contact.type || 'secondary',
+    email: contact.email || '',
+    phone: contact.phone || '',
+    telephone: contact.telephone || '',
+    customerId: selectedCustomer.value?.id || contact.customerId || '',
+    isPrimary: !!contact.isPrimary,
+    remark: contact.remark || contact.notes || '',
+  })
+  if (contactFormRef.value) contactFormRef.value.clearValidate?.()
+}
+
+// 删除联系人
+const deleteContact = async (contact: any) => {
+  try {
+    await ElMessageBox.confirm(`确定要删除联系人"${contact.name}"吗？`, '提示', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning',
+    })
+    await contactApi.delete(contact.id)
+    ElMessage.success('删除联系人成功')
+    loadContacts()
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('删除联系人失败:', error)
+      ElMessage.error('删除联系人失败')
+    }
+  }
+}
+
+// 新增/编辑联系人对话框
+const contactDialog = reactive({ visible: false, title: '', saving: false })
+const contactFormRef = ref()
+const contactForm = reactive({
+  id: '',
+  name: '',
+  position: '',
+  department: '',
+  type: 'secondary',
+  email: '',
+  phone: '',
+  telephone: '',
+  customerId: '',
+  isPrimary: false,
+  remark: '',
+})
+const contactRules = {
+  name: [{ required: true, message: '请输入联系人姓名', trigger: 'blur' }],
+  phone: [
+    { required: true, message: '请输入手机号', trigger: 'blur' },
+    { pattern: /^[0-9]{6,20}$/, message: '请输入正确的手机号格式', trigger: 'blur' },
+  ],
+  email: [{ type: 'email', message: '请输入正确的邮箱格式', trigger: 'blur' }],
+  customerId: [{ required: true, message: '请选择关联客户', trigger: 'change' }],
+}
+const submitContact = async () => {
+  if (!contactFormRef.value) return
+
+  try {
+    await contactFormRef.value.validate()
+    contactDialog.saving = true
+
+    if (contactForm.id) {
+      // 编辑联系人（不传 customerId，且不传 id；remark 映射为 notes）
+      const updateData: any = {
+        name: contactForm.name,
+        position: contactForm.position || undefined,
+        department: contactForm.department || undefined,
+        email: contactForm.email || undefined,
+        phone: contactForm.phone || undefined,
+        telephone: contactForm.telephone || undefined,
+        type: contactForm.type || undefined,
+        isPrimary: contactForm.isPrimary,
+        notes: contactForm.remark || undefined,
+      }
+      await contactApi.update(contactForm.id, updateData)
+      ElMessage.success('更新联系人成功')
+    } else {
+      // 新建联系人（不传 id；remark -> notes；必须传 customerId）
+      const createData: any = {
+        name: contactForm.name,
+        position: contactForm.position || undefined,
+        department: contactForm.department || undefined,
+        email: contactForm.email || undefined,
+        phone: contactForm.phone || undefined,
+        telephone: contactForm.telephone || undefined,
+        type: contactForm.type || 'secondary',
+        isPrimary: !!contactForm.isPrimary,
+        notes: contactForm.remark || undefined,
+        customerId: selectedCustomer.value?.id,
+      }
+      await contactApi.create(createData)
+      ElMessage.success('创建联系人成功')
+    }
+
+    contactDialog.visible = false
+    loadContacts()
+  } catch (error) {
+    console.error('提交联系人失败:', error)
+    ElMessage.error('操作失败，请稍后重试')
+  } finally {
+    contactDialog.saving = false
+  }
 }
 </script>
 
@@ -1640,7 +2279,7 @@ const loadOpportunities = async () => {
 
   .detail-section {
     margin-bottom: 24px;
-    
+
     &:last-child {
       margin-bottom: 0;
     }
@@ -1664,7 +2303,7 @@ const loadOpportunities = async () => {
   .info-item {
     display: flex;
     align-items: flex-start;
-    
+
     &.full-width {
       grid-column: 1 / -1;
     }
@@ -1701,11 +2340,11 @@ const loadOpportunities = async () => {
       margin-bottom: 8px;
       border: 1px solid #e4e7ed;
       box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-      
+
       &.opportunity-card {
         border-left: 4px solid #409eff;
       }
-      
+
       &.activity-card {
         border-left: 4px solid #67c23a;
       }
@@ -1775,17 +2414,17 @@ const loadOpportunities = async () => {
       margin-top: 16px;
       padding-top: 16px;
       border-top: 1px solid #f0f0f0;
-      
+
       .activities-header {
         margin-bottom: 12px;
-        
+
         .activities-title {
           font-size: 14px;
           font-weight: 500;
           color: #606266;
         }
       }
-      
+
       .activities-list {
         .activity-item {
           background: #f8f9fa;
@@ -1793,22 +2432,22 @@ const loadOpportunities = async () => {
           border-radius: 6px;
           padding: 12px;
           margin-bottom: 8px;
-          
+
           &:last-child {
             margin-bottom: 0;
           }
-          
+
           .activity-header {
             display: flex;
             align-items: center;
             margin-bottom: 8px;
-            
+
             .activity-icon {
               margin-right: 6px;
               font-size: 14px;
               color: #67c23a;
             }
-            
+
             .activity-title {
               flex: 1;
               font-weight: 500;
@@ -1816,21 +2455,21 @@ const loadOpportunities = async () => {
               margin-right: 8px;
             }
           }
-          
+
           .activity-description {
             color: #606266;
             font-size: 13px;
             line-height: 1.5;
             margin-bottom: 8px;
           }
-          
+
           .activity-meta {
             display: flex;
             flex-wrap: wrap;
             gap: 12px;
             font-size: 11px;
             color: #909399;
-            
+
             span {
               display: inline-flex;
               align-items: center;
@@ -1846,10 +2485,10 @@ const loadOpportunities = async () => {
 .customer-detail {
   padding: 0;
   position: relative;
-  
+
   .detail-section {
     margin-bottom: 32px;
-    
+
     .section-title {
       font-size: 16px;
       font-weight: 600;
@@ -1859,20 +2498,20 @@ const loadOpportunities = async () => {
       border-bottom: 2px solid #f0f0f0;
     }
   }
-  
+
   .info-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
     gap: 16px;
-    
+
     .info-item {
       display: flex;
       align-items: flex-start;
-      
+
       &.full-width {
         grid-column: 1 / -1;
       }
-      
+
       label {
         font-weight: 500;
         color: #606266;
@@ -1880,23 +2519,23 @@ const loadOpportunities = async () => {
         margin-right: 8px;
         flex-shrink: 0;
       }
-      
+
       span {
         color: #303133;
         word-break: break-all;
       }
-      
+
       .customer-name {
         font-size: 16px;
         font-weight: 600;
         color: #409eff;
       }
-      
+
       .estimated-value {
         font-weight: 600;
         color: #67c23a;
       }
-      
+
       .description {
         color: #606266;
         line-height: 1.6;
@@ -1905,11 +2544,11 @@ const loadOpportunities = async () => {
       }
     }
   }
-  
+
   .timeline-container {
     max-height: 500px;
     overflow-y: auto;
-    
+
     .empty-timeline {
       text-align: center;
       padding: 40px 0;
@@ -1925,91 +2564,102 @@ const loadOpportunities = async () => {
       border-radius: 8px;
       padding: 12px;
       margin-bottom: 12px;
-      &.bg-even { background: #f8fafc; }
-      &.bg-odd { background: #f5f7fa; }
+      &.bg-even {
+        background: #f8fafc;
+      }
+      &.bg-odd {
+        background: #f5f7fa;
+      }
       .group-header {
         font-weight: 600;
         color: #303133;
         margin-bottom: 8px;
       }
       .group-items {
-        .group-item { 
-          background: #fff; 
-          border: 1px solid #ebeef5; 
-          border-radius: 6px; 
-          padding: 10px 12px; 
+        .group-item {
+          background: #fff;
+          border: 1px solid #ebeef5;
+          border-radius: 6px;
+          padding: 10px 12px;
           margin-bottom: 8px;
-          .line1 { 
-            display: flex; 
-            gap: 12px; 
-            color: #303133; 
+          .line1 {
+            display: flex;
+            gap: 12px;
+            color: #303133;
             font-weight: 500;
           }
-          .line2 { color: #909399; font-size: 12px; margin-top: 4px; }
-          .line3 { color: #606266; margin-top: 4px; }
+          .line2 {
+            color: #909399;
+            font-size: 12px;
+            margin-top: 4px;
+          }
+          .line3 {
+            color: #606266;
+            margin-top: 4px;
+          }
         }
       }
     }
   }
-  
+
   // 商机列表样式
   .opportunities-list {
     display: flex;
     flex-direction: column;
     gap: 16px;
-    
+
     .opportunity-card {
       border: 1px solid #e4e7ed;
       border-radius: 8px;
       transition: all 0.3s ease;
-      
+
       &:hover {
         border-color: #409eff;
         box-shadow: 0 2px 12px rgba(64, 158, 255, 0.1);
       }
-      
+
       .opportunity-header {
         display: flex;
         justify-content: space-between;
         align-items: center;
         margin-bottom: 12px;
-        
+
         .opportunity-title {
           display: flex;
           align-items: center;
           font-size: 16px;
           font-weight: 600;
           color: #303133;
-          
+
           .opportunity-icon {
             margin-right: 8px;
             color: #409eff;
           }
         }
       }
-      
+
       .opportunity-description {
         color: #606266;
         line-height: 1.6;
         margin-bottom: 12px;
       }
-      
+
       .opportunity-meta {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
         gap: 8px;
-        
+
         .meta-item {
           display: flex;
           align-items: center;
-          
+
           .meta-label {
             font-weight: 500;
             color: #909399;
             margin-right: 4px;
             min-width: 60px;
           }
-          
+
           .meta-value {
             color: #303133;
             font-weight: 500;
@@ -2018,63 +2668,63 @@ const loadOpportunities = async () => {
       }
     }
   }
-  
+
   // 联系人列表样式
   .contacts-list {
     display: flex;
     flex-direction: column;
     gap: 16px;
-    
+
     .contact-card {
       border: 1px solid #e4e7ed;
       border-radius: 8px;
       transition: all 0.3s ease;
-      
+
       &:hover {
         border-color: #409eff;
         box-shadow: 0 2px 12px rgba(64, 158, 255, 0.1);
       }
-      
+
       .contact-header {
         display: flex;
         justify-content: space-between;
         align-items: center;
         margin-bottom: 12px;
-        
+
         .contact-name {
           display: flex;
           align-items: center;
           font-size: 16px;
           font-weight: 600;
           color: #303133;
-          
+
           .contact-icon {
             margin-right: 8px;
             color: #67c23a;
           }
-          
+
           .primary-tag {
             margin-left: 8px;
           }
         }
       }
-      
+
       .contact-info {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
         gap: 8px;
-        
+
         .contact-item {
           display: flex;
           align-items: center;
-          
+
           .contact-label {
             font-weight: 500;
             color: #909399;
             margin-right: 4px;
             min-width: 50px;
           }
-          
+
           .contact-value {
             color: #303133;
           }
@@ -2082,25 +2732,25 @@ const loadOpportunities = async () => {
       }
     }
   }
-  
+
   .empty-section {
     text-align: center;
     padding: 40px 0;
     color: #909399;
   }
-  
+
   // 客户头部样式
   .customer-header {
     padding: 8px 0 12px 0;
     border-bottom: 1px solid #e4e7ed;
     margin-bottom: 12px;
-    
+
     .customer-title {
       display: flex;
       align-items: center;
       gap: 12px;
       margin-bottom: 4px;
-      
+
       h2 {
         margin: 0;
         font-size: 20px;
@@ -2108,30 +2758,30 @@ const loadOpportunities = async () => {
         color: #303133;
       }
     }
-    
+
     .customer-meta {
       display: flex;
       align-items: center;
       gap: 12px;
       color: #606266;
       font-size: 14px;
-      
+
       .customer-type {
         font-weight: 500;
       }
-      
+
       .owner {
         color: #909399;
       }
     }
   }
-  
+
   // 标签页样式
   .customer-tabs {
     .el-tabs__header {
       margin: 0 0 20px 0;
     }
-    
+
     .el-tabs__content {
       padding: 0;
     }
@@ -2148,7 +2798,7 @@ const loadOpportunities = async () => {
     cursor: pointer;
     color: #909399;
     transition: color 0.2s ease;
-    
+
     &:hover {
       color: #606266;
     }
@@ -2168,7 +2818,7 @@ const loadOpportunities = async () => {
   height: 100%;
   min-height: 100%;
   background: #e4e7ed;
-  
+
   .left-nav {
     padding: 16px 12px;
 
@@ -2207,7 +2857,9 @@ const loadOpportunities = async () => {
       border-radius: 50%;
       box-shadow: 0 0 0 3px #fff inset;
     }
-    .side-item.active:after { background: #0e3a8a; }
+    .side-item.active:after {
+      background: #0e3a8a;
+    }
     .item-btn {
       display: inline-flex;
       align-items: center;
@@ -2217,50 +2869,59 @@ const loadOpportunities = async () => {
       border: 1px solid #dfe7ff;
       color: #2f3b52;
       border-radius: 10px;
-      transition: all .2s ease;
+      transition: all 0.2s ease;
     }
-    .side-item.active .item-btn { background: #0e3a8a; color: #fff; border-color: #0e3a8a; }
-    .item-icon { font-size: 14px; }
-    .item-text { font-size: 14px; font-weight: 600; }
+    .side-item.active .item-btn {
+      background: #0e3a8a;
+      color: #fff;
+      border-color: #0e3a8a;
+    }
+    .item-icon {
+      font-size: 14px;
+    }
+    .item-text {
+      font-size: 14px;
+      font-weight: 600;
+    }
   }
-  
+
   .right-content {
     flex: 1;
     display: flex;
     flex-direction: column;
     overflow: auto; /* 滚动条放到这一层 */
     min-height: 0;
-    
+
     .basic-info-section {
       padding: 24px;
       background: #fff;
       flex-shrink: 0;
       border-radius: 5px;
-      box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
       margin: 16px 16px 12px 16px;
-      
+
       .customer-header {
         margin-bottom: 20px;
-        
+
         .customer-title {
           display: flex;
           align-items: center;
           gap: 12px;
           margin-bottom: 12px;
-          
+
           h2 {
             margin: 0;
             font-size: 24px;
             font-weight: 600;
             color: #262626;
           }
-          
+
           .star-icon {
             color: #faad14;
             font-size: 20px;
           }
         }
-        
+
         .customer-meta {
           display: flex;
           align-items: center;
@@ -2268,39 +2929,39 @@ const loadOpportunities = async () => {
           color: #666;
           font-size: 14px;
           margin-bottom: 16px;
-          
+
           .meta-item {
             display: flex;
             align-items: center;
             gap: 4px;
-            
+
             .meta-label {
               color: #999;
             }
-            
+
             .meta-value {
               color: #262626;
               font-weight: 500;
             }
           }
         }
-        
+
         .action-buttons {
           display: flex;
           gap: 8px;
           margin-bottom: 16px;
-          
+
           .el-button {
             height: 32px;
             padding: 0 16px;
             font-size: 14px;
             border-radius: 4px;
-            
+
             &.el-button--default {
               background: #fafafa;
               border-color: #d9d9d9;
               color: #666;
-              
+
               &:hover {
                 background: #f0f0f0;
                 border-color: #40a9ff;
@@ -2310,32 +2971,32 @@ const loadOpportunities = async () => {
           }
         }
       }
-      
+
       .info-grid {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
         gap: 16px;
-        
+
         .info-item {
           display: flex;
           align-items: flex-start;
-          
+
           &.full-width {
             grid-column: 1 / -1;
           }
-          
+
           label {
             font-weight: 500;
             color: #666;
             min-width: 100px;
             margin-right: 8px;
           }
-          
+
           span {
             color: #262626;
             flex: 1;
           }
-          
+
           .description {
             background: #fafafa;
             padding: 12px;
@@ -2348,7 +3009,7 @@ const loadOpportunities = async () => {
         }
       }
     }
-    
+
     .dynamic-content-section {
       flex: 1;
       padding: 0;
@@ -2356,13 +3017,14 @@ const loadOpportunities = async () => {
       overflow: visible;
       background: transparent;
       border-radius: 8px;
-      box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
       background: white;
       margin: 0 16px 16px 16px;
-      
+
       .tab-content {
         height: 100%;
-        
+        padding: 12px 16px;
+
         .empty-timeline,
         .empty-state {
           display: flex;
@@ -2380,36 +3042,34 @@ const loadOpportunities = async () => {
           align-items: center;
           flex-wrap: wrap;
         }
-        
+
         // 快速跟进输入框样式
         .quick-follow-up {
-          padding: 16px 24px;
-          border-bottom: 1px solid #f0f0f0;
+          padding: 16px 0px;
           background: white;
-          border-radius: 5px;
-          
+
           .follow-up-input {
             display: flex;
             align-items: center;
             gap: 12px;
-            
+
             .user-avatar {
               flex-shrink: 0;
             }
-            
+
             .follow-up-text {
               flex: 1;
-              
+
               .el-input__wrapper {
                 border-radius: 20px;
                 padding: 8px 16px;
                 background: #fafafa;
                 border: 1px solid #f0f0f0;
-                
+
                 &:hover {
                   border-color: #d9d9d9;
                 }
-                
+
                 &.is-focus {
                   border-color: #1890ff;
                   box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
@@ -2425,7 +3085,9 @@ const loadOpportunities = async () => {
               grid-template-columns: 1fr 1fr;
               column-gap: 16px;
             }
-            .el-form-item { margin-bottom: 12px; }
+            .el-form-item {
+              margin-bottom: 12px;
+            }
             .follow-actions {
               grid-column: 1 / -1;
               display: flex;
@@ -2434,18 +3096,18 @@ const loadOpportunities = async () => {
             }
           }
         }
-        
+
         // 活动标签页样式
         .activity-tabs {
           padding: 0 24px;
           border-bottom: 1px solid #f0f0f0;
           background: white;
-          
+
           .tab-nav {
             display: flex;
             align-items: center;
             gap: 0;
-            
+
             .tab-item {
               padding: 12px 16px;
               color: #666;
@@ -2453,21 +3115,21 @@ const loadOpportunities = async () => {
               cursor: pointer;
               border-bottom: 2px solid transparent;
               transition: all 0.2s ease;
-              
+
               &:hover {
                 color: #1890ff;
               }
-              
+
               &.active {
                 color: #1890ff;
                 border-bottom-color: #1890ff;
                 font-weight: 500;
               }
             }
-            
+
             .filter-btn {
               margin-left: auto;
-              
+
               .el-button {
                 height: 28px;
                 padding: 0 12px;
@@ -2477,7 +3139,7 @@ const loadOpportunities = async () => {
             }
           }
         }
-        
+
         // 活动记录样式 - 参考图片设计
         .activity-groups {
           .activity-toolbar {
@@ -2487,12 +3149,12 @@ const loadOpportunities = async () => {
             align-items: center;
           }
           .activity-group {
-            margin: 12px 16px;
+            margin: 12px 0px;
             background: #f4f5f7;
             box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
             border-radius: 8px;
             overflow: hidden;
-            
+
             .group-header {
               padding: 16px 24px;
               background: #f4f5f7;
@@ -2504,29 +3166,29 @@ const loadOpportunities = async () => {
               top: 0;
               z-index: 10;
             }
-            
+
             .group-items {
               padding: 0;
-              
+
               .group-item {
                 padding: 16px 24px;
                 border-bottom: 1px solid #f5f5f5;
                 position: relative;
-                
+
                 &:last-child {
                   border-bottom: none;
                 }
-                
+
                 &:hover {
                   cursor: pointer;
                 }
-                
+
                 .line1 {
                   display: flex;
                   align-items: center;
                   gap: 12px;
                   margin-bottom: 8px;
-                  
+
                   .user-avatar {
                     width: 32px;
                     height: 32px;
@@ -2539,18 +3201,18 @@ const loadOpportunities = async () => {
                     font-size: 12px;
                     font-weight: 500;
                   }
-                  
+
                   .user-info {
                     display: flex;
                     align-items: center;
                     gap: 8px;
-                    
+
                     .user-name {
                       color: #262626;
                       font-weight: 500;
                       font-size: 14px;
                     }
-                    
+
                     .activity-type {
                       padding: 2px 8px;
                       border-radius: 12px;
@@ -2559,258 +3221,16 @@ const loadOpportunities = async () => {
                       align-items: center;
                       gap: 4px;
                     }
-                    
-                    .activity-tag {
-                      background: #e6f7ff;
-                      color: #1890ff;
-                      padding: 2px 8px;
-                      border-radius: 12px;
-                      font-size: 12px;
-                    }
-                  }
-                  
-                  .ai-tag {
-                    background: #722ed1;
-                    color: white;
-                    padding: 2px 8px;
-                    border-radius: 12px;
-                    font-size: 12px;
                   }
                 }
-                
                 .line2 {
-                  color: #999;
+                  color: #909399;
                   font-size: 12px;
-                  margin-bottom: 8px;
-                  margin-left: 44px;
+                  margin-top: 4px;
                 }
-                
                 .line3 {
-                  color: #262626;
-                  line-height: 1.5;
-                  margin-left: 44px;
-                  margin-bottom: 8px;
-                }
-
-                .desc-line {
-                  color: #262626;
-                  line-height: 1.5;
-                  margin-left: 44px;
-                  margin-bottom: 8px;
-                }
-                
-                .follow-up-actions {
-                  margin-left: 44px;
-                  display: flex;
-                  align-items: center;
-                  gap: 16px;
-                  margin-bottom: 8px;
-                  
-                  .action-text {
-                    color: #666;
-                    font-size: 12px;
-                  }
-                  
-                  .action-buttons {
-                    display: flex;
-                    gap: 8px;
-                    
-                    .action-btn {
-                      width: 24px;
-                      height: 24px;
-                      border-radius: 50%;
-                      border: 1px solid #d9d9d9;
-                      background: white;
-                      display: flex;
-                      align-items: center;
-                      justify-content: center;
-                      cursor: pointer;
-                      transition: all 0.2s ease;
-                      
-                      &:hover {
-                        border-color: #1890ff;
-                        color: #1890ff;
-                      }
-                    }
-                  }
-                }
-                
-                .next-contact {
-                  margin-left: 44px;
-                  display: flex;
-                  align-items: center;
-                  gap: 4px;
-                  color: #666;
-                  font-size: 12px;
-                  
-                  .clock-icon {
-                    color: #1890ff;
-                  }
-                }
-                
-                .activity-actions {
-                  position: absolute;
-                  right: 24px;
-                  top: 12px;
-                  display: inline-flex;
-                  gap: 8px;
-                  opacity: 0;
-                  pointer-events: none;
-                  transition: opacity .15s ease;
-                  z-index: 2;
-                }
-                .group-item:hover .activity-actions,
-                .activity-actions.visible {
-                  opacity: 1;
-                  pointer-events: auto;
-                }
-                .activity-actions:hover {
-                  opacity: 1;
-                  pointer-events: auto;
-                }
-              }
-            }
-          }
-        }
-        
-        // 联系人列表样式
-        .contacts-list {
-          padding: 24px;
-          display: flex;
-          flex-direction: column;
-          gap: 16px;
-          
-          .contact-card {
-            background: white;
-            border: 1px solid #f0f0f0;
-            border-radius: 8px;
-            padding: 16px;
-            transition: all 0.3s ease;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-            
-            &:hover {
-              border-color: #1890ff;
-              box-shadow: 0 4px 12px rgba(24, 144, 255, 0.15);
-            }
-            
-            .contact-header {
-              display: flex;
-              justify-content: space-between;
-              align-items: center;
-              margin-bottom: 12px;
-              
-              .contact-name {
-                display: flex;
-                align-items: center;
-                font-size: 16px;
-                font-weight: 600;
-                color: #262626;
-                
-                .contact-icon {
-                  margin-right: 8px;
-                  color: #52c41a;
-                  font-size: 18px;
-                }
-                
-                .primary-tag {
-                  margin-left: 8px;
-                  background: #f6ffed;
-                  color: #52c41a;
-                  border: 1px solid #b7eb8f;
-                }
-              }
-            }
-            
-            .contact-info {
-              display: grid;
-              grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-              gap: 8px;
-              
-              .contact-item {
-                display: flex;
-                align-items: center;
-                
-                .contact-label {
-                  font-weight: 500;
-                  color: #999;
-                  margin-right: 4px;
-                  min-width: 50px;
-                }
-                
-                .contact-value {
-                  color: #262626;
-                }
-              }
-            }
-          }
-        }
-        
-        // 商机列表样式
-        .opportunities-list {
-          padding: 24px;
-          display: flex;
-          flex-direction: column;
-          gap: 16px;
-          
-          .opportunity-card {
-            background: white;
-            border: 1px solid #f0f0f0;
-            border-radius: 8px;
-            padding: 16px;
-            transition: all 0.3s ease;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-            
-            &:hover {
-              border-color: #1890ff;
-              box-shadow: 0 4px 12px rgba(24, 144, 255, 0.15);
-            }
-            
-            .opportunity-header {
-              display: flex;
-              justify-content: space-between;
-              align-items: center;
-              margin-bottom: 12px;
-              
-              .opportunity-title {
-                display: flex;
-                align-items: center;
-                font-size: 16px;
-                font-weight: 600;
-                color: #262626;
-                
-                .opportunity-icon {
-                  margin-right: 8px;
-                  color: #faad14;
-                  font-size: 18px;
-                }
-              }
-            }
-            
-            .opportunity-description {
-              color: #666;
-              line-height: 1.5;
-              margin-bottom: 12px;
-            }
-            
-            .opportunity-meta {
-              display: grid;
-              grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-              gap: 8px;
-              
-              .meta-item {
-                display: flex;
-                align-items: center;
-                
-                .meta-label {
-                  font-weight: 500;
-                  color: #999;
-                  margin-right: 4px;
-                  min-width: 60px;
-                }
-                
-                .meta-value {
-                  color: #262626;
-                  font-weight: 500;
+                  color: #606266;
+                  margin-top: 4px;
                 }
               }
             }
@@ -2819,35 +3239,5 @@ const loadOpportunities = async () => {
       }
     }
   }
-}
-
-// 响应式设计
-@media (max-width: 768px) {
-  .customer-detail-dialog {
-    .info-grid {
-      grid-template-columns: 1fr;
-    }
-    
-    .timeline-meta {
-      flex-direction: column;
-      gap: 8px;
-    }
-  }
-  
-  .customer-detail {
-    .info-grid {
-      grid-template-columns: 1fr;
-    }
-  }
-}
-</style>
-
-<style lang="scss">
-/* 由于 Drawer 使用 Teleport 到 body，scoped 样式可能无法覆盖；这里追加全局样式保障生效 */
-.customer-drawer .el-drawer__body {
-  padding: 0 !important;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
 }
 </style>
