@@ -40,6 +40,30 @@
             >目标</router-link
           >
           <router-link
+            :to="'/products'"
+            class="top-item"
+            :class="{ active: topPath === '/products' }"
+            >产品</router-link
+          >
+          <router-link
+            :to="'/quotes'"
+            class="top-item"
+            :class="{ active: topPath === '/quotes' }"
+            >报价</router-link
+          >
+          <router-link
+            :to="'/orders'"
+            class="top-item"
+            :class="{ active: topPath === '/orders' }"
+            >订单</router-link
+          >
+          <router-link
+            :to="'/contracts'"
+            class="top-item"
+            :class="{ active: topPath === '/contracts' }"
+            >合同</router-link
+          >
+          <router-link
             :to="'/contacts/organization'"
             class="top-item"
             :class="{ active: topPath === '/contacts' }"
@@ -136,6 +160,10 @@ const topPath = computed(() => {
   if (p.startsWith('/activities')) return '/activities'
   if (p.startsWith('/targets')) return '/targets'
   if (p.startsWith('/leads')) return '/leads'
+  if (p.startsWith('/products')) return '/products'
+  if (p.startsWith('/quotes')) return '/quotes'
+  if (p.startsWith('/orders')) return '/orders'
+  if (p.startsWith('/contracts')) return '/contracts'
   if (p.startsWith('/tenant')) return '/tenant'
   return '/dashboard'
 })
@@ -157,6 +185,14 @@ const subMenus = computed<SubMenuItem[]>(() => {
       ]
     case '/targets':
       return [{ index: '/targets', title: '目标管理' }]
+    case '/products':
+      return [{ index: '/products', title: '产品管理' }]
+    case '/quotes':
+      return [{ index: '/quotes', title: '报价管理' }]
+    case '/orders':
+      return [{ index: '/orders', title: '订单管理' }]
+    case '/contracts':
+      return [{ index: '/contracts', title: '合同管理' }]
     // 仪表盘 / 线索 / 商机 / 租户 无二级导航，返回空数组以隐藏左侧栏
     case '/dashboard':
     case '/leads':
@@ -181,6 +217,14 @@ const sideTitle = computed(() => {
       return '通讯录'
     case '/targets':
       return '目标'
+    case '/products':
+      return '产品'
+    case '/quotes':
+      return '报价'
+    case '/orders':
+      return '订单'
+    case '/contracts':
+      return '合同'
     case '/tenant':
       return '租户'
     default:

@@ -20,7 +20,12 @@
               </el-input>
             </el-form-item>
             <el-form-item>
-              <el-select v-model="searchForm.type" placeholder="活动类型" clearable style="width: 120px">
+              <el-select
+                v-model="searchForm.type"
+                placeholder="活动类型"
+                clearable
+                style="width: 120px"
+              >
                 <el-option label="全部" :value="undefined" />
                 <el-option label="电话" value="call" />
                 <el-option label="会议" value="meeting" />
@@ -30,7 +35,12 @@
               </el-select>
             </el-form-item>
             <el-form-item>
-              <el-select v-model="searchForm.status" placeholder="活动状态" clearable style="width: 120px">
+              <el-select
+                v-model="searchForm.status"
+                placeholder="活动状态"
+                clearable
+                style="width: 120px"
+              >
                 <el-option label="全部" :value="undefined" />
                 <el-option label="计划中" value="planned" />
                 <el-option label="进行中" value="in_progress" />
@@ -45,12 +55,10 @@
           </el-form>
         </div>
         <div class="toolbar-right">
-          <el-button type="primary" :icon="Plus" @click="goToCreate">
-            新增活动
-          </el-button>
-          <el-button 
-            type="danger" 
-            :icon="Delete" 
+          <el-button type="primary" :icon="Plus" @click="goToCreate"> 新增活动 </el-button>
+          <el-button
+            type="danger"
+            :icon="Delete"
             :disabled="selectedRows.length === 0"
             @click="handleBatchDelete"
           >
@@ -91,12 +99,17 @@
           </el-table-column>
           <el-table-column label="关联主体" width="200" show-overflow-tooltip>
             <template #default="{ row }">
-              <span>{{ row.relatedToType }} / {{ row.relatedToId }}</span>
+              <span
+                >{{ getRelatedToName(row.relatedToType) }}:
+                {{ row.customer?.name || row.opportunity?.title || row.relatedToId }}</span
+              >
             </template>
           </el-table-column>
           <el-table-column prop="priority" label="优先级" width="100" align="center">
             <template #default="{ row }">
-              <el-tag size="small">{{ row.priority }}</el-tag>
+              <el-tag size="small" :type="getPriorityColor(row.priority)">{{
+                getPriorityName(row.priority)
+              }}</el-tag>
             </template>
           </el-table-column>
           <el-table-column prop="owner.username" label="负责人" width="120" show-overflow-tooltip>
@@ -136,12 +149,7 @@
       width="600px"
       :close-on-click-modal="false"
     >
-      <el-form
-        ref="formRef"
-        :model="formData"
-        :rules="formRules"
-        label-width="100px"
-      >
+      <el-form ref="formRef" :model="formData" :rules="formRules" label-width="100px">
         <el-form-item label="活动标题" prop="title">
           <el-input v-model="formData.title" placeholder="请输入活动标题" />
         </el-form-item>
@@ -182,7 +190,11 @@
           <el-input v-model="formData.location" placeholder="请输入活动地点" />
         </el-form-item>
         <el-form-item label="关联类型" prop="relatedToType">
-          <el-select v-model="formData.relatedToType" placeholder="请选择关联类型" style="width: 100%">
+          <el-select
+            v-model="formData.relatedToType"
+            placeholder="请选择关联类型"
+            style="width: 100%"
+          >
             <el-option label="客户" value="customer" />
             <el-option label="联系人" value="contact" />
             <el-option label="商机" value="opportunity" />
@@ -190,8 +202,19 @@
           </el-select>
         </el-form-item>
         <el-form-item label="关联对象" prop="relatedToId">
-          <el-select v-model="formData.relatedToId" placeholder="请选择关联对象" filterable clearable style="width: 100%">
-            <el-option v-for="opt in relatedOptions" :key="opt.id" :label="opt.name || opt.title" :value="opt.id" />
+          <el-select
+            v-model="formData.relatedToId"
+            placeholder="请选择关联对象"
+            filterable
+            clearable
+            style="width: 100%"
+          >
+            <el-option
+              v-for="opt in relatedOptions"
+              :key="opt.id"
+              :label="opt.name || opt.title"
+              :value="opt.id"
+            />
           </el-select>
         </el-form-item>
         <el-form-item label="优先级" prop="priority">
@@ -203,7 +226,12 @@
           </el-select>
         </el-form-item>
         <el-form-item label="执行笔记" prop="content">
-          <el-input v-model="formData.content" type="textarea" :rows="3" placeholder="可记录执行细节/完成笔记" />
+          <el-input
+            v-model="formData.content"
+            type="textarea"
+            :rows="3"
+            placeholder="可记录执行细节/完成笔记"
+          />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -221,7 +249,12 @@ import { ref, reactive, onMounted, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Search, Refresh, Delete } from '@element-plus/icons-vue'
-import { activityApi, type Activity, type CreateActivityDto, type UpdateActivityDto } from '@/api/activity'
+import {
+  activityApi,
+  type Activity,
+  type CreateActivityDto,
+  type UpdateActivityDto,
+} from '@/api/activity'
 import { customerApi } from '@/api/customer'
 import { opportunityApi } from '@/api/opportunity'
 
@@ -233,7 +266,7 @@ const searchForm = reactive({
   type: '',
   status: '',
   relatedToType: '',
-  relatedToId: ''
+  relatedToId: '',
 })
 
 // 活动列表
@@ -245,7 +278,7 @@ const selectedRows = ref<Activity[]>([])
 const pagination = reactive({
   page: 1,
   pageSize: 10,
-  total: 0
+  total: 0,
 })
 
 // 模态框相关
@@ -265,20 +298,14 @@ const formData = reactive<CreateActivityDto & { id?: string }>({
   relatedToType: 'customer',
   relatedToId: '',
   priority: 'medium',
-  content: ''
+  content: '',
 })
 
 // 表单验证规则
 const formRules = {
-  title: [
-    { required: true, message: '请输入活动标题', trigger: 'blur' }
-  ],
-  type: [
-    { required: true, message: '请选择活动类型', trigger: 'change' }
-  ],
-  plannedStartTime: [
-    { required: true, message: '请选择计划开始时间', trigger: 'change' }
-  ]
+  title: [{ required: true, message: '请输入活动标题', trigger: 'blur' }],
+  type: [{ required: true, message: '请选择活动类型', trigger: 'change' }],
+  plannedStartTime: [{ required: true, message: '请选择计划开始时间', trigger: 'change' }],
 }
 
 // 选项数据
@@ -287,19 +314,25 @@ const opportunityOptions = ref<Array<{ id: string; title: string }>>([])
 const relatedOptions = ref<Array<any>>([])
 
 // 根据选择的客户过滤商机选项
-watch(() => formData.relatedToType, (t) => {
-  if (t === 'customer') relatedOptions.value = customerOptions.value
-  else if (t === 'opportunity') relatedOptions.value = opportunityOptions.value
-  else relatedOptions.value = []
-  formData.relatedToId = ''
-})
+watch(
+  () => formData.relatedToType,
+  (t) => {
+    if (t === 'customer') relatedOptions.value = customerOptions.value
+    else if (t === 'opportunity') relatedOptions.value = opportunityOptions.value
+    else relatedOptions.value = []
+    formData.relatedToId = ''
+  },
+)
 
 // 监听关联类型变化，清空关联对象选择
-watch(() => formData.relatedToType, (newType, oldType) => {
-  if (newType !== oldType) {
-    formData.relatedToId = ''
-  }
-})
+watch(
+  () => formData.relatedToType,
+  (newType, oldType) => {
+    if (newType !== oldType) {
+      formData.relatedToId = ''
+    }
+  },
+)
 
 // 获取类型颜色
 const getTypeColor = (type: string) => {
@@ -308,7 +341,7 @@ const getTypeColor = (type: string) => {
     meeting: 'success',
     email: 'info',
     task: 'warning',
-    note: 'default'
+    note: 'default',
   }
   return colorMap[type] || 'default'
 }
@@ -320,7 +353,7 @@ const getTypeName = (type: string) => {
     meeting: '会议',
     email: '邮件',
     task: '任务',
-    note: '备注'
+    note: '备注',
   }
   return nameMap[type] || type
 }
@@ -330,7 +363,7 @@ const getStatusColor = (status: string) => {
   const colorMap: Record<string, string> = {
     planned: 'warning',
     completed: 'success',
-    cancelled: 'danger'
+    cancelled: 'danger',
   }
   return colorMap[status] || 'default'
 }
@@ -340,9 +373,42 @@ const getStatusName = (status: string) => {
   const nameMap: Record<string, string> = {
     planned: '计划中',
     completed: '已完成',
-    cancelled: '已取消'
+    cancelled: '已取消',
   }
   return nameMap[status] || status
+}
+
+// 获取关联主体类型名称
+const getRelatedToName = (type: string) => {
+  const nameMap: Record<string, string> = {
+    customer: '客户',
+    contact: '联系人',
+    opportunity: '商机',
+    lead: '线索',
+  }
+  return nameMap[type] || type
+}
+
+// 获取优先级名称
+const getPriorityName = (priority: string) => {
+  const nameMap: Record<string, string> = {
+    low: '低',
+    medium: '中',
+    high: '高',
+    urgent: '紧急',
+  }
+  return nameMap[priority] || priority
+}
+
+// 获取优先级颜色
+const getPriorityColor = (priority: string) => {
+  const colorMap: Record<string, string> = {
+    low: 'info',
+    medium: 'primary',
+    high: 'warning',
+    urgent: 'danger',
+  }
+  return colorMap[priority] || 'default'
 }
 
 // 格式化日期
@@ -361,9 +427,9 @@ const loadActivities = async () => {
       relatedToType: searchForm.relatedToType || undefined,
       relatedToId: searchForm.relatedToId || undefined,
       page: pagination.page,
-      limit: pagination.pageSize
+      limit: pagination.pageSize,
     }
-    
+
     const response = await activityApi.getList(params)
     activities.value = response.data.activities
     pagination.total = response.data.total
@@ -378,9 +444,14 @@ const loadActivities = async () => {
 const loadOptions = async () => {
   try {
     const customerResponse = await customerApi.getList({ page: 1, limit: 1000 })
-    customerOptions.value = (customerResponse.data.customers || []).map((c: any) => ({ id: c.id, name: c.name }))
+    customerOptions.value = (customerResponse.data.customers || []).map((c: any) => ({
+      id: c.id,
+      name: c.name,
+    }))
     const opportunityResponse = await opportunityApi.getList({ page: 1, limit: 1000 })
-    opportunityOptions.value = ((opportunityResponse.data as any).opportunities || []).map((o: any) => ({ id: o.id, title: o.title }))
+    opportunityOptions.value = ((opportunityResponse.data as any).opportunities || []).map(
+      (o: any) => ({ id: o.id, title: o.title }),
+    )
   } catch (error) {
     console.error('加载选项数据失败:', error)
   }
@@ -399,7 +470,7 @@ const handleReset = () => {
     type: '',
     status: '',
     relatedToType: '',
-    relatedToId: ''
+    relatedToId: '',
   })
   handleSearch()
 }
@@ -442,7 +513,7 @@ const editActivity = (activity: Activity) => {
     relatedToType: (activity as any).relatedToType || 'customer',
     relatedToId: (activity as any).relatedToId || '',
     priority: (activity as any).priority || 'medium',
-    content: (activity as any).content || ''
+    content: (activity as any).content || '',
   })
   dialogVisible.value = true
 }
@@ -453,9 +524,9 @@ const deleteActivity = async (activity: Activity) => {
     await ElMessageBox.confirm(`确定要删除活动"${activity.title}"吗？`, '提示', {
       confirmButtonText: '确定',
       cancelButtonText: '取消',
-      type: 'warning'
+      type: 'warning',
     })
-    
+
     await activityApi.delete(activity.id)
     ElMessage.success('删除成功')
     loadActivities()
@@ -470,15 +541,15 @@ const handleBatchDelete = async () => {
     ElMessage.warning('请选择要删除的活动')
     return
   }
-  
+
   try {
     await ElMessageBox.confirm(`确定要删除选中的 ${selectedRows.value.length} 个活动吗？`, '提示', {
       confirmButtonText: '确定',
       cancelButtonText: '取消',
-      type: 'warning'
+      type: 'warning',
     })
-    
-    const ids = selectedRows.value.map(row => row.id)
+
+    const ids = selectedRows.value.map((row) => row.id)
     await activityApi.deleteBatch(ids)
     ElMessage.success('批量删除成功')
     loadActivities()
@@ -507,7 +578,7 @@ const resetForm = () => {
     relatedToType: 'customer',
     relatedToId: '',
     priority: 'medium',
-    content: ''
+    content: '',
   })
   formRef.value?.clearValidate()
 }
@@ -515,17 +586,21 @@ const resetForm = () => {
 // 提交表单
 const handleSubmit = async () => {
   if (!formRef.value) return
-  
+
   try {
     await formRef.value.validate()
     submitLoading.value = true
-    
+
     const submitData = {
       ...formData,
-      plannedStartTime: formData.plannedStartTime ? new Date(formData.plannedStartTime).toISOString() : '',
-      plannedEndTime: formData.plannedEndTime ? new Date(formData.plannedEndTime).toISOString() : undefined
+      plannedStartTime: formData.plannedStartTime
+        ? new Date(formData.plannedStartTime).toISOString()
+        : '',
+      plannedEndTime: formData.plannedEndTime
+        ? new Date(formData.plannedEndTime).toISOString()
+        : undefined,
     }
-    
+
     if (formData.id) {
       // 更新活动
       await activityApi.update(formData.id, submitData as UpdateActivityDto)
@@ -535,7 +610,7 @@ const handleSubmit = async () => {
       await activityApi.create(submitData as CreateActivityDto)
       ElMessage.success('创建活动成功')
     }
-    
+
     dialogVisible.value = false
     loadActivities()
   } catch (error) {

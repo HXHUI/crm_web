@@ -5,7 +5,12 @@
         <div class="toolbar-left">
           <el-form :inline="true" :model="filters" class="search-form">
             <el-form-item>
-              <el-input v-model="filters.search" placeholder="搜索姓名/公司/电话/邮箱" clearable @keyup.enter.native="loadData" />
+              <el-input
+                v-model="filters.search"
+                placeholder="搜索姓名/公司/电话/邮箱"
+                clearable
+                @keyup.enter="loadData"
+              />
             </el-form-item>
             <el-form-item>
               <el-select v-model="filters.status" placeholder="状态" clearable style="width: 140px">
@@ -25,7 +30,12 @@
             </el-form-item>
             <el-form-item>
               <el-select v-model="filters.source" placeholder="来源" clearable style="width: 160px">
-                <el-option v-for="s in sourceOptions" :key="s.key" :label="s.label" :value="s.key" />
+                <el-option
+                  v-for="s in sourceOptions"
+                  :key="s.key"
+                  :label="s.label"
+                  :value="s.key"
+                />
               </el-select>
             </el-form-item>
             <el-form-item>
@@ -40,19 +50,49 @@
       </div>
 
       <div class="table-section">
-        <el-table :data="list" v-loading="loading" style="width: 100%" border @selection-change="handleSelectionChange">
+        <el-table
+          :data="list"
+          v-loading="loading"
+          style="width: 100%"
+          border
+          @selection-change="handleSelectionChange"
+        >
           <el-table-column type="selection" width="55" />
           <el-table-column prop="name" label="姓名/联系人" min-width="160" />
           <el-table-column prop="company" label="公司" min-width="160" show-overflow-tooltip />
           <el-table-column prop="title" label="职位" width="140" show-overflow-tooltip />
           <el-table-column prop="phone" label="电话" width="140" />
           <el-table-column prop="email" label="邮箱" min-width="180" show-overflow-tooltip />
+          <el-table-column prop="industry" label="行业" width="120">
+            <template #default="{ row }">{{ getIndustryLabel(row.industry) }}</template>
+          </el-table-column>
+          <el-table-column prop="level" label="客户等级" width="100">
+            <template #default="{ row }">
+              <el-tag size="small" :type="getLevelType(row.level)">{{ row.level || '-' }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="region" label="所在地区" width="150">
+            <template #default="{ row }">{{
+              getRegionDisplay(row.province, row.city, row.district)
+            }}</template>
+          </el-table-column>
+          <el-table-column
+            prop="addressDetail"
+            label="详细地址"
+            min-width="180"
+            show-overflow-tooltip
+          />
           <el-table-column prop="leadSource" label="来源" width="140">
             <template #default="{ row }">{{ getSourceLabel(row.leadSource) }}</template>
           </el-table-column>
           <el-table-column prop="rating" label="评分" width="110">
             <template #default="{ row }">
               <el-tag :type="getRatingType(row.rating)">{{ getRatingName(row.rating) }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="owner" label="负责人" width="120">
+            <template #default="{ row }">
+              {{ row.owner?.username || '-' }}
             </template>
           </el-table-column>
           <el-table-column prop="status" label="状态" width="110">
@@ -62,7 +102,13 @@
           </el-table-column>
           <el-table-column label="操作" width="200" fixed="right">
             <template #default="{ row }">
-              <el-button type="primary" size="small" @click="openConvert(row)" :disabled="row.status === 'converted'">转化</el-button>
+              <el-button
+                type="primary"
+                size="small"
+                @click="openConvert(row)"
+                :disabled="row.status === 'converted'"
+                >转化</el-button
+              >
             </template>
           </el-table-column>
         </el-table>
@@ -80,7 +126,12 @@
         />
       </div>
 
-      <el-dialog v-model="createVisible" title="新建线索" width="520px" :close-on-click-modal="false">
+      <el-dialog
+        v-model="createVisible"
+        title="新建线索"
+        width="520px"
+        :close-on-click-modal="false"
+      >
         <el-form ref="formRef" :model="form" label-width="100px">
           <el-form-item label="姓名"><el-input v-model="form.name" /></el-form-item>
           <el-form-item label="公司"><el-input v-model="form.company" /></el-form-item>
@@ -94,7 +145,12 @@
           </el-form-item>
           <el-form-item label="行业">
             <el-select v-model="form.industry" style="width: 100%" placeholder="请选择行业">
-              <el-option v-for="i in industryOptions" :key="i.key" :label="i.label" :value="i.key" />
+              <el-option
+                v-for="i in industryOptions"
+                :key="i.key"
+                :label="i.label"
+                :value="i.key"
+              />
             </el-select>
           </el-form-item>
           <el-form-item label="客户等级">
@@ -106,7 +162,12 @@
             </el-select>
           </el-form-item>
           <el-form-item label="所在地区">
-            <el-cascader v-model="regionValue" :options="regionOptions" style="width: 100%" placeholder="省/市/区" />
+            <el-cascader
+              v-model="regionValue"
+              :options="regionOptions"
+              style="width: 100%"
+              placeholder="省/市/区"
+            />
           </el-form-item>
           <el-form-item label="详细地址"><el-input v-model="form.addressDetail" /></el-form-item>
           <el-form-item label="评分">
@@ -123,14 +184,29 @@
         </template>
       </el-dialog>
 
-      <el-dialog v-model="convertVisible" title="线索转化" width="520px" :close-on-click-modal="false">
+      <el-dialog
+        v-model="convertVisible"
+        title="线索转化"
+        width="520px"
+        :close-on-click-modal="false"
+      >
         <el-form :model="convertForm" label-width="120px">
-          <el-form-item label="商机金额"><el-input v-model.number="convertForm.amount" type="number" placeholder="0" /></el-form-item>
-          <el-form-item label="预计成交时间"><el-date-picker v-model="convertForm.expectedCloseDate" type="date" placeholder="选择日期" style="width: 100%" /></el-form-item>
+          <el-form-item label="商机金额"
+            ><el-input v-model.number="convertForm.amount" type="number" placeholder="0"
+          /></el-form-item>
+          <el-form-item label="预计成交时间"
+            ><el-date-picker
+              v-model="convertForm.expectedCloseDate"
+              type="date"
+              placeholder="选择日期"
+              style="width: 100%"
+          /></el-form-item>
         </el-form>
         <template #footer>
           <el-button @click="convertVisible = false">取消</el-button>
-          <el-button type="primary" @click="submitConvert" :loading="convertLoading">确认转化</el-button>
+          <el-button type="primary" @click="submitConvert" :loading="convertLoading"
+            >确认转化</el-button
+          >
         </template>
       </el-dialog>
     </div>
@@ -147,15 +223,60 @@ import commonApi from '@/api/common'
 const loading = ref(false)
 const list = ref<Lead[]>([])
 const selectedRows = ref<Lead[]>([])
-const filters = reactive<QueryLeadDto>({ search: '', status: undefined, rating: undefined, source: undefined, page: 1, limit: 10 })
+const filters = reactive<QueryLeadDto>({
+  search: '',
+  status: undefined,
+  rating: undefined,
+  source: undefined,
+  page: 1,
+  limit: 10,
+})
 const pagination = reactive({ page: 1, limit: 10, total: 0 })
 
 const createVisible = ref(false)
 const submitLoading = ref(false)
 const formRef = ref()
-const form = reactive<{ name?: string; company?: string; title?: string; phone?: string; email?: string; leadSource?: string; rating?: 'hot'|'warm'|'cold'; industry?: string; level?: string; province?: string; city?: string; district?: string; addressDetail?: string }>({ name: '', company: '', title: '', phone: '', email: '', leadSource: '', rating: 'warm', industry: '', level: '', province: '', city: '', district: '', addressDetail: '' })
+const form = reactive<{
+  name?: string
+  company?: string
+  title?: string
+  phone?: string
+  email?: string
+  leadSource?: string
+  rating?: 'hot' | 'warm' | 'cold'
+  industry?: string
+  level?: string
+  province?: string
+  city?: string
+  district?: string
+  addressDetail?: string
+}>({
+  name: '',
+  company: '',
+  title: '',
+  phone: '',
+  email: '',
+  leadSource: '',
+  rating: 'warm',
+  industry: '',
+  level: '',
+  province: '',
+  city: '',
+  district: '',
+  addressDetail: '',
+})
 
-const regionOptions = ref<any[]>([])
+const regionOptions = ref<
+  Array<{
+    label: string
+    value: string
+    children?: Array<{
+      label: string
+      value: string
+      children?: Array<{ label: string; value: string }>
+    }>
+  }>
+>([])
 const regionValue = ref<string[]>([])
 watch(regionValue, (val) => {
   form.province = val?.[0] || ''
@@ -165,52 +286,125 @@ watch(regionValue, (val) => {
 
 const convertVisible = ref(false)
 const currentLead = ref<Lead | null>(null)
-const convertForm = reactive<{ amount?: number; expectedCloseDate?: string }>({ amount: 0, expectedCloseDate: '' })
+const convertForm = reactive<{ amount?: number; expectedCloseDate?: string }>({
+  amount: 0,
+  expectedCloseDate: '',
+})
 const convertLoading = ref(false)
 
 const sourceOptions = ref<{ key: string; label: string }[]>([])
-const getSourceLabel = (key?: string) => sourceOptions.value.find(s => s.key === key)?.label || '-'
+const getSourceLabel = (key?: string) =>
+  sourceOptions.value.find((s) => s.key === key)?.label || '-'
 const industryOptions = ref<{ key: string; label: string }[]>([])
+const getIndustryLabel = (key?: string) =>
+  industryOptions.value.find((i) => i.key === key)?.label || '-'
 
 const getRatingType = (r?: string) => (r === 'hot' ? 'danger' : r === 'cold' ? 'info' : 'warning')
 const getRatingName = (r?: string) => (r === 'hot' ? '热' : r === 'cold' ? '冷' : '温')
-const getStatusType = (s?: string) => ({ new: 'info', contacted: 'primary', qualified: 'success', unqualified: 'warning', converted: 'success' } as any)[s || 'new']
-const getStatusName = (s?: string) => ({ new: '新建', contacted: '已联系', qualified: '合格', unqualified: '不合格', converted: '已转化' } as any)[s || 'new']
+
+// 获取客户等级颜色
+const getLevelType = (level?: string) => {
+  const colorMap: Record<string, string> = {
+    A: 'success',
+    B: 'primary',
+    C: 'warning',
+    D: 'info',
+  }
+  return colorMap[level || ''] || 'default'
+}
+
+// 获取地区显示
+const getRegionDisplay = (province?: string, city?: string, district?: string) => {
+  const parts = [province, city, district].filter(Boolean)
+  return parts.length > 0 ? parts.join(' / ') : '-'
+}
+const getStatusType = (s?: string) => {
+  const colorMap: Record<string, string> = {
+    new: 'info',
+    contacted: 'primary',
+    qualified: 'success',
+    unqualified: 'warning',
+    converted: 'success',
+  }
+  return colorMap[s || 'new'] || 'default'
+}
+
+const getStatusName = (s?: string) => {
+  const nameMap: Record<string, string> = {
+    new: '新建',
+    contacted: '已联系',
+    qualified: '合格',
+    unqualified: '不合格',
+    converted: '已转化',
+  }
+  return nameMap[s || 'new'] || s || '新建'
+}
 
 const loadSources = async () => {
   try {
     const resp = await leadApi.sources()
-    sourceOptions.value = (resp as any).data || []
-  } catch {}
+    sourceOptions.value =
+      (resp as unknown as { data: Array<{ key: string; label: string }> }).data || []
+  } catch {
+    // 忽略错误
+  }
 }
 const loadIndustries = async () => {
   try {
     const resp = await commonApi.industries()
-    industryOptions.value = (resp as any).data || []
-  } catch {}
+    industryOptions.value =
+      (resp as unknown as { data: Array<{ key: string; label: string }> }).data || []
+  } catch {
+    // 忽略错误
+  }
 }
 
 const loadData = async () => {
   try {
     loading.value = true
-    const resp = await leadApi.getList({ ...filters, page: pagination.page, limit: pagination.limit })
-    const payload: any = (resp as any).data || resp
+    const resp = await leadApi.getList({
+      ...filters,
+      page: pagination.page,
+      limit: pagination.limit,
+    })
+    const payload = (resp as unknown as { data: { leads: Lead[]; total: number } }).data || {
+      leads: [],
+      total: 0,
+    }
     list.value = payload.leads
     pagination.total = payload.total
-  } catch (e) {
+  } catch {
     ElMessage.error('加载线索失败')
   } finally {
     loading.value = false
   }
 }
 
-const handleSearch = () => { pagination.page = 1; loadData() }
-const handleReset = () => { Object.assign(filters, { search: '', status: undefined, rating: undefined, source: undefined }); pagination.page = 1; loadData() }
-const handleSizeChange = (n: number) => { pagination.limit = n; pagination.page = 1; loadData() }
-const handleCurrentChange = (p: number) => { pagination.page = p; loadData() }
-const handleSelectionChange = (rows: Lead[]) => { selectedRows.value = rows }
+const handleSearch = () => {
+  pagination.page = 1
+  loadData()
+}
+const handleReset = () => {
+  Object.assign(filters, { search: '', status: undefined, rating: undefined, source: undefined })
+  pagination.page = 1
+  loadData()
+}
+const handleSizeChange = (n: number) => {
+  pagination.limit = n
+  pagination.page = 1
+  loadData()
+}
+const handleCurrentChange = (p: number) => {
+  pagination.page = p
+  loadData()
+}
+const handleSelectionChange = (rows: Lead[]) => {
+  selectedRows.value = rows
+}
 
-const openCreate = () => { createVisible.value = true }
+const openCreate = () => {
+  createVisible.value = true
+}
 const submitCreate = async () => {
   try {
     submitLoading.value = true
@@ -218,12 +412,17 @@ const submitCreate = async () => {
     ElMessage.success('创建成功')
     createVisible.value = false
     loadData()
-  } catch (e) {
+  } catch {
     ElMessage.error('创建失败')
-  } finally { submitLoading.value = false }
+  } finally {
+    submitLoading.value = false
+  }
 }
 
-const openConvert = (row: Lead) => { currentLead.value = row; convertVisible.value = true }
+const openConvert = (row: Lead) => {
+  currentLead.value = row
+  convertVisible.value = true
+}
 const submitConvert = async () => {
   if (!currentLead.value) return
   try {
@@ -232,17 +431,34 @@ const submitConvert = async () => {
     ElMessage.success('转化成功')
     convertVisible.value = false
     loadData()
-  } catch (e) {
+  } catch {
     ElMessage.error('转化失败')
-  } finally { convertLoading.value = false }
+  } finally {
+    convertLoading.value = false
+  }
 }
 
 onMounted(async () => {
   await Promise.all([loadSources(), loadIndustries()])
   try {
     const resp = await commonApi.regions()
-    regionOptions.value = (resp as any).data || []
-  } catch {}
+    regionOptions.value =
+      (
+        resp as unknown as {
+          data: Array<{
+            label: string
+            value: string
+            children?: Array<{
+              label: string
+              value: string
+              children?: Array<{ label: string; value: string }>
+            }>
+          }>
+        }
+      ).data || []
+  } catch {
+    // 忽略错误
+  }
   await loadData()
 })
 </script>
@@ -250,9 +466,11 @@ onMounted(async () => {
 <style lang="scss" scoped>
 @use '@/styles/common/table-layout.scss';
 
-.lead-management { @extend .table-page; }
+.lead-management {
+  @extend .table-page;
+}
 
-.pagination-section { text-align: right; }
+.pagination-section {
+  text-align: right;
+}
 </style>
-
-

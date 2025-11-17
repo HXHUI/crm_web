@@ -103,7 +103,7 @@
           <el-table-column prop="probability" label="成交概率" width="100" align="center">
             <template #default="{ row }"> {{ row.probability }}% </template>
           </el-table-column>
-          <el-table-column prop="expectedCloseDate" label="预计成交日期" width="150">
+          <el-table-column prop="expectedCloseDate" label="预计成交日期" width="160">
             <template #default="{ row }">
               {{ formatDate(row.expectedCloseDate) }}
             </template>

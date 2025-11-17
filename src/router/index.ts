@@ -78,6 +78,30 @@ const router = createRouter({
           meta: { title: '活动管理' },
         },
         {
+          path: 'products',
+          name: 'Products',
+          component: () => import('@/views/product/ProductList.vue'),
+          meta: { title: '产品管理' },
+        },
+        {
+          path: 'quotes',
+          name: 'Quotes',
+          component: () => import('@/views/quote/QuoteList.vue'),
+          meta: { title: '报价管理' },
+        },
+        {
+          path: 'orders',
+          name: 'Orders',
+          component: () => import('@/views/order/OrderList.vue'),
+          meta: { title: '订单管理' },
+        },
+        {
+          path: 'contracts',
+          name: 'Contracts',
+          component: () => import('@/views/contract/ContractList.vue'),
+          meta: { title: '合同管理' },
+        },
+        {
           path: 'contacts/organization',
           name: 'OrganizationStructure',
           component: () => import('@/views/contacts/OrganizationStructure.vue'),
