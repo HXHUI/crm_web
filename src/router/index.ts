@@ -36,6 +36,12 @@ const router = createRouter({
           redirect: '/dashboard',
         },
         {
+          path: 'calendar',
+          name: 'Calendar',
+          component: () => import('@/views/Calendar.vue'),
+          meta: { title: '日历' },
+        },
+        {
           path: 'dashboard',
           name: 'Dashboard',
           component: () => import('@/views/Dashboard.vue'),
@@ -48,10 +54,22 @@ const router = createRouter({
           meta: { title: '线索管理' },
         },
         {
+          path: 'leads/pool',
+          name: 'LeadPool',
+          component: () => import('@/views/lead/LeadList.vue'),
+          meta: { title: '线索池' },
+        },
+        {
           path: 'customers',
           name: 'Customers',
           component: () => import('@/views/customer/CustomerList.vue'),
           meta: { title: '客户管理' },
+        },
+        {
+          path: 'customers/public',
+          name: 'PublicCustomers',
+          component: () => import('@/views/customer/CustomerList.vue'),
+          meta: { title: '公海客户' },
         },
         {
           path: 'customers/tags',
@@ -66,6 +84,12 @@ const router = createRouter({
           meta: { title: '联系人管理' },
         },
         {
+          path: 'customers/requirements',
+          name: 'CustomerRequirements',
+          component: () => import('@/views/customer/RequirementList.vue'),
+          meta: { title: '需求管理' },
+        },
+        {
           path: 'opportunities',
           name: 'Opportunities',
           component: () => import('@/views/opportunity/OpportunityList.vue'),
@@ -76,6 +100,12 @@ const router = createRouter({
           name: 'Activities',
           component: () => import('@/views/activity/ActivityList.vue'),
           meta: { title: '活动管理' },
+        },
+        {
+          path: 'visits',
+          name: 'Visits',
+          component: () => import('@/views/visit/VisitList.vue'),
+          meta: { title: '拜访管理' },
         },
         {
           path: 'products',
@@ -90,16 +120,16 @@ const router = createRouter({
           meta: { title: '报价管理' },
         },
         {
-          path: 'orders',
-          name: 'Orders',
-          component: () => import('@/views/order/OrderList.vue'),
-          meta: { title: '订单管理' },
-        },
-        {
           path: 'contracts',
           name: 'Contracts',
           component: () => import('@/views/contract/ContractList.vue'),
           meta: { title: '合同管理' },
+        },
+        {
+          path: 'orders',
+          name: 'Orders',
+          component: () => import('@/views/order/OrderList.vue'),
+          meta: { title: '订单管理' },
         },
         {
           path: 'contacts/organization',
@@ -112,6 +142,32 @@ const router = createRouter({
           name: 'ContactRoles',
           component: () => import('@/views/contacts/RoleManagement.vue'),
           meta: { title: '角色管理' },
+        },
+        {
+          path: 'workflow/templates',
+          name: 'WorkflowTemplates',
+          component: () => import('@/views/workflow/WorkflowTemplateList.vue'),
+          meta: { title: '审批流管理' },
+        },
+        {
+          path: 'workflow/my-approvals',
+          component: () => import('@/views/workflow/MyApprovalIndex.vue'),
+          meta: { title: '我的审批' },
+          redirect: '/workflow/my-approvals/pending',
+          children: [
+            {
+              path: 'pending',
+              name: 'PendingApprovals',
+              component: () => import('@/views/workflow/PendingApprovalList.vue'),
+              meta: { title: '待审批' },
+            },
+            {
+              path: 'approved',
+              name: 'ApprovedList',
+              component: () => import('@/views/workflow/ApprovedList.vue'),
+              meta: { title: '已审批' },
+            },
+          ],
         },
         {
           path: 'tenant',
@@ -130,6 +186,12 @@ const router = createRouter({
           name: 'Settings',
           component: () => import('@/views/auth/Settings.vue'),
           meta: { title: '系统设置' },
+        },
+        {
+          path: 'tenant-settings',
+          name: 'TenantSettings',
+          component: () => import('@/views/auth/TenantSettings.vue'),
+          meta: { title: '企业信息' },
         },
       ],
     },

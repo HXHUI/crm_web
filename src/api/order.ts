@@ -8,11 +8,25 @@ export interface OrderItem {
     id: string
     name: string
     code?: string
+    unit?: string
+    auxiliaryUnits?: Array<{
+      unit: string
+      conversionRate: number
+      purpose: 'sales' | 'purchase' | 'internal' | 'external'
+      description?: string
+    }>
   }
   quantity: number
+  packagingUnit?: string  // 包装单位（显示用）
+  packagingSpec?: string   // 包装规格说明（显示用）
   unitPrice: number
+  priceComponents?: Record<string, number>  // 价格组成项（复杂模式）
   amount: number
   discount?: number
+  taxRate?: number  // 税率(%)
+  unitPriceExclTax?: number  // 不含税单价
+  taxAmount?: number  // 税金
+  amountExclTax?: number  // 不含税金额
   notes?: string
   createdAt: string
   updatedAt: string
@@ -25,11 +39,6 @@ export interface Order {
   customer?: {
     id: string
     name: string
-  }
-  quoteId?: string
-  quote?: {
-    id: string
-    quoteNumber: string
   }
   contractId?: string
   contract?: {
@@ -44,7 +53,9 @@ export interface Order {
   orderDate: string
   deliveryDate?: string
   totalAmount: number
-  status: 'pending' | 'confirmed' | 'processing' | 'shipped' | 'delivered' | 'completed' | 'cancelled'
+  totalAmountExclTax?: number  // 不含税总金额
+  totalTaxAmount?: number  // 总税金
+  status: 'draft' | 'pending_approval' | 'approved' | 'active' | 'rejected' | 'pending' | 'confirmed' | 'processing' | 'shipped' | 'delivered' | 'completed' | 'cancelled'
   notes?: string
   ownerId?: string
   owner?: {
@@ -53,6 +64,16 @@ export interface Order {
   }
   items?: OrderItem[]
   tenantId?: string
+  createdBy?: string
+  creator?: {
+    id: string
+    username?: string
+    nickname?: string
+    user?: {
+      id: string
+      username: string
+    }
+  }
   createdAt: string
   updatedAt: string
 }
@@ -60,19 +81,26 @@ export interface Order {
 export interface CreateOrderItemDto {
   productId: number
   quantity: number
+  packagingUnit?: string  // 包装单位（显示用）
+  packagingSpec?: string   // 包装规格说明（显示用）
   unitPrice: number
+  priceComponents?: Record<string, number>  // 价格组成项（复杂模式）
   discount?: number
+  taxRate?: number  // 税率(%)
+  unitPriceExclTax?: number  // 不含税单价
+  taxAmount?: number  // 税金
+  amountExclTax?: number  // 不含税金额
   notes?: string
 }
 
 export interface CreateOrderDto {
-  orderNumber: string
+  orderNumber?: string  // 可选，如果不提供则后端自动生成
   customerId: number
-  quoteId?: number
+  contractId?: number
   opportunityId?: number
   orderDate: string
   deliveryDate?: string
-  status?: 'pending' | 'confirmed' | 'processing' | 'shipped' | 'delivered' | 'completed' | 'cancelled'
+  status?: 'draft' | 'pending_approval' | 'approved' | 'rejected' | 'pending' | 'confirmed' | 'processing' | 'shipped' | 'delivered' | 'completed' | 'cancelled'
   notes?: string
   items: CreateOrderItemDto[]
 }
@@ -80,11 +108,11 @@ export interface CreateOrderDto {
 export interface UpdateOrderDto {
   orderNumber?: string
   customerId?: number
-  quoteId?: number
+  contractId?: number
   opportunityId?: number
   orderDate?: string
   deliveryDate?: string
-  status?: 'pending' | 'confirmed' | 'processing' | 'shipped' | 'delivered' | 'completed' | 'cancelled'
+  status?: 'draft' | 'pending_approval' | 'approved' | 'rejected' | 'pending' | 'confirmed' | 'processing' | 'shipped' | 'delivered' | 'completed' | 'cancelled'
   notes?: string
   items?: CreateOrderItemDto[]
 }
@@ -92,9 +120,8 @@ export interface UpdateOrderDto {
 export interface QueryOrderDto {
   search?: string
   customerId?: number
-  quoteId?: number
   opportunityId?: number
-  status?: 'pending' | 'confirmed' | 'processing' | 'shipped' | 'delivered' | 'completed' | 'cancelled'
+  status?: 'draft' | 'pending_approval' | 'approved' | 'rejected' | 'pending' | 'confirmed' | 'processing' | 'shipped' | 'delivered' | 'completed' | 'cancelled'
   page?: number
   limit?: number
 }
@@ -121,10 +148,6 @@ export const orderApi = {
 
   create: (data: CreateOrderDto): Promise<{ code: number; message: string; data: Order }> => {
     return request.post('/orders', data)
-  },
-
-  createFromQuote: (quoteId: string): Promise<{ code: number; message: string; data: Order }> => {
-    return request.post(`/orders/from-quote/${quoteId}`)
   },
 
   createFromContract: (contractId: string): Promise<{ code: number; message: string; data: Order }> => {

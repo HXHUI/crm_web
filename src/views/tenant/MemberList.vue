@@ -146,7 +146,7 @@ const loading = ref(false)
 // 分页
 const pagination = reactive({
   page: 1,
-  pageSize: 10,
+  pageSize: 50,
   total: 0
 })
 

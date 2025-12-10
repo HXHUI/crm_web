@@ -32,3 +32,13 @@ export const checkPhoneExists = (phone: string): Promise<ApiResponse<{ exists: b
     params: { phone }
   })
 }
+
+// 获取用户可访问的租户列表
+export const getAccessibleTenants = (): Promise<ApiResponse<Tenant[]>> => {
+  return request.get('/auth/tenants')
+}
+
+// 切换租户
+export const switchTenant = (tenantId: string | number): Promise<LoginResponse> => {
+  return request.post('/auth/switch-tenant', { tenantId })
+}

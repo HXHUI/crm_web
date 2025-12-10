@@ -22,9 +22,17 @@ export interface Activity {
     id: string
     name: string
   }
+  contact?: {
+    id: string
+    name: string
+  }
   opportunity?: {
     id: string
     title: string
+  }
+  lead?: {
+    id: string
+    name: string
   }
   owner?: {
     id: string
@@ -40,8 +48,11 @@ export interface CreateActivityDto {
   title: string
   description?: string
   type: 'call' | 'meeting' | 'email' | 'task' | 'note'
-  plannedStartTime: string
+  status?: 'planned' | 'in_progress' | 'completed' | 'cancelled'
+  plannedStartTime?: string
   plannedEndTime?: string
+  actualStartTime?: string
+  actualEndTime?: string
   location?: string
   participants?: string[]
   relatedToType: 'customer' | 'contact' | 'opportunity' | 'lead'
@@ -49,6 +60,7 @@ export interface CreateActivityDto {
   priority?: 'low' | 'medium' | 'high' | 'urgent'
   content?: string
   assignedBy?: string
+  ownerId?: string
 }
 
 export interface UpdateActivityDto {
@@ -66,6 +78,7 @@ export interface UpdateActivityDto {
   priority?: 'low' | 'medium' | 'high' | 'urgent'
   content?: string
   assignedBy?: string
+  ownerId?: string
 }
 
 export interface QueryActivityDto {
@@ -76,6 +89,8 @@ export interface QueryActivityDto {
   relatedToId?: string
   page?: number
   limit?: number
+  sortBy?: string
+  sortOrder?: 'ASC' | 'DESC'
 }
 
 export interface ActivityListResponse {

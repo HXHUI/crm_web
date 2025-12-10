@@ -53,12 +53,20 @@
           v-loading="loading"
           style="width: 100%"
           border
+          show-summary
+          :summary-method="getSummaries"
         >
-          <el-table-column prop="orderNumber" label="订单编号" min-width="150" />
-          <el-table-column prop="customer.name" label="客户" width="150" />
-          <el-table-column prop="quote.quoteNumber" label="关联报价" width="150">
+          <el-table-column type="index" label="序号" width="60" align="center" />
+          <el-table-column prop="orderNumber" label="订单编号" min-width="150">
             <template #default="{ row }">
-              {{ row.quote?.quoteNumber || '-' }}
+              <el-link type="primary" :underline="false" @click="viewOrder(row)" style="cursor: pointer">
+                {{ row.orderNumber }}
+              </el-link>
+            </template>
+          </el-table-column>
+          <el-table-column prop="customer.name" label="客户" width="150" show-overflow-tooltip>
+            <template #default="{ row }">
+              <span class="customer-name">{{ row.customer?.name || '-' }}</span>
             </template>
           </el-table-column>
           <el-table-column prop="contract.contractNumber" label="关联合同" width="150">
@@ -88,16 +96,39 @@
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column prop="owner.username" label="负责人" width="120" />
-          <el-table-column prop="createdAt" label="创建时间" width="180">
+          <el-table-column prop="owner" label="负责人" width="120">
             <template #default="{ row }">
-              {{ formatDate(row.createdAt) }}
+              {{ row.owner?.user?.username || row.owner?.username || '-' }}
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="280" fixed="right">
+          <el-table-column label="部门" width="120">
             <template #default="{ row }">
-              <el-button type="primary" size="small" :icon="View" @click="viewOrder(row)">
-                查看
+              <span v-if="row.department?.name">{{ row.department.name }}</span>
+              <span v-else class="text-gray-400">-</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="创建者" width="120">
+            <template #default="{ row }">
+              {{ row.creator?.user?.username || row.creator?.nickname || '-' }}
+            </template>
+          </el-table-column>
+          <el-table-column prop="createdAt" label="创建时间" width="180">
+            <template #default="{ row }">
+              {{ formatDateTime(row.createdAt) }}
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="250" fixed="right">
+            <template #default="{ row }">
+              <el-button
+                v-if="row.status === 'draft' || row.status === 'rejected'"
+                type="success"
+                size="small"
+                @click="viewOrder(row)"
+              >
+                {{ row.status === 'rejected' ? '重新提交审批' : '提交审批' }}
+              </el-button>
+              <el-button type="info" size="small" :icon="Printer" @click="printOrder(row)">
+                打印
               </el-button>
               <el-button type="warning" size="small" :icon="Edit" @click="editOrder(row)">
                 编辑
@@ -130,213 +161,88 @@
       :title="dialogTitle"
       width="1000px"
       :close-on-click-modal="false"
+      @opened="handleDialogOpened"
     >
-      <el-form ref="formRef" :model="formData" :rules="formRules" label-width="100px">
-        <el-row :gutter="20">
-          <el-col :span="12">
-            <el-form-item label="订单编号" prop="orderNumber">
-              <el-input v-model="formData.orderNumber" placeholder="请输入订单编号" />
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="客户" prop="customerId">
-              <el-select
-                v-model="formData.customerId"
-                placeholder="请选择客户"
-                filterable
-                style="width: 100%"
-                @change="handleCustomerChange"
-              >
-                <el-option
-                  v-for="customer in availableCustomers"
-                  :key="customer.id"
-                  :label="customer.name"
-                  :value="parseInt(customer.id)"
-                />
-              </el-select>
-            </el-form-item>
-          </el-col>
-        </el-row>
-        <el-row :gutter="20">
-          <el-col :span="12">
-            <el-form-item label="关联报价" prop="quoteId">
-              <el-select
-                v-model="formData.quoteId"
-                placeholder="请选择关联报价（可选）"
-                filterable
-                clearable
-                style="width: 100%"
-              >
-                <el-option
-                  v-for="quote in availableQuotes"
-                  :key="quote.id"
-                  :label="quote.quoteNumber"
-                  :value="parseInt(quote.id)"
-                />
-              </el-select>
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="状态" prop="status">
-              <el-select v-model="formData.status" placeholder="请选择状态" style="width: 100%">
-                <el-option label="待处理" value="pending" />
-                <el-option label="已确认" value="confirmed" />
-                <el-option label="处理中" value="processing" />
-                <el-option label="已发货" value="shipped" />
-                <el-option label="已交付" value="delivered" />
-                <el-option label="已完成" value="completed" />
-                <el-option label="已取消" value="cancelled" />
-              </el-select>
-            </el-form-item>
-          </el-col>
-        </el-row>
-        <el-row :gutter="20">
-          <el-col :span="12">
-            <el-form-item label="下单日期" prop="orderDate">
-              <el-date-picker
-                v-model="formData.orderDate"
-                type="date"
-                placeholder="请选择下单日期"
-                style="width: 100%"
-                format="YYYY-MM-DD"
-                value-format="YYYY-MM-DD"
-              />
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="交付日期" prop="deliveryDate">
-              <el-date-picker
-                v-model="formData.deliveryDate"
-                type="date"
-                placeholder="请选择交付日期"
-                style="width: 100%"
-                format="YYYY-MM-DD"
-                value-format="YYYY-MM-DD"
-              />
-            </el-form-item>
-          </el-col>
-        </el-row>
-
-        <!-- 订单明细 -->
-        <el-form-item label="订单明细" prop="items">
-          <div class="order-items-section">
-            <el-table :data="formData.items" border style="width: 100%">
-              <el-table-column label="产品" min-width="200">
-                <template #default="{ row, $index }">
-                  <el-select
-                    v-model="row.productId"
-                    placeholder="请选择产品"
-                    filterable
-                    style="width: 100%"
-                    @change="calculateItemAmount($index)"
-                  >
-                    <el-option
-                      v-for="product in availableProducts"
-                      :key="product.id"
-                      :label="`${product.name} (${product.code || ''})`"
-                      :value="parseInt(product.id)"
-                    />
-                  </el-select>
-                </template>
-              </el-table-column>
-              <el-table-column label="数量" width="120">
-                <template #default="{ row, $index }">
-                  <el-input-number
-                    v-model="row.quantity"
-                    :min="0.01"
-                    :precision="2"
-                    :controls="false"
-                    style="width: 100%"
-                    @change="calculateItemAmount($index)"
+      <OrderForm
+        :key="dialogKey"
+        ref="orderFormRef"
+        :default-customer-id="defaultCustomerId"
+        :order="currentOrder"
+        @submit="(data) => handleOrderSubmitWithStatus(data)"
                   />
-                </template>
-              </el-table-column>
-              <el-table-column label="单价" width="120">
-                <template #default="{ row, $index }">
-                  <el-input-number
-                    v-model="row.unitPrice"
-                    :min="0"
-                    :precision="2"
-                    :controls="false"
-                    style="width: 100%"
-                    @change="calculateItemAmount($index)"
-                  />
-                </template>
-              </el-table-column>
-              <el-table-column label="折扣(%)" width="120">
-                <template #default="{ row, $index }">
-                  <el-input-number
-                    v-model="row.discount"
-                    :min="0"
-                    :max="100"
-                    :precision="2"
-                    :controls="false"
-                    style="width: 100%"
-                    @change="calculateItemAmount($index)"
-                  />
-                </template>
-              </el-table-column>
-              <el-table-column label="金额" width="120" align="right">
-                <template #default="{ row }">
-                  {{ formatCurrency(row.amount) }}
-                </template>
-              </el-table-column>
-              <el-table-column label="操作" width="80" align="center">
-                <template #default="{ $index }">
-                  <el-button
-                    type="danger"
-                    size="small"
-                    :icon="Delete"
-                    @click="removeItem($index)"
-                  />
-                </template>
-              </el-table-column>
-            </el-table>
-            <el-button
-              type="primary"
-              :icon="Plus"
-              @click="addItem"
-              style="margin-top: 10px"
-            >
-              添加明细
-            </el-button>
-            <div class="total-amount">
-              <strong>总金额：{{ formatCurrency(totalAmount) }}</strong>
-            </div>
-          </div>
-        </el-form-item>
-
-        <el-form-item label="备注" prop="notes">
-          <el-input
-            v-model="formData.notes"
-            type="textarea"
-            :rows="3"
-            placeholder="请输入备注"
-          />
-        </el-form-item>
-      </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="submitLoading" @click="handleSubmit">确定</el-button>
+        <el-button
+          v-if="hasWorkflowTemplate"
+          :loading="submitLoading"
+          @click="handleSaveDraft"
+        >
+          保存草稿
+        </el-button>
+        <el-button
+          v-if="hasWorkflowTemplate"
+          type="primary"
+          :loading="submitLoading"
+          @click="handleSubmitApproval"
+        >
+          提交审批
+        </el-button>
+        <el-button
+          v-if="!hasWorkflowTemplate"
+          type="primary"
+          :loading="submitLoading"
+          @click="handleSubmit"
+        >
+          提交
+        </el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 订单详情对话框 -->
+    <OrderDetailDialog
+      v-model="orderDetailDialogVisible"
+      :order-id="currentOrderId"
+      @edit="handleOrderEdit"
+      @updated="handleOrderUpdated"
+    />
+
+    <!-- 打印对话框 -->
+    <el-dialog
+      v-model="printDialogVisible"
+      title="打印订单"
+      width="90%"
+      :close-on-click-modal="false"
+      class="print-dialog"
+    >
+      <OrderPrint
+        v-if="printOrderData"
+        ref="orderPrintRef"
+        :order="printOrderData"
+      />
+      <template #footer>
+        <el-button @click="printDialogVisible = false">关闭</el-button>
+        <el-button type="primary" :icon="Printer" @click="handlePrint">打印</el-button>
       </template>
     </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Search, Refresh, Edit, Delete, View } from '@element-plus/icons-vue'
+import { Plus, Search, Refresh, Edit, Delete, Printer } from '@element-plus/icons-vue'
 import orderApi, {
   type Order,
   type CreateOrderDto,
   type UpdateOrderDto,
   type QueryOrderDto,
-  type CreateOrderItemDto,
 } from '@/api/order'
-import customerApi from '@/api/customer'
-import productApi from '@/api/product'
-import quoteApi from '@/api/quote'
+import OrderForm from '@/components/order/OrderForm.vue'
+import OrderDetailDialog from '@/components/order/OrderDetailDialog.vue'
+import OrderPrint from '@/components/order/OrderPrint.vue'
+import { tenantApi, type TenantPricingConfig } from '@/api/tenant'
+import { useAuthStore } from '@/stores/modules/auth'
+import { getWorkflowTemplates, submitOrderApproval, type WorkflowTemplate } from '@/api/workflow'
 
 // 搜索表单
 const searchForm = reactive({
@@ -351,7 +257,7 @@ const loading = ref(false)
 // 分页
 const pagination = reactive({
   page: 1,
-  pageSize: 10,
+  pageSize: 50,
   total: 0,
 })
 
@@ -359,58 +265,26 @@ const pagination = reactive({
 const dialogVisible = ref(false)
 const dialogTitle = ref('')
 const submitLoading = ref(false)
-const formRef = ref()
-const isEdit = ref(false)
-const currentId = ref<string>('')
+const orderFormRef = ref<InstanceType<typeof OrderForm>>()
+const currentOrder = ref<Order | null>(null)
+const defaultCustomerId = ref<number | undefined>(undefined)
+const dialogKey = ref(0) // 用于强制重新渲染组件
+const authStore = useAuthStore()
 
-// 表单数据
-const formData = reactive<CreateOrderDto>({
-  orderNumber: '',
-  customerId: 0,
-  quoteId: undefined,
-  opportunityId: undefined,
-  orderDate: '',
-  deliveryDate: '',
-  status: 'pending',
-  notes: '',
-  items: [],
+// 价格配置（用于显示价格组成信息）
+const pricingConfig = ref<TenantPricingConfig>({
+  pricingMode: 'simple',
+  priceComponents: [],
 })
-
-// 可用客户、产品和报价列表
-const availableCustomers = ref<Array<{ id: string; name: string }>>([])
-const availableProducts = ref<Array<{ id: string; name: string; code?: string }>>([])
-const availableQuotes = ref<Array<{ id: string; quoteNumber: string }>>([])
-
-// 计算总金额
-const totalAmount = computed(() => {
-  return formData.items.reduce((sum, item) => {
-    return sum + (item.amount || 0)
-  }, 0)
-})
-
-// 表单验证规则
-const formRules = {
-  orderNumber: [{ required: true, message: '请输入订单编号', trigger: 'blur' }],
-  customerId: [{ required: true, message: '请选择客户', trigger: 'change' }],
-  orderDate: [{ required: true, message: '请选择下单日期', trigger: 'change' }],
-  items: [
-    { required: true, message: '请至少添加一条订单明细', trigger: 'change' },
-    {
-      validator: (rule: any, value: any, callback: any) => {
-        if (!value || value.length === 0) {
-          callback(new Error('请至少添加一条订单明细'))
-        } else {
-          callback()
-        }
-      },
-      trigger: 'change',
-    },
-  ],
-}
 
 // 获取状态类型
 const getStatusType = (status: string) => {
   const typeMap: Record<string, string> = {
+    draft: 'info',
+    pending_approval: 'warning',
+    approved: 'success',
+    active: 'success',
+    rejected: 'danger',
     pending: 'info',
     confirmed: 'warning',
     processing: 'primary',
@@ -425,6 +299,11 @@ const getStatusType = (status: string) => {
 // 获取状态名称
 const getStatusName = (status: string) => {
   const nameMap: Record<string, string> = {
+    draft: '草稿',
+    pending_approval: '审批中',
+    approved: '已审批通过',
+    active: '已生效',
+    rejected: '已拒绝',
     pending: '待处理',
     confirmed: '已确认',
     processing: '处理中',
@@ -441,6 +320,18 @@ const formatDate = (dateString: string) => {
   return new Date(dateString).toLocaleDateString('zh-CN')
 }
 
+// 格式化日期时间
+const formatDateTime = (dateString: string) => {
+  return new Date(dateString).toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  })
+}
+
 // 格式化货币
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat('zh-CN', {
@@ -449,6 +340,31 @@ const formatCurrency = (value: number) => {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(value)
+}
+
+// 合计行方法
+const getSummaries = (param: { columns: any[]; data: Order[] }) => {
+  const { columns, data } = param
+  const sums: string[] = []
+  
+  columns.forEach((column, index) => {
+    if (index === 0) {
+      sums[index] = '合计'
+      return
+    }
+    
+    if (column.property === 'totalAmount') {
+      const total = data.reduce((sum, item) => {
+        const amount = Number(item.totalAmount) || 0
+        return sum + amount
+      }, 0)
+      sums[index] = formatCurrency(total)
+    } else {
+      sums[index] = ''
+    }
+  })
+  
+  return sums
 }
 
 // 加载订单列表
@@ -474,41 +390,6 @@ const loadOrders = async () => {
   }
 }
 
-// 加载客户列表
-const loadCustomers = async () => {
-  try {
-    const response = await customerApi.getList({ page: 1, limit: 1000 })
-    if (response.code === 200) {
-      availableCustomers.value = response.data.customers
-    }
-  } catch (error) {
-    console.error('加载客户列表失败:', error)
-  }
-}
-
-// 加载产品列表
-const loadProducts = async () => {
-  try {
-    const response = await productApi.getList({ page: 1, limit: 1000, status: 'active' })
-    if (response.code === 200) {
-      availableProducts.value = response.data.products
-    }
-  } catch (error) {
-    console.error('加载产品列表失败:', error)
-  }
-}
-
-// 加载报价列表
-const loadQuotes = async () => {
-  try {
-    const response = await quoteApi.getList({ page: 1, limit: 1000 })
-    if (response.code === 200) {
-      availableQuotes.value = response.data.quotes
-    }
-  } catch (error) {
-    console.error('加载报价列表失败:', error)
-  }
-}
 
 // 搜索
 const handleSearch = () => {
@@ -537,25 +418,82 @@ const handleCurrentChange = (page: number) => {
 }
 
 // 新增订单
-const goToCreate = () => {
-  isEdit.value = false
+const goToCreate = async () => {
+  currentOrder.value = null
+  defaultCustomerId.value = undefined
   dialogTitle.value = '新增订单'
-  resetForm()
+  await checkWorkflowTemplate()
+  dialogKey.value++ // 增加 key 值，强制重新渲染组件
   dialogVisible.value = true
 }
 
-// 查看订单
-const viewOrder = async (row: Order) => {
+// 加载价格配置
+const loadPricingConfig = async () => {
+  const tenantId = authStore.currentTenant?.id
+  if (!tenantId) {
+    return
+  }
   try {
-    const response = await orderApi.getDetail(row.id)
+    const response = await tenantApi.getPricingConfig(tenantId)
     if (response.code === 200) {
-      // 可以打开详情对话框或跳转到详情页
-      ElMessage.info('查看订单详情功能待实现')
+      pricingConfig.value = response.data
     }
   } catch (error) {
-    console.error('获取订单详情失败:', error)
-    ElMessage.error('获取订单详情失败')
+    console.error('加载价格配置失败:', error)
   }
+}
+
+// 订单详情对话框
+const orderDetailDialogVisible = ref(false)
+const currentOrderId = ref<string | number | undefined>(undefined)
+
+// 打印对话框相关
+const printDialogVisible = ref(false)
+const printOrderData = ref<Order | null>(null)
+const orderPrintRef = ref<InstanceType<typeof OrderPrint>>()
+
+// 审批流模板相关
+const hasWorkflowTemplate = ref(false)
+const workflowTemplates = ref<WorkflowTemplate[]>([])
+const submitStatus = ref<'draft' | 'pending_approval' | 'approved'>('draft')
+
+// 检查是否有审批流模板
+const checkWorkflowTemplate = async () => {
+  try {
+    const response = await getWorkflowTemplates('order') as unknown as {
+      code: number
+      data?: WorkflowTemplate[]
+    }
+    if (response.code === 200) {
+      const activeTemplates = (response.data || []).filter((t: WorkflowTemplate) => t.isActive)
+      workflowTemplates.value = activeTemplates
+      hasWorkflowTemplate.value = activeTemplates.length > 0
+    } else {
+      workflowTemplates.value = []
+      hasWorkflowTemplate.value = false
+    }
+  } catch (error) {
+    console.error('检查审批流模板失败:', error)
+    workflowTemplates.value = []
+    hasWorkflowTemplate.value = false
+  }
+}
+
+// 查看订单
+const viewOrder = (row: Order) => {
+  currentOrderId.value = row.id
+  orderDetailDialogVisible.value = true
+}
+
+// 处理订单编辑
+const handleOrderEdit = (order: Order) => {
+  orderDetailDialogVisible.value = false
+  editOrder(order)
+}
+
+// 处理订单更新
+const handleOrderUpdated = () => {
+  loadOrders()
 }
 
 // 编辑订单
@@ -563,34 +501,50 @@ const editOrder = async (row: Order) => {
   try {
     const response = await orderApi.getDetail(row.id)
     if (response.code === 200) {
-      isEdit.value = true
-      currentId.value = row.id
+      currentOrder.value = response.data
+      defaultCustomerId.value = undefined
       dialogTitle.value = '编辑订单'
-      const order = response.data
-      Object.assign(formData, {
-        orderNumber: order.orderNumber,
-        customerId: parseInt(order.customerId),
-        quoteId: order.quoteId ? parseInt(order.quoteId) : undefined,
-        opportunityId: order.opportunityId ? parseInt(order.opportunityId) : undefined,
-        orderDate: order.orderDate,
-        deliveryDate: order.deliveryDate || '',
-        status: order.status,
-        notes: order.notes || '',
-        items: (order.items || []).map((item: any) => ({
-          productId: parseInt(item.productId),
-          quantity: item.quantity,
-          unitPrice: item.unitPrice,
-          discount: item.discount || 0,
-          amount: item.amount,
-          notes: item.notes || '',
-        })),
-      })
+      await checkWorkflowTemplate()
+      dialogKey.value++ // 增加 key 值，强制重新渲染组件
       dialogVisible.value = true
     }
   } catch (error) {
     console.error('获取订单详情失败:', error)
     ElMessage.error('获取订单详情失败')
   }
+}
+
+// 对话框打开后的处理
+const handleDialogOpened = () => {
+  // 对话框打开后，确保表单已重置
+  nextTick(() => {
+    orderFormRef.value?.resetForm()
+  })
+}
+
+// 打印订单
+const printOrder = async (row: Order) => {
+  try {
+    // 加载完整的订单详情（包含明细）
+    const response = await orderApi.getDetail(row.id)
+    if (response.code === 200 && response.data) {
+      printOrderData.value = response.data
+      printDialogVisible.value = true
+    } else {
+      ElMessage.error('加载订单详情失败')
+    }
+  } catch (error: any) {
+    ElMessage.error(error?.response?.data?.message || '加载订单详情失败')
+  }
+}
+
+// 执行打印
+const handlePrint = () => {
+  nextTick(() => {
+    if (orderPrintRef.value) {
+      orderPrintRef.value.print()
+    }
+  })
 }
 
 // 删除订单
@@ -613,90 +567,135 @@ const deleteOrder = async (row: Order) => {
   }
 }
 
-// 重置表单
-const resetForm = () => {
-  Object.assign(formData, {
-    orderNumber: '',
-    customerId: 0,
-    quoteId: undefined,
-    opportunityId: undefined,
-    orderDate: '',
-    deliveryDate: '',
-    status: 'pending',
-    notes: '',
-    items: [],
-  })
-  formRef.value?.clearValidate()
-}
+// 提交表单
+const handleSubmit = async () => {
+  if (!orderFormRef.value) {
+    ElMessage.warning('表单未初始化')
+    return
+  }
 
-// 添加明细项
-const addItem = () => {
-  formData.items.push({
-    productId: 0,
-    quantity: 1,
-    unitPrice: 0,
-    discount: 0,
-    notes: '',
-  })
-}
-
-// 移除明细项
-const removeItem = (index: number) => {
-  formData.items.splice(index, 1)
-}
-
-// 计算明细项金额
-const calculateItemAmount = (index: number) => {
-  const item = formData.items[index]
-  if (item.quantity && item.unitPrice) {
-    const discount = item.discount || 0
-    item.amount = item.quantity * item.unitPrice * (1 - discount / 100)
+  submitLoading.value = true
+  try {
+    const success = await orderFormRef.value.submit()
+    if (!success) {
+      submitLoading.value = false
+    }
+    // 如果成功，会触发 handleFormSubmit 事件处理函数
+  } catch (error: any) {
+    console.error('提交失败:', error)
+    ElMessage.error(error.message || '提交失败')
+    submitLoading.value = false
   }
 }
 
-// 客户变化时加载相关报价（可选）
-const handleCustomerChange = () => {
-  // 可以在这里加载该客户的报价列表
+// 处理订单表单提交（带状态）
+const handleOrderSubmitWithStatus = async (data: CreateOrderDto | UpdateOrderDto) => {
+  let status: 'draft' | 'pending_approval' | 'approved' = 'draft'
+  let needSubmitApproval = false
+  
+  if (hasWorkflowTemplate.value) {
+    // 有审批流配置，根据按钮类型设置状态
+    if (submitStatus.value === 'pending_approval') {
+      // 提交审批时，先保存为草稿状态，然后通过API提交审批（API会将状态改为pending_approval）
+      status = 'draft'
+      needSubmitApproval = true
+    } else {
+      status = 'draft'
+    }
+  } else {
+    // 没有审批流配置，直接设置为已审批
+    status = 'approved'
+  }
+  
+  await handleOrderSubmit(data, status, needSubmitApproval)
+  // 重置状态
+  submitStatus.value = 'draft'
 }
 
-// 提交表单
-const handleSubmit = async () => {
+// 处理订单表单提交
+const handleOrderSubmit = async (data: CreateOrderDto | UpdateOrderDto, status?: 'draft' | 'pending_approval' | 'approved', needSubmitApproval = false) => {
   try {
-    await formRef.value?.validate()
-
     submitLoading.value = true
 
-    // 确保所有明细项都有金额
-    formData.items.forEach((item, index) => {
-      calculateItemAmount(index)
-    })
+    // 设置状态
+    if (status) {
+      if ('status' in data) {
+        (data as any).status = status
+      } else {
+        (data as any).status = status
+      }
+    }
 
-    if (isEdit.value) {
-      await orderApi.update(currentId.value, formData)
+    let orderId: string | number | undefined
+
+    if (currentOrder.value) {
+      // 编辑模式
+      await orderApi.update(currentOrder.value.id, data as UpdateOrderDto)
+      orderId = currentOrder.value.id
       ElMessage.success('更新成功')
     } else {
-      await orderApi.create(formData)
-      ElMessage.success('创建成功')
+      // 创建模式
+      const response = await orderApi.create(data as CreateOrderDto) as unknown as { code: number; data?: Order }
+      if (response.code === 201 && response.data) {
+        orderId = response.data.id
+        ElMessage.success('创建成功')
+      }
+    }
+
+    // 如果需要提交审批
+    if (needSubmitApproval && orderId && workflowTemplates.value.length > 0) {
+      try {
+        const templateId = workflowTemplates.value[0].id
+        await submitOrderApproval(Number(orderId), {
+          templateId,
+        })
+        ElMessage.success('提交审批成功')
+      } catch (error) {
+        console.error('提交审批失败:', error)
+        ElMessage.error('提交审批失败')
+      }
     }
 
     dialogVisible.value = false
     loadOrders()
   } catch (error: any) {
-    if (error !== false) {
-      console.error('提交失败:', error)
-      ElMessage.error(error.message || '提交失败')
-    }
+    console.error('提交失败:', error)
+    ElMessage.error(error?.response?.data?.message || error?.message || '提交失败')
   } finally {
     submitLoading.value = false
+  }
+}
+
+// 保存草稿
+const handleSaveDraft = async () => {
+  if (!orderFormRef.value) {
+    ElMessage.warning('表单未初始化')
+    return
+  }
+  submitStatus.value = 'draft'
+  const success = await orderFormRef.value.submit()
+  if (!success) {
+    submitStatus.value = 'draft'
+  }
+}
+
+// 提交审批
+const handleSubmitApproval = async () => {
+  if (!orderFormRef.value) {
+    ElMessage.warning('表单未初始化')
+    return
+  }
+  submitStatus.value = 'pending_approval'
+  const success = await orderFormRef.value.submit()
+  if (!success) {
+    submitStatus.value = 'draft'
   }
 }
 
 // 初始化
 onMounted(() => {
   loadOrders()
-  loadCustomers()
-  loadProducts()
-  loadQuotes()
+  loadPricingConfig()
 })
 </script>
 
@@ -707,15 +706,12 @@ onMounted(() => {
   @extend .table-page;
 }
 
-.order-items-section {
-  width: 100%;
-}
-
-.total-amount {
-  margin-top: 10px;
-  text-align: right;
-  font-size: 16px;
-  color: var(--el-color-primary);
+.customer-name {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 </style>
 

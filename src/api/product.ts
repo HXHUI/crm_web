@@ -7,6 +7,12 @@ export interface Product {
   category?: string
   specification?: string
   unit?: string
+  auxiliaryUnits?: Array<{
+    unit: string
+    conversionRate: number
+    purpose: 'sales' | 'purchase' | 'internal' | 'external'
+    description?: string
+  }>
   price?: number
   costPrice?: number
   status: 'active' | 'inactive'
@@ -16,6 +22,8 @@ export interface Product {
   tenantId?: string
   createdAt: string
   updatedAt: string
+  // 动态分类字段（根据租户配置的分类字段动态添加）
+  [key: string]: any
 }
 
 export interface CreateProductDto {
@@ -24,6 +32,12 @@ export interface CreateProductDto {
   category?: string
   specification?: string
   unit?: string
+  auxiliaryUnits?: Array<{
+    unit: string
+    conversionRate: number
+    purpose: 'sales' | 'purchase' | 'internal' | 'external'
+    description?: string
+  }>
   price?: number
   costPrice?: number
   status?: 'active' | 'inactive'
@@ -38,6 +52,12 @@ export interface UpdateProductDto {
   category?: string
   specification?: string
   unit?: string
+  auxiliaryUnits?: Array<{
+    unit: string
+    conversionRate: number
+    purpose: 'sales' | 'purchase' | 'internal' | 'external'
+    description?: string
+  }>
   price?: number
   costPrice?: number
   status?: 'active' | 'inactive'

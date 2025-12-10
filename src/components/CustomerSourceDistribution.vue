@@ -15,16 +15,6 @@
     <div class="chart-content" v-if="sourceData && sourceData.length > 0">
       <div class="pie-chart-container">
         <div class="pie-chart" ref="pieChartRef"></div>
-        <div class="chart-legend">
-          <div v-for="(item, index) in sourceData" :key="item.source" class="legend-item">
-            <div class="legend-color" :style="{ backgroundColor: getSourceColor(index) }"></div>
-            <div class="legend-text">
-              <div class="legend-name">{{ getSourceLabel(item.source) }}</div>
-              <div class="legend-count">{{ item.count }}个 ({{ item.percentage }}%)</div>
-            </div>
-            +
-          </div>
-        </div>
       </div>
     </div>
 
@@ -332,58 +322,14 @@ onUnmounted(() => {
 }
 
 .pie-chart-container {
-  display: flex;
-  align-items: center;
-  gap: 24px;
-  min-height: 300px;
+  width: 100%;
+  min-height: 400px;
 }
 
 .pie-chart {
-  flex: 1;
-  height: 300px;
+  width: 100%;
+  height: 400px;
   min-width: 300px;
-}
-
-.chart-legend {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  min-width: 200px;
-}
-
-.legend-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  background: #f8f9fa;
-  border-radius: 6px;
-  border: 1px solid #e9ecef;
-}
-
-.legend-color {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.legend-text {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  flex: 1;
-}
-
-.legend-name {
-  font-size: 13px;
-  font-weight: 600;
-  color: #303133;
-}
-
-.legend-count {
-  font-size: 11px;
-  color: #909399;
 }
 
 .loading-state,
@@ -418,38 +364,19 @@ onUnmounted(() => {
   }
 
   .pie-chart-container {
-    flex-direction: column;
-    align-items: center;
-    gap: 16px;
+    min-height: 350px;
   }
 
   .pie-chart {
     min-width: 250px;
-    height: 250px;
-  }
-
-  .chart-legend {
-    min-width: auto;
-    width: 100%;
+    height: 350px;
   }
 }
 
 @media (max-width: 480px) {
   .pie-chart {
     min-width: 200px;
-    height: 200px;
-  }
-
-  .legend-item {
-    padding: 6px 10px;
-  }
-
-  .legend-name {
-    font-size: 12px;
-  }
-
-  .legend-count {
-    font-size: 10px;
+    height: 300px;
   }
 }
 </style>

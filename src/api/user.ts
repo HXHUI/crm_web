@@ -38,6 +38,7 @@ export interface UpdateUserDto {
 
 export interface UpdateUserProfileDto {
   avatar?: string
+  username?: string
   phone?: string
   email?: string
 }
@@ -91,6 +92,13 @@ export const userApi = {
   // 获取用户成员记录
   getMembers: (id: string): Promise<{ code: number; message: string; data: any }> => {
     return request.get(`/users/${id}/members`)
+  },
+
+  // 上传头像
+  uploadAvatar: (file: File): Promise<{ code: number; message: string; data: { url: string; filename: string } }> => {
+    const formData = new FormData()
+    formData.append('avatar', file)
+    return request.post('/upload/avatar', formData)
   }
 }
 

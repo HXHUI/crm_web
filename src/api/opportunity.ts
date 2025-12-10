@@ -143,6 +143,13 @@ export const opportunityApi = {
 
   // 获取商机统计
   getStats: () => request.get<{ code: number; message: string; data: any }>('/opportunities/stats'),
+
+  // 获取即将成交的商机
+  getUpcomingClose: (
+    days?: number,
+  ): Promise<{ code: number; message: string; data: Array<Opportunity & { daysRemaining: number }> }> => {
+    return request.get('/opportunities/upcoming-close', { params: days ? { days } : {} })
+  },
 }
 
 export default opportunityApi

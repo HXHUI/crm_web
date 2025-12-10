@@ -75,6 +75,7 @@
           @selection-change="handleSelectionChange"
           style="width: 100%"
           border
+          :default-sort="{ prop: 'plannedStartTime', order: 'descending' }"
         >
           <el-table-column type="selection" width="55" />
           <el-table-column prop="title" label="活动标题" min-width="200" show-overflow-tooltip />
@@ -92,17 +93,67 @@
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column prop="plannedStartTime" label="计划时间" width="180">
+          <el-table-column prop="plannedStartTime" label="计划开始时间" width="180" sortable="custom" @sort-change="handleSortChange">
             <template #default="{ row }">
-              {{ formatDate(row.plannedStartTime) }}
+              <span v-if="row.plannedStartTime">{{ formatDate(row.plannedStartTime) }}</span>
+              <span v-else class="text-gray-400">-</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="计划时长" width="100" align="center">
+            <template #default="{ row }">
+              <span v-if="row.plannedStartTime && row.plannedEndTime">
+                {{ calculateDuration(row.plannedStartTime, row.plannedEndTime) }}
+              </span>
+              <span v-else class="text-gray-400">-</span>
+            </template>
+          </el-table-column>
+          <el-table-column prop="actualStartTime" label="实际开始时间" width="180" sortable="custom" @sort-change="handleSortChange">
+            <template #default="{ row }">
+              <span v-if="row.actualStartTime">{{ formatDate(row.actualStartTime) }}</span>
+              <span v-else class="text-gray-400">-</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="实际时长" width="100" align="center">
+            <template #default="{ row }">
+              <span v-if="row.actualStartTime && row.actualEndTime">
+                {{ calculateDuration(row.actualStartTime, row.actualEndTime) }}
+              </span>
+              <span v-else class="text-gray-400">-</span>
             </template>
           </el-table-column>
           <el-table-column label="关联主体" width="200" show-overflow-tooltip>
             <template #default="{ row }">
-              <span
-                >{{ getRelatedToName(row.relatedToType) }}:
-                {{ row.customer?.name || row.opportunity?.title || row.relatedToId }}</span
-              >
+              <span>
+                {{ getRelatedToName(row.relatedToType) }}:
+                {{
+                  row.customer?.name ||
+                  row.contact?.name ||
+                  row.opportunity?.title ||
+                  row.lead?.name ||
+                  row.relatedToId ||
+                  '-'
+                }}
+              </span>
+            </template>
+          </el-table-column>
+          <el-table-column prop="location" label="活动地点" width="150" show-overflow-tooltip>
+            <template #default="{ row }">
+              <span v-if="row.location">{{ row.location }}</span>
+              <span v-else class="text-gray-400">-</span>
+            </template>
+          </el-table-column>
+          <el-table-column prop="outcome" label="活动结果" width="150" show-overflow-tooltip>
+            <template #default="{ row }">
+              <span v-if="row.outcome">{{ row.outcome }}</span>
+              <span v-else class="text-gray-400">-</span>
+            </template>
+          </el-table-column>
+          <el-table-column prop="participants" label="活动参与者" width="150" show-overflow-tooltip>
+            <template #default="{ row }">
+              <span v-if="row.participants && row.participants.length > 0">
+                {{ formatParticipants(row.participants) }}
+              </span>
+              <span v-else class="text-gray-400">-</span>
             </template>
           </el-table-column>
           <el-table-column prop="priority" label="优先级" width="100" align="center">
@@ -112,15 +163,28 @@
               }}</el-tag>
             </template>
           </el-table-column>
+          <el-table-column prop="content" label="活动详细内容" min-width="200" show-overflow-tooltip>
+            <template #default="{ row }">
+              <span v-if="row.content">{{ row.content }}</span>
+              <span v-else-if="row.description">{{ row.description }}</span>
+              <span v-else class="text-gray-400">-</span>
+            </template>
+          </el-table-column>
           <el-table-column prop="owner.username" label="负责人" width="120" show-overflow-tooltip>
             <template #default="{ row }">
               <span v-if="row.owner">{{ row.owner.username }}</span>
               <span v-else class="text-gray-400">-</span>
             </template>
           </el-table-column>
+          <el-table-column label="部门" width="120">
+            <template #default="{ row }">
+              <span v-if="row.department?.name">{{ row.department.name }}</span>
+              <span v-else class="text-gray-400">-</span>
+            </template>
+          </el-table-column>
           <el-table-column label="操作" width="200" fixed="right">
             <template #default="{ row }">
-              <el-button type="primary" size="small" @click="viewActivity(row)">查看</el-button>
+              <el-button type="primary" size="small" @click="viewActivity()">查看</el-button>
               <el-button type="warning" size="small" @click="editActivity(row)">编辑</el-button>
               <el-button type="danger" size="small" @click="deleteActivity(row)">删除</el-button>
             </template>
@@ -146,98 +210,20 @@
     <el-dialog
       v-model="dialogVisible"
       :title="dialogTitle"
-      width="600px"
+      width="650px"
       :close-on-click-modal="false"
     >
-      <el-form ref="formRef" :model="formData" :rules="formRules" label-width="100px">
-        <el-form-item label="活动标题" prop="title">
-          <el-input v-model="formData.title" placeholder="请输入活动标题" />
-        </el-form-item>
-        <el-form-item label="活动描述" prop="description">
-          <el-input
-            v-model="formData.description"
-            type="textarea"
-            :rows="3"
-            placeholder="请输入活动描述"
+      <ActivityForm
+        v-if="dialogVisible"
+        ref="activityFormRef"
+        :activity="currentActivity"
+        @submit="handleActivitySubmit"
+        @cancel="dialogVisible = false"
           />
-        </el-form-item>
-        <el-form-item label="活动类型" prop="type">
-          <el-select v-model="formData.type" placeholder="请选择活动类型" style="width: 100%">
-            <el-option label="电话" value="call" />
-            <el-option label="会议" value="meeting" />
-            <el-option label="邮件" value="email" />
-            <el-option label="任务" value="task" />
-            <el-option label="备注" value="note" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="计划开始时间" prop="plannedStartTime">
-          <el-date-picker
-            v-model="formData.plannedStartTime"
-            type="datetime"
-            placeholder="选择计划开始时间"
-            style="width: 100%"
-          />
-        </el-form-item>
-        <el-form-item label="计划结束时间" prop="plannedEndTime">
-          <el-date-picker
-            v-model="formData.plannedEndTime"
-            type="datetime"
-            placeholder="选择计划结束时间"
-            style="width: 100%"
-          />
-        </el-form-item>
-        <el-form-item label="活动地点" prop="location">
-          <el-input v-model="formData.location" placeholder="请输入活动地点" />
-        </el-form-item>
-        <el-form-item label="关联类型" prop="relatedToType">
-          <el-select
-            v-model="formData.relatedToType"
-            placeholder="请选择关联类型"
-            style="width: 100%"
-          >
-            <el-option label="客户" value="customer" />
-            <el-option label="联系人" value="contact" />
-            <el-option label="商机" value="opportunity" />
-            <el-option label="线索" value="lead" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="关联对象" prop="relatedToId">
-          <el-select
-            v-model="formData.relatedToId"
-            placeholder="请选择关联对象"
-            filterable
-            clearable
-            style="width: 100%"
-          >
-            <el-option
-              v-for="opt in relatedOptions"
-              :key="opt.id"
-              :label="opt.name || opt.title"
-              :value="opt.id"
-            />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="优先级" prop="priority">
-          <el-select v-model="formData.priority" placeholder="请选择优先级" style="width: 100%">
-            <el-option label="低" value="low" />
-            <el-option label="中" value="medium" />
-            <el-option label="高" value="high" />
-            <el-option label="紧急" value="urgent" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="执行笔记" prop="content">
-          <el-input
-            v-model="formData.content"
-            type="textarea"
-            :rows="3"
-            placeholder="可记录执行细节/完成笔记"
-          />
-        </el-form-item>
-      </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="submitLoading" @click="handleSubmit">
-          {{ formData.id ? '更新' : '创建' }}
+        <el-button type="primary" :loading="submitLoading" @click="handleFormSubmit">
+          {{ currentActivity ? '更新' : '创建' }}
         </el-button>
       </template>
     </el-dialog>
@@ -245,8 +231,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, computed, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, reactive, onMounted, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Search, Refresh, Delete } from '@element-plus/icons-vue'
 import {
@@ -255,10 +240,8 @@ import {
   type CreateActivityDto,
   type UpdateActivityDto,
 } from '@/api/activity'
-import { customerApi } from '@/api/customer'
-import { opportunityApi } from '@/api/opportunity'
+import ActivityForm from '@/components/activity/ActivityForm.vue'
 
-const router = useRouter()
 
 // 搜索表单
 const searchForm = reactive({
@@ -269,6 +252,12 @@ const searchForm = reactive({
   relatedToId: '',
 })
 
+// 排序参数（初始为空，使用后端默认排序）
+const sortParams = reactive({
+  prop: '',
+  order: '' as '' | 'ascending' | 'descending',
+})
+
 // 活动列表
 const activities = ref<Activity[]>([])
 const loading = ref(false)
@@ -277,7 +266,7 @@ const selectedRows = ref<Activity[]>([])
 // 分页
 const pagination = reactive({
   page: 1,
-  pageSize: 10,
+  pageSize: 50,
   total: 0,
 })
 
@@ -285,54 +274,8 @@ const pagination = reactive({
 const dialogVisible = ref(false)
 const dialogTitle = ref('')
 const submitLoading = ref(false)
-const formRef = ref()
-
-// 表单数据
-const formData = reactive<CreateActivityDto & { id?: string }>({
-  title: '',
-  description: '',
-  type: 'call',
-  plannedStartTime: '',
-  plannedEndTime: '',
-  location: '',
-  relatedToType: 'customer',
-  relatedToId: '',
-  priority: 'medium',
-  content: '',
-})
-
-// 表单验证规则
-const formRules = {
-  title: [{ required: true, message: '请输入活动标题', trigger: 'blur' }],
-  type: [{ required: true, message: '请选择活动类型', trigger: 'change' }],
-  plannedStartTime: [{ required: true, message: '请选择计划开始时间', trigger: 'change' }],
-}
-
-// 选项数据
-const customerOptions = ref<Array<{ id: string; name: string }>>([])
-const opportunityOptions = ref<Array<{ id: string; title: string }>>([])
-const relatedOptions = ref<Array<any>>([])
-
-// 根据选择的客户过滤商机选项
-watch(
-  () => formData.relatedToType,
-  (t) => {
-    if (t === 'customer') relatedOptions.value = customerOptions.value
-    else if (t === 'opportunity') relatedOptions.value = opportunityOptions.value
-    else relatedOptions.value = []
-    formData.relatedToId = ''
-  },
-)
-
-// 监听关联类型变化，清空关联对象选择
-watch(
-  () => formData.relatedToType,
-  (newType, oldType) => {
-    if (newType !== oldType) {
-      formData.relatedToId = ''
-    }
-  },
-)
+const activityFormRef = ref<InstanceType<typeof ActivityForm>>()
+const currentActivity = ref<Activity | null>(null)
 
 // 获取类型颜色
 const getTypeColor = (type: string) => {
@@ -362,6 +305,7 @@ const getTypeName = (type: string) => {
 const getStatusColor = (status: string) => {
   const colorMap: Record<string, string> = {
     planned: 'warning',
+    in_progress: 'primary',
     completed: 'success',
     cancelled: 'danger',
   }
@@ -372,6 +316,7 @@ const getStatusColor = (status: string) => {
 const getStatusName = (status: string) => {
   const nameMap: Record<string, string> = {
     planned: '计划中',
+    in_progress: '进行中',
     completed: '已完成',
     cancelled: '已取消',
   }
@@ -413,14 +358,55 @@ const getPriorityColor = (priority: string) => {
 
 // 格式化日期
 const formatDate = (dateString: string) => {
+  if (!dateString) return '-'
   return new Date(dateString).toLocaleString('zh-CN')
+}
+
+// 计算时长（分钟）
+const calculateDuration = (startTime: string, endTime: string): string => {
+  if (!startTime || !endTime) return '-'
+  const start = new Date(startTime)
+  const end = new Date(endTime)
+  const diffMinutes = Math.round((end.getTime() - start.getTime()) / (1000 * 60))
+
+  if (diffMinutes < 60) {
+    return `${diffMinutes}分钟`
+  } else if (diffMinutes < 1440) {
+    const hours = Math.floor(diffMinutes / 60)
+    const minutes = diffMinutes % 60
+    return minutes > 0 ? `${hours}小时${minutes}分钟` : `${hours}小时`
+  } else {
+    const days = Math.floor(diffMinutes / 1440)
+    const hours = Math.floor((diffMinutes % 1440) / 60)
+    return hours > 0 ? `${days}天${hours}小时` : `${days}天`
+  }
+}
+
+// 格式化参与者
+const formatParticipants = (participants: string[] | number[]): string => {
+  if (!participants || participants.length === 0) return '-'
+  // 如果参与者是ID数组，可能需要转换为名称，这里先简单显示数量
+  if (participants.length <= 3) {
+    return participants.join(', ')
+  }
+  return `${participants.slice(0, 3).join(', ')} 等${participants.length}人`
 }
 
 // 加载活动列表
 const loadActivities = async () => {
   try {
     loading.value = true
-    const params = {
+    const params: {
+      title?: string
+      type?: string
+      status?: string
+      relatedToType?: string
+      relatedToId?: string
+      page: number
+      limit: number
+      sortBy?: string
+      sortOrder?: 'ASC' | 'DESC'
+    } = {
       title: searchForm.title || undefined,
       type: searchForm.type || undefined,
       status: searchForm.status || undefined,
@@ -430,32 +416,40 @@ const loadActivities = async () => {
       limit: pagination.pageSize,
     }
 
+    // 添加排序参数
+    if (sortParams.prop && sortParams.order) {
+      params.sortBy = sortParams.prop
+      params.sortOrder = sortParams.order === 'ascending' ? 'ASC' : 'DESC'
+    } else {
+      // 清除排序参数
+      params.sortBy = undefined
+      params.sortOrder = undefined
+    }
+
     const response = await activityApi.getList(params)
     activities.value = response.data.activities
     pagination.total = response.data.total
-  } catch (error) {
+  } catch {
     ElMessage.error('加载活动列表失败')
   } finally {
     loading.value = false
   }
 }
 
-// 加载选项数据
-const loadOptions = async () => {
-  try {
-    const customerResponse = await customerApi.getList({ page: 1, limit: 1000 })
-    customerOptions.value = (customerResponse.data.customers || []).map((c: any) => ({
-      id: c.id,
-      name: c.name,
-    }))
-    const opportunityResponse = await opportunityApi.getList({ page: 1, limit: 1000 })
-    opportunityOptions.value = ((opportunityResponse.data as any).opportunities || []).map(
-      (o: any) => ({ id: o.id, title: o.title }),
-    )
-  } catch (error) {
-    console.error('加载选项数据失败:', error)
+// 处理排序变化
+const handleSortChange = ({ prop, order }: { prop: string | null; order: string | null }) => {
+  if (prop && order) {
+    sortParams.prop = prop
+    sortParams.order = order as 'ascending' | 'descending'
+  } else {
+    // 取消排序
+    sortParams.prop = ''
+    sortParams.order = ''
   }
+  pagination.page = 1
+  loadActivities()
 }
+
 
 // 搜索
 const handleSearch = () => {
@@ -494,7 +488,7 @@ const handleSelectionChange = (selection: Activity[]) => {
 }
 
 // 查看活动
-const viewActivity = (activity: Activity) => {
+const viewActivity = () => {
   // 可以打开详情模态框或跳转到详情页
   ElMessage.info('查看活动功能待实现')
 }
@@ -502,19 +496,7 @@ const viewActivity = (activity: Activity) => {
 // 编辑活动
 const editActivity = (activity: Activity) => {
   dialogTitle.value = '编辑活动'
-  Object.assign(formData, {
-    id: activity.id,
-    title: activity.title,
-    description: activity.description || '',
-    type: activity.type,
-    plannedStartTime: activity.plannedStartTime,
-    plannedEndTime: activity.plannedEndTime || '',
-    location: activity.location || '',
-    relatedToType: (activity as any).relatedToType || 'customer',
-    relatedToId: (activity as any).relatedToId || '',
-    priority: (activity as any).priority || 'medium',
-    content: (activity as any).content || '',
-  })
+  currentActivity.value = activity
   dialogVisible.value = true
 }
 
@@ -530,7 +512,7 @@ const deleteActivity = async (activity: Activity) => {
     await activityApi.delete(activity.id)
     ElMessage.success('删除成功')
     loadActivities()
-  } catch (error) {
+  } catch {
     // 用户取消操作
   }
 }
@@ -553,76 +535,67 @@ const handleBatchDelete = async () => {
     await activityApi.deleteBatch(ids)
     ElMessage.success('批量删除成功')
     loadActivities()
-  } catch (error) {
+  } catch {
     // 用户取消操作
   }
 }
 
-// 打开创建模态框
-const goToCreate = () => {
-  dialogTitle.value = '新增活动'
-  resetForm()
-  dialogVisible.value = true
+// 处理表单提交
+const handleFormSubmit = async () => {
+  if (!activityFormRef.value) return
+  await activityFormRef.value.submit()
+  // submit 事件会在 handleActivitySubmit 中处理
 }
 
-// 重置表单
-const resetForm = () => {
-  Object.assign(formData, {
-    id: undefined,
-    title: '',
-    description: '',
-    type: 'call',
-    plannedStartTime: '',
-    plannedEndTime: '',
-    location: '',
-    relatedToType: 'customer',
-    relatedToId: '',
-    priority: 'medium',
-    content: '',
-  })
-  formRef.value?.clearValidate()
-}
-
-// 提交表单
-const handleSubmit = async () => {
-  if (!formRef.value) return
-
+// 处理活动提交
+const handleActivitySubmit = async (data: CreateActivityDto | UpdateActivityDto | CreateActivityDto[]) => {
   try {
-    await formRef.value.validate()
     submitLoading.value = true
 
-    const submitData = {
-      ...formData,
-      plannedStartTime: formData.plannedStartTime
-        ? new Date(formData.plannedStartTime).toISOString()
-        : '',
-      plannedEndTime: formData.plannedEndTime
-        ? new Date(formData.plannedEndTime).toISOString()
-        : undefined,
-    }
-
-    if (formData.id) {
-      // 更新活动
-      await activityApi.update(formData.id, submitData as UpdateActivityDto)
+    if (currentActivity.value) {
+      // 更新活动（单条）
+      await activityApi.update(currentActivity.value.id, data as UpdateActivityDto)
       ElMessage.success('更新活动成功')
     } else {
-      // 创建活动
-      await activityApi.create(submitData as CreateActivityDto)
+      // 创建活动（可能多条）
+      if (Array.isArray(data)) {
+        // 多负责人：创建多条活动
+        const promises = data.map((activityData) => activityApi.create(activityData))
+        await Promise.all(promises)
+        ElMessage.success(`成功创建 ${data.length} 条活动`)
+      } else {
+        // 单负责人：创建一条活动
+        await activityApi.create(data as CreateActivityDto)
       ElMessage.success('创建活动成功')
+      }
     }
 
     dialogVisible.value = false
+    currentActivity.value = null
     loadActivities()
   } catch (error) {
-    // 表单验证失败或其他错误
+    console.error('保存活动失败:', error)
+    ElMessage.error('保存失败')
   } finally {
     submitLoading.value = false
   }
 }
 
+
+// 打开创建模态框
+const goToCreate = () => {
+  dialogTitle.value = '新增活动'
+  currentActivity.value = null
+  dialogVisible.value = true
+  // 等待组件渲染后重置表单
+  nextTick(() => {
+    activityFormRef.value?.resetForm()
+  })
+}
+
+
 onMounted(() => {
   loadActivities()
-  loadOptions()
 })
 </script>
 

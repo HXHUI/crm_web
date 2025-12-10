@@ -17,11 +17,6 @@
     <div class="brief-cards">
       <div class="brief-card" v-for="(item, key) in briefData" :key="key">
         <div class="card-header">
-          <div class="card-icon" :class="getCardIconClass(key)">
-            <el-icon>
-              <component :is="getCardIcon(key)" />
-            </el-icon>
-          </div>
           <div class="card-content">
             <div class="card-title">{{ getCardTitle(key) }}</div>
             <div class="card-value">{{ formatValue(item.current, key) }}</div>
@@ -35,11 +30,14 @@
               </span>
             </div>
           </div>
+          <div class="card-icon" :class="getCardIconClass(key)">
+            <el-icon>
+              <component :is="getCardIcon(key)" />
+            </el-icon>
+          </div>
         </div>
         <div class="card-chart">
-          <div class="mini-chart" :class="getChartClass(item.changePercent)">
-            <div class="chart-bar" v-for="i in 7" :key="i" :style="{ height: getBarHeight(i, item.changePercent) + '%' }"></div>
-          </div>
+          <div class="line-chart" :ref="el => setChartRef(el, key)" :id="`chart-${key}`"></div>
         </div>
       </div>
     </div>
@@ -47,8 +45,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
-import { statisticsApi, type SalesBriefData } from '@/api/statistics'
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
+import { statisticsApi, type SalesBriefData, type SalesBriefTrendData } from '@/api/statistics'
 import { 
   User, 
   Notebook, 
@@ -59,11 +57,14 @@ import {
   ArrowUp,
   ArrowDown
 } from '@element-plus/icons-vue'
+import * as echarts from 'echarts'
 
 // Props
 const props = defineProps<{
   scopeFilter?: string
+  parsedScopeFilter?: { type: 'me_and_subordinates' | 'all' | 'department' | 'member'; departmentId?: number; memberId?: number }
   periodFilter?: string
+  customDateRange?: [string, string] | null
 }>()
 
 // 默认值
@@ -72,10 +73,25 @@ const periodFilter = computed(() => props.periodFilter || 'month')
 
 // 数据
 const briefData = ref<SalesBriefData | null>(null)
+const trendData = ref<SalesBriefTrendData | null>(null)
 const loading = ref(false)
+const chartInstances = ref<Map<string, echarts.ECharts>>(new Map())
+const chartRefs = ref<Map<string, HTMLElement>>(new Map())
 
 // 计算属性
 const scopeFilterText = computed(() => {
+  if (props.parsedScopeFilter) {
+    const { type, departmentId, memberId } = props.parsedScopeFilter
+    if (type === 'department' && departmentId) {
+      return '部门'
+    }
+    if (type === 'member' && memberId) {
+      return '用户'
+    }
+    if (type === 'all') {
+      return '全部'
+    }
+  }
   const map: Record<string, string> = {
     me_and_subordinates: '本人及下属',
     all: '全部'
@@ -88,7 +104,15 @@ const periodFilterText = computed(() => {
     week: '本周',
     month: '本月',
     quarter: '本季度',
-    year: '本年'
+    year: '本年',
+    last_week: '上周',
+    last_month: '上月',
+    last_quarter: '上季度',
+    last_year: '上年',
+    custom: '自定义期间'
+  }
+  if (periodFilter.value === 'custom' && props.customDateRange && props.customDateRange.length === 2) {
+    return `${props.customDateRange[0]} 至 ${props.customDateRange[1]}`
   }
   return map[periodFilter.value] || '本月'
 })
@@ -97,8 +121,36 @@ const periodFilterText = computed(() => {
 const loadSalesBrief = async () => {
   try {
     loading.value = true
-    const response = await statisticsApi.getSalesBriefs(periodFilter.value as 'week' | 'month' | 'quarter' | 'year')
-    briefData.value = response.data
+    // 始终使用租户视图，因为顶部导航选择租户时已经确定了数据范围
+    const period = periodFilter.value as 'week' | 'month' | 'quarter' | 'year' | 'last_week' | 'last_month' | 'last_quarter' | 'last_year' | 'custom'
+    const params: any = {
+      period,
+      viewType: 'tenant'
+    }
+    
+    // 如果是自定义期间，传递日期范围
+    if (period === 'custom' && props.customDateRange && props.customDateRange.length === 2) {
+      params.startDate = props.customDateRange[0]
+      params.endDate = props.customDateRange[1]
+    }
+    
+    const [briefResponse, trendResponse] = await Promise.all([
+      statisticsApi.getSalesBriefs(
+        period, 
+        'tenant', 
+        params.startDate, 
+        params.endDate,
+        props.parsedScopeFilter?.type,
+        props.parsedScopeFilter?.departmentId,
+        props.parsedScopeFilter?.memberId,
+      ),
+      statisticsApi.getSalesBriefsTrend('tenant')
+    ])
+    briefData.value = briefResponse.data
+    trendData.value = trendResponse.data
+    // 数据加载后，初始化或更新图表
+    await nextTick()
+    initCharts()
   } catch (error) {
     console.error('加载销售简报失败:', error)
   } finally {
@@ -106,10 +158,158 @@ const loadSalesBrief = async () => {
   }
 }
 
+// 设置图表引用
+const setChartRef = (el: HTMLElement | null, key: string) => {
+  if (el) {
+    chartRefs.value.set(key, el)
+  }
+}
+
+// 获取近6个月的趋势数据（从API获取）
+const getTrendData = (key: string) => {
+  if (!trendData.value || !trendData.value[key]) {
+    // 如果没有趋势数据，返回空数据
+    return { months: [], values: [] }
+  }
+  
+  return {
+    months: trendData.value[key].months,
+    values: trendData.value[key].values
+  }
+}
+
+// 初始化图表
+const initCharts = () => {
+  if (!briefData.value) return
+  
+  Object.keys(briefData.value).forEach((key) => {
+    const chartElement = chartRefs.value.get(key)
+    if (!chartElement) return
+    
+    // 如果图表已存在，先销毁
+    const existingChart = chartInstances.value.get(key)
+    if (existingChart) {
+      existingChart.dispose()
+    }
+    
+    // 创建新图表
+    const chart = echarts.init(chartElement)
+    const item = briefData.value![key]
+    const trend = getTrendData(key)
+    
+    // 如果没有趋势数据，不显示图表
+    if (!trend.months.length || !trend.values.length) {
+      return
+    }
+    
+    const option = {
+      grid: {
+        left: '5%',
+        right: '5%',
+        top: '10%',
+        bottom: '10%',
+        containLabel: false
+      },
+      xAxis: {
+        type: 'category',
+        data: trend.months,
+        show: false,
+        boundaryGap: false
+      },
+      yAxis: {
+        type: 'value',
+        show: false,
+        splitLine: {
+          show: false
+        }
+      },
+      series: [
+        {
+          type: 'line',
+          data: trend.values,
+          smooth: true,
+          symbol: 'none',
+          lineStyle: {
+            width: 2,
+            color: getLineColor(item.changePercent)
+          },
+          areaStyle: {
+            color: {
+              type: 'linear',
+              x: 0,
+              y: 0,
+              x2: 0,
+              y2: 1,
+              colorStops: [
+                {
+                  offset: 0,
+                  color: getAreaColor(item.changePercent, 0.3)
+                },
+                {
+                  offset: 1,
+                  color: getAreaColor(item.changePercent, 0)
+                }
+              ]
+            }
+          }
+        }
+      ],
+      tooltip: {
+        trigger: 'axis',
+        formatter: (params: any) => {
+          const param = params[0]
+          return `${param.name}<br/>${getCardTitle(key)}: ${formatValue(param.value, key)}`
+        },
+        axisPointer: {
+          type: 'line'
+        }
+      }
+    }
+    
+    chart.setOption(option)
+    chartInstances.value.set(key, chart)
+  })
+}
+
+// 获取折线颜色
+const getLineColor = (percent: number) => {
+  if (percent > 0) return '#67c23a'
+  if (percent < 0) return '#f56c6c'
+  return '#909399'
+}
+
+// 获取区域填充颜色
+const getAreaColor = (percent: number, opacity: number) => {
+  if (percent > 0) return `rgba(103, 194, 58, ${opacity})`
+  if (percent < 0) return `rgba(245, 108, 108, ${opacity})`
+  return `rgba(144, 147, 153, ${opacity})`
+}
+
 // 监听过滤条件变化
-watch([scopeFilter, periodFilter], () => {
+watch([scopeFilter, periodFilter, () => props.customDateRange, () => props.parsedScopeFilter], () => {
   loadSalesBrief()
-}, { immediate: false })
+}, { immediate: false, deep: true })
+
+// 监听窗口大小变化，调整图表大小
+const handleResize = () => {
+  chartInstances.value.forEach((chart) => {
+    chart.resize()
+  })
+}
+
+onMounted(() => {
+  loadSalesBrief()
+  window.addEventListener('resize', handleResize)
+})
+
+// 组件卸载时清理
+onUnmounted(() => {
+  window.removeEventListener('resize', handleResize)
+  chartInstances.value.forEach((chart) => {
+    chart.dispose()
+  })
+  chartInstances.value.clear()
+})
 
 const getCardTitle = (key: string) => {
   const map: Record<string, string> = {
@@ -117,7 +317,9 @@ const getCardTitle = (key: string) => {
     newContacts: '新增联系人',
     newOpportunities: '新增商机',
     newActivities: '新增跟进记录',
-    opportunityAmount: '商机金额'
+    opportunityAmount: '商机金额',
+    contractAmount: '合同金额',
+    orderAmount: '订单金额'
   }
   return map[key] || key
 }
@@ -128,7 +330,9 @@ const getCardIcon = (key: string) => {
     newContacts: Notebook,
     newOpportunities: TrendCharts,
     newActivities: Document,
-    opportunityAmount: Money
+    opportunityAmount: Money,
+    contractAmount: Money,
+    orderAmount: Money
   }
   return map[key] || Document
 }
@@ -139,13 +343,15 @@ const getCardIconClass = (key: string) => {
     newContacts: 'contact',
     newOpportunities: 'opportunity',
     newActivities: 'activity',
-    opportunityAmount: 'amount'
+    opportunityAmount: 'amount',
+    contractAmount: 'amount',
+    orderAmount: 'amount'
   }
   return map[key] || 'default'
 }
 
 const formatValue = (value: number, key: string) => {
-  if (key === 'opportunityAmount') {
+  if (key === 'opportunityAmount' || key === 'contractAmount' || key === 'orderAmount') {
     return `¥${value.toLocaleString()}`
   }
   const unit = key === 'newActivities' ? '条' : (key === 'newOpportunities' ? '个' : '人')
@@ -178,22 +384,6 @@ const getTrendIcon = (percent: number) => {
   return percent > 0 ? ArrowUp : ArrowDown
 }
 
-const getChartClass = (percent: number) => {
-  if (percent > 0) return 'positive'
-  if (percent < 0) return 'negative'
-  return 'neutral'
-}
-
-const getBarHeight = (index: number, percent: number) => {
-  // 生成模拟的柱状图高度
-  const baseHeight = 20
-  const variation = Math.sin(index * 0.5) * 30
-  return Math.max(10, baseHeight + variation)
-}
-
-onMounted(() => {
-  loadSalesBrief()
-})
 </script>
 
 <style scoped>
@@ -256,6 +446,7 @@ onMounted(() => {
 .card-header {
   display: flex;
   align-items: flex-start;
+  justify-content: space-between;
   margin-bottom: 12px;
 }
 
@@ -266,7 +457,8 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-right: 12px;
+  margin-left: 12px;
+  flex-shrink: 0;
   font-size: 18px;
   color: white;
 }
@@ -341,37 +533,14 @@ onMounted(() => {
 }
 
 .card-chart {
-  height: 40px;
-  display: flex;
-  align-items: end;
+  height: 60px;
+  width: 100%;
+  margin-top: 8px;
 }
 
-.mini-chart {
-  display: flex;
-  align-items: end;
-  gap: 2px;
+.line-chart {
   width: 100%;
   height: 100%;
-}
-
-.chart-bar {
-  flex: 1;
-  background: #e6f4ff;
-  border-radius: 1px;
-  min-height: 4px;
-  transition: all 0.3s ease;
-}
-
-.mini-chart.positive .chart-bar {
-  background: #67c23a;
-}
-
-.mini-chart.negative .chart-bar {
-  background: #f56c6c;
-}
-
-.mini-chart.neutral .chart-bar {
-  background: #909399;
 }
 
 @media (max-width: 768px) {

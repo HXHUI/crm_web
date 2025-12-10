@@ -105,7 +105,21 @@ export const addDepartmentMember = (id: string, data: {
   return request.post(`/departments/${id}/members`, data)
 }
 
+// 批量添加部门成员
+export const batchAddDepartmentMembers = (id: string, data: {
+  memberIds: string[]
+  position?: string
+  isManager?: boolean
+}): Promise<{ code: number; message: string; data: any }> => {
+  return request.post(`/departments/${id}/members/batch`, data)
+}
+
 // 移除部门成员
 export const removeDepartmentMember = (id: string, memberId: string): Promise<{ code: number; message: string }> => {
   return request.delete(`/departments/${id}/members/${memberId}`)
+}
+
+// 获取指定成员的部门列表
+export const getMemberDepartments = (memberId: string | number): Promise<{ code: number; message: string; data: Department[] }> => {
+  return request.get(`/departments/member/${memberId}`)
 }

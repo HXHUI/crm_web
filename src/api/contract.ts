@@ -8,11 +8,25 @@ export interface ContractItem {
     id: string
     name: string
     code?: string
+    unit?: string
+    auxiliaryUnits?: Array<{
+      unit: string
+      conversionRate: number
+      purpose: 'sales' | 'purchase' | 'internal' | 'external'
+      description?: string
+    }>
   }
   quantity: number
+  packagingUnit?: string  // 包装单位（显示用）
+  packagingSpec?: string   // 包装规格说明（显示用）
   unitPrice: number
+  priceComponents?: Record<string, number>
   amount: number
   discount?: number
+  taxRate?: number  // 税率(%)
+  unitPriceExclTax?: number  // 不含税单价
+  taxAmount?: number  // 税金
+  amountExclTax?: number  // 不含税金额
   notes?: string
   createdAt: string
   updatedAt: string
@@ -43,8 +57,10 @@ export interface Contract {
     name: string
   }
   type: 'sales' | 'service' | 'maintenance' | 'other'
-  status: 'draft' | 'pending_sign' | 'signed' | 'active' | 'expired' | 'terminated'
+  status: 'draft' | 'pending_approval' | 'approved' | 'rejected' | 'pending_sign' | 'signed' | 'active' | 'expired' | 'terminated'
   totalAmount: number
+  totalAmountExclTax?: number  // 不含税总金额
+  totalTaxAmount?: number  // 总税金
   signDate?: string
   effectiveDate?: string
   expiryDate?: string
@@ -59,6 +75,16 @@ export interface Contract {
   }
   items?: ContractItem[]
   tenantId?: string
+  createdBy?: string
+  creator?: {
+    id: string
+    username?: string
+    nickname?: string
+    user?: {
+      id: string
+      username: string
+    }
+  }
   createdAt: string
   updatedAt: string
 }
@@ -66,19 +92,26 @@ export interface Contract {
 export interface CreateContractItemDto {
   productId: number
   quantity: number
+  packagingUnit?: string  // 包装单位（显示用）
+  packagingSpec?: string   // 包装规格说明（显示用）
   unitPrice: number
+  priceComponents?: Record<string, number>
   discount?: number
+  taxRate?: number  // 税率(%)
+  unitPriceExclTax?: number  // 不含税单价
+  taxAmount?: number  // 税金
+  amountExclTax?: number  // 不含税金额
   notes?: string
 }
 
 export interface CreateContractDto {
-  contractNumber: string
+  contractNumber?: string  // 可选，如果不提供则后端自动生成
   customerId: number
   contactId?: number
   quoteId?: number
   opportunityId?: number
   type?: 'sales' | 'service' | 'maintenance' | 'other'
-  status?: 'draft' | 'pending_sign' | 'signed' | 'active' | 'expired' | 'terminated'
+  status?: 'draft' | 'pending_approval' | 'approved' | 'rejected' | 'pending_sign' | 'signed' | 'active' | 'expired' | 'terminated'
   signDate?: string
   effectiveDate?: string
   expiryDate?: string
@@ -96,7 +129,7 @@ export interface UpdateContractDto {
   quoteId?: number
   opportunityId?: number
   type?: 'sales' | 'service' | 'maintenance' | 'other'
-  status?: 'draft' | 'pending_sign' | 'signed' | 'active' | 'expired' | 'terminated'
+  status?: 'draft' | 'pending_approval' | 'approved' | 'rejected' | 'pending_sign' | 'signed' | 'active' | 'expired' | 'terminated'
   signDate?: string
   effectiveDate?: string
   expiryDate?: string
@@ -113,7 +146,7 @@ export interface QueryContractDto {
   quoteId?: number
   opportunityId?: number
   type?: 'sales' | 'service' | 'maintenance' | 'other'
-  status?: 'draft' | 'pending_sign' | 'signed' | 'active' | 'expired' | 'terminated'
+  status?: 'draft' | 'pending_approval' | 'approved' | 'rejected' | 'pending_sign' | 'signed' | 'active' | 'expired' | 'terminated'
   page?: number
   limit?: number
 }
@@ -164,6 +197,13 @@ const contractApi = {
     quoteId: string,
   ): Promise<{ code: number; message: string; data: Contract }> => {
     return request.post(`/contracts/from-quote/${quoteId}`)
+  },
+
+  // 获取即将到期的合同
+  getExpiring: (
+    days?: number,
+  ): Promise<{ code: number; message: string; data: Array<Contract & { daysRemaining: number }> }> => {
+    return request.get('/contracts/expiring', { params: days ? { days } : {} })
   },
 }
 

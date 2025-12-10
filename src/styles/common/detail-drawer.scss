@@ -1,0 +1,307 @@
+// 详情抽屉公共样式
+// 用于客户详情、线索详情等抽屉页面
+
+// 抽屉容器样式
+.detail-drawer {
+  &.el-drawer {
+    .el-drawer__body {
+      padding: 0 !important;
+      margin: 0 !important;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+  }
+
+  // 兼容 :deep() 语法（如果使用 scoped）
+  :deep(.el-drawer__body) {
+    padding: 0 !important;
+    margin: 0 !important;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+}
+
+// 全局样式：确保详情抽屉没有内边距（用于客户、线索、商机等详情页）
+.detail-drawer.el-drawer .el-drawer__body {
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+// 详情布局容器
+.detail-layout {
+  display: flex;
+  height: 100%;
+  min-height: 100%;
+  background: #e4e7ed;
+
+  // 左侧导航菜单
+  .left-nav {
+    padding: 16px 0px 16px 16px;
+    position: relative;
+    transition: width 0.3s ease;
+
+    // 收缩/展开按钮
+    .menu-toggle {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      margin-bottom: 12px;
+      margin-left: auto;
+      margin-right: 8px;
+      cursor: pointer;
+      border-radius: 4px;
+      background: #f2f6ff;
+      border: 1px solid #dfe7ff;
+      color: #2f3b52;
+      transition: all 0.2s ease;
+
+      &:hover {
+        background: #e6f0ff;
+        border-color: #0e3a8a;
+        color: #0e3a8a;
+      }
+
+      .el-icon {
+        font-size: 16px;
+      }
+    }
+
+    // 收缩状态
+    &.collapsed {
+      width: 80px;
+      padding-right: 8px;
+
+      .menu-toggle {
+        margin-left: 0;
+        margin-right: 0;
+        width: 100%;
+      }
+
+      .side-menu.with-timeline {
+        padding-right: 8px;
+
+        &:before {
+          right: 4px;
+        }
+      }
+
+      .side-item {
+        &:after {
+          right: -8px;
+        }
+      }
+
+      .item-btn {
+        justify-content: center;
+        padding: 8px;
+        min-width: 48px;
+        width: 100%;
+      }
+    }
+
+    /* 胶囊按钮 + 纵向时间轴圆点样式 */
+    .side-menu.with-timeline {
+      list-style: none;
+      margin: 0;
+      padding: 0 16px 0 0; /* 时间轴改到右侧，右侧留白 */
+      position: relative;
+    }
+    .side-menu.with-timeline:before {
+      content: '';
+      position: absolute;
+      right: 8px; /* 竖线放在右侧 */
+      top: 8px;
+      bottom: 8px;
+      width: 2px;
+      background: linear-gradient(#e6f0ff, #e6f0ff) no-repeat;
+      background-size: 100% 100%;
+      border-radius: 2px;
+    }
+    .side-item {
+      position: relative;
+      margin-bottom: 12px;
+      cursor: pointer;
+    }
+    .side-item:after {
+      content: '';
+      position: absolute;
+      right: -12px; /* 圆点在右侧 */
+      top: 50%;
+      transform: translateY(-50%);
+      width: 8px;
+      height: 8px;
+      background: #9aa4b2;
+      border-radius: 50%;
+      box-shadow: 0 0 0 3px #fff inset;
+    }
+    .side-item.active:after {
+      background: #0e3a8a;
+    }
+    .item-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 8px;
+      padding: 8px 14px;
+      background: #f2f6ff;
+      border: 1px solid #dfe7ff;
+      color: #2f3b52;
+      border-radius: 5px;
+      transition: all 0.2s ease;
+      width: 100%;
+    }
+    .side-item.active .item-btn {
+      background: #0e3a8a;
+      color: #fff;
+      border-color: #0e3a8a;
+    }
+    .item-icon {
+      font-size: 14px;
+    }
+    .item-text {
+      font-size: 14px;
+      font-weight: 600;
+    }
+  }
+
+  // 右侧内容区域
+  .right-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden; /* 禁用外层滚动，由内部容器控制 */
+    min-height: 0;
+
+    // 基本信息区域
+    .basic-info-section {
+      // padding: 16px;
+      background: #fff;
+      flex-shrink: 0;
+      border-radius: 5px;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+      // margin: 16px 16px 12px 16px;
+      margin-top: 16px;
+
+      // 头部区域
+      .detail-header {
+        margin-bottom: 20px;
+
+        .detail-title {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          margin-bottom: 12px;
+
+          h2 {
+            margin: 0;
+            font-size: 24px;
+            font-weight: 600;
+            color: #262626;
+          }
+        }
+
+        .detail-meta {
+          display: flex;
+          align-items: center;
+          gap: 24px;
+          color: #666;
+          font-size: 14px;
+          margin-bottom: 16px;
+
+          .meta-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+
+            .meta-label {
+              color: #999;
+            }
+
+            .meta-value {
+              color: #303133;
+            }
+          }
+        }
+      }
+
+      // 信息网格
+      .info-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 16px;
+
+        .info-item {
+          display: flex;
+          align-items: flex-start;
+
+          &.full-width {
+            grid-column: 1 / -1;
+          }
+
+          label {
+            font-weight: 500;
+            color: #606266;
+            min-width: 100px;
+            margin-right: 8px;
+            flex-shrink: 0;
+          }
+
+          span {
+            color: #303133;
+            word-break: break-all;
+          }
+
+          .description {
+            color: #606266;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            word-break: break-word;
+          }
+        }
+      }
+    }
+
+    // 动态内容区域
+    .dynamic-content-section {
+      flex: 1;
+      height: 100%;
+      padding: 0 16px 16px 16px;
+      overflow-y: auto;
+
+      .tab-content {
+        // 列表内容区域
+        .list-padding {
+          background: #fff;
+          // padding: 16px;
+          border-radius: 5px;
+          box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+        }
+
+        // 空状态
+        .empty-state {
+          background: #fff;
+          padding: 40px 0;
+          text-align: center;
+          border-radius: 5px;
+          box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+        }
+
+        // 其他内容区域（如工商信息等）
+        > div {
+          background: #fff;
+          padding: 16px;
+          // border-radius: 5px;
+          box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+        }
+      }
+    }
+  }
+}
+

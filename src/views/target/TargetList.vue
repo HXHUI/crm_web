@@ -10,9 +10,60 @@
               </el-select>
             </el-form-item>
             <el-form-item>
-              <el-select v-model="query.ownerType" style="width: 140px">
+              <el-select
+                v-model="query.ownerType"
+                multiple
+                collapse-tags
+                clearable
+                placeholder="选择对象类型"
+                style="width: 200px"
+              >
+                <el-option label="公司" value="tenant" />
                 <el-option label="部门" value="department" />
                 <el-option label="个人" value="member" />
+              </el-select>
+            </el-form-item>
+            <el-form-item>
+              <el-select
+                v-model="query.targetTypes"
+                multiple
+                collapse-tags
+                clearable
+                placeholder="选择指标类型"
+                style="width: 260px"
+              >
+                <el-option-group label="财务结果指标">
+                  <el-option
+                    v-for="key in Object.keys(metricConfig).filter(k => metricConfig[k].group === 'financial')"
+                    :key="key"
+                    :value="key"
+                    :label="metricConfig[key].label"
+                  />
+                </el-option-group>
+                <el-option-group label="销售漏斗指标">
+                  <el-option
+                    v-for="key in Object.keys(metricConfig).filter(k => metricConfig[k].group === 'funnel')"
+                    :key="key"
+                    :value="key"
+                    :label="metricConfig[key].label"
+                  />
+                </el-option-group>
+                <el-option-group label="客户指标">
+                  <el-option
+                    v-for="key in Object.keys(metricConfig).filter(k => metricConfig[k].group === 'customer')"
+                    :key="key"
+                    :value="key"
+                    :label="metricConfig[key].label"
+                  />
+                </el-option-group>
+                <el-option-group label="过程活动指标">
+                  <el-option
+                    v-for="key in Object.keys(metricConfig).filter(k => metricConfig[k].group === 'activity')"
+                    :key="key"
+                    :value="key"
+                    :label="metricConfig[key].label"
+                  />
+                </el-option-group>
               </el-select>
             </el-form-item>
             <el-form-item>
@@ -22,12 +73,18 @@
           </el-form>
         </div>
         <div class="toolbar-right">
+          <el-button type="danger" :disabled="selectedRows.length === 0" @click="handleBatchDelete">批量删除</el-button>
           <el-button type="primary" @click="openSetDialog">设置目标</el-button>
         </div>
       </div>
 
       <div class="table-section">
-        <el-table :data="tableData" border style="width: 100%">
+        <el-table 
+          :data="tableData" 
+          border 
+          style="width: 100%"
+          @selection-change="handleSelectionChange"
+        >
           <el-table-column type="selection" width="55" />
           <el-table-column prop="ownerName" label="对象" min-width="160" fixed="left" />
           <el-table-column prop="typeName" label="指标类型" width="120" fixed="left">
@@ -93,9 +150,10 @@
             <template #default="{ row }">{{ formatValue(row.monthValues[11]) }}</template>
           </el-table-column>
 
-          <el-table-column label="操作" width="140" fixed="right">
+          <el-table-column label="操作" width="180" fixed="right">
             <template #default="{ row }">
               <el-button size="small" @click="openSetDialog(row)">设置</el-button>
+              <el-button size="small" type="danger" @click="handleDelete(row)">删除</el-button>
             </template>
           </el-table-column>
         </el-table>
@@ -113,6 +171,7 @@
           <div class="form-grid three-cols">
             <el-form-item label="对象类型">
               <el-select v-model="form.ownerType" placeholder="对象类型" style="width: 160px">
+                <el-option label="公司" value="tenant" />
                 <el-option label="部门" value="department" />
                 <el-option label="个人" value="member" />
               </el-select>
@@ -131,24 +190,85 @@
               </el-select>
             </el-form-item>
             <el-form-item label="指标类型">
-              <el-select v-model="form.targetType" placeholder="指标类型" style="width: 160px">
-                <el-option-group label="财务指标">
-                  <el-option label="销售额" value="sales_amount" />
-                  <el-option label="回款额" value="payment_amount" />
-                  <el-option label="利润" value="profit" />
+              <el-select v-model="form.targetType" placeholder="指标类型" style="width: 220px">
+                <!-- 财务 / 结果类 -->
+                <el-option-group label="财务结果指标">
+                  <el-option
+                    v-for="key in Object.keys(metricConfig).filter(k => metricConfig[k].group === 'financial')"
+                    :key="key"
+                    :value="key"
+                    :label="metricConfig[key].label"
+                  >
+                    <el-tooltip placement="right" effect="dark">
+                      <template #content>
+                        <div style="max-width: 260px; line-height: 1.4">
+                          <div><strong>{{ metricConfig[key].label }}</strong>（{{ metricConfig[key].unit }}）</div>
+                          <div>{{ metricConfig[key].desc }}</div>
+                        </div>
+                      </template>
+                      <span>{{ metricConfig[key].label }}</span>
+                    </el-tooltip>
+                  </el-option>
                 </el-option-group>
-                <el-option-group label="过程指标">
-                  <el-option label="新增客户数" value="new_customers" />
-                  <el-option label="跟进次数" value="follow_ups" />
-                  <el-option label="商机数量" value="opportunity_count" />
+
+                <!-- 销售漏斗类 -->
+                <el-option-group label="销售漏斗指标">
+                  <el-option
+                    v-for="key in Object.keys(metricConfig).filter(k => metricConfig[k].group === 'funnel')"
+                    :key="key"
+                    :value="key"
+                    :label="metricConfig[key].label"
+                  >
+                    <el-tooltip placement="right" effect="dark">
+                      <template #content>
+                        <div style="max-width: 260px; line-height: 1.4">
+                          <div><strong>{{ metricConfig[key].label }}</strong>（{{ metricConfig[key].unit }}）</div>
+                          <div>{{ metricConfig[key].desc }}</div>
+                        </div>
+                      </template>
+                      <span>{{ metricConfig[key].label }}</span>
+                    </el-tooltip>
+                  </el-option>
                 </el-option-group>
-                <el-option-group label="转化指标">
-                  <el-option label="成交率" value="win_rate" />
-                  <el-option label="客户转化率" value="customer_conversion" />
-                </el-option-group>
+
+                <!-- 客户类 -->
                 <el-option-group label="客户指标">
-                  <el-option label="客户满意度" value="customer_satisfaction" />
-                  <el-option label="续约率" value="renewal_rate" />
+                  <el-option
+                    v-for="key in Object.keys(metricConfig).filter(k => metricConfig[k].group === 'customer')"
+                    :key="key"
+                    :value="key"
+                    :label="metricConfig[key].label"
+                  >
+                    <el-tooltip placement="right" effect="dark">
+                      <template #content>
+                        <div style="max-width: 260px; line-height: 1.4">
+                          <div><strong>{{ metricConfig[key].label }}</strong>（{{ metricConfig[key].unit }}）</div>
+                          <div>{{ metricConfig[key].desc }}</div>
+                        </div>
+                      </template>
+                      <span>{{ metricConfig[key].label }}</span>
+                    </el-tooltip>
+                  </el-option>
+                </el-option-group>
+
+                <!-- 过程 / 活动类 -->
+                <el-option-group label="过程活动指标">
+                  <el-option
+                    v-for="key in Object.keys(metricConfig).filter(k => metricConfig[k].group === 'activity')"
+                    :key="key"
+                    :value="key"
+                    :label="metricConfig[key].label"
+                  >
+                    <el-tooltip placement="right" effect="dark">
+                      <template #content>
+                        <div style="max-width: 260px; line-height: 1.4">
+                          <div><strong>{{ metricConfig[key].label }}</strong>（{{ metricConfig[key].unit }}）</div>
+                          <div>{{ metricConfig[key].desc }}</div>
+                        </div>
+                      </template>
+                      <span>{{ metricConfig[key].label }}</span>
+                    </el-tooltip>
+                  </el-option>
                 </el-option-group>
               </el-select>
             </el-form-item>
@@ -209,7 +329,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, watch } from 'vue'
 import { Search, Refresh } from '@element-plus/icons-vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import targetApi from '@/api/target'
 import { useAuthStore } from '@/stores/modules/auth'
 
@@ -217,16 +337,18 @@ const auth = useAuthStore()
 const years = Array.from({ length: 6 }, (_, i) => new Date().getFullYear() - 1 + i)
 const query = reactive({
   year: new Date().getFullYear(),
-  ownerType: 'department' as 'department' | 'member',
+  ownerType: [] as ('tenant' | 'department' | 'member')[],
+  targetTypes: [] as string[],
 })
 const tableData = ref<any[]>([])
+const selectedRows = ref<any[]>([])
 
 const dialog = reactive({ visible: false })
 const loading = ref(false)
 const saving = ref(false)
 const ownerOptions = ref<{ id: string; name: string }[]>([])
 const form = reactive({
-  ownerType: 'department' as 'department' | 'member',
+  ownerType: 'department' as 'tenant' | 'department' | 'member',
   ownerIds: [] as string[],
   targetType: 'sales_amount',
   unit: '元',
@@ -234,21 +356,132 @@ const form = reactive({
   months: Array(12).fill(0) as number[],
 })
 
+// 指标配置：名称 + 单位 + 含义，用于下拉展示和单位切换
+const metricConfig: Record<
+  string,
+  { label: string; unit: string; desc: string; group: 'financial' | 'funnel' | 'customer' | 'activity' }
+> = {
+  // 财务结果
+  contract_amount: {
+    label: '合同金额',
+    unit: '元',
+    desc: '统计周期内已签署合同的金额总和（按合同签订日期）',
+    group: 'financial',
+  },
+  sales_amount: {
+    label: '订单金额（销售额）',
+    unit: '元',
+    desc: '统计周期内已生效订单的金额总和（按订单生效/签订日期）',
+    group: 'financial',
+  },
+  new_sales_amount: {
+    label: '新增销售额',
+    unit: '元',
+    desc: '统计周期内来自新签订单的金额（不含续约/追加）',
+    group: 'financial',
+  },
+  orders_count: {
+    label: '订单数量',
+    unit: '个',
+    desc: '统计周期内新增生效订单/合同的数量',
+    group: 'financial',
+  },
+
+  // 销售漏斗
+  new_leads: {
+    label: '新增线索数',
+    unit: '个',
+    desc: '统计周期内新录入/导入的线索数量',
+    group: 'funnel',
+  },
+  new_customers: {
+    label: '新增客户数',
+    unit: '个',
+    desc: '统计周期内从线索或其他渠道转化而来的新客户数量',
+    group: 'funnel',
+  },
+  new_opportunities: {
+    label: '新增商机数',
+    unit: '个',
+    desc: '统计周期内新创建的商机数量',
+    group: 'funnel',
+  },
+  open_opportunities: {
+    label: '在库商机数',
+    unit: '个',
+    desc: '统计周期结束时处于进行中状态的商机数量',
+    group: 'funnel',
+  },
+  won_opportunities: {
+    label: '赢单商机数',
+    unit: '个',
+    desc: '统计周期内状态变为赢单/成交的商机数量',
+    group: 'funnel',
+  },
+  win_rate: {
+    label: '成交率（赢单率）',
+    unit: '%',
+    desc: '赢单商机数 ÷ 已关闭商机数（赢单+输单）',
+    group: 'funnel',
+  },
+  lead_to_customer_rate: {
+    label: '线索转客户率',
+    unit: '%',
+    desc: '线索成功转为客户的数量 ÷ 新增线索数',
+    group: 'funnel',
+  },
+  lead_to_opportunity_rate: {
+    label: '线索转商机率',
+    unit: '%',
+    desc: '线索成功立项为商机的数量 ÷ 新增线索数',
+    group: 'funnel',
+  },
+  opportunity_to_order_rate: {
+    label: '商机转订单率',
+    unit: '%',
+    desc: '转成订单的商机数量 ÷ 本期关闭商机数量',
+    group: 'funnel',
+  },
+  customer_conversion: {
+    label: '客户转化率',
+    unit: '%',
+    desc: '从线索最终转化为付费客户的数量 ÷ 新增线索数',
+    group: 'funnel',
+  },
+
+  // 客户类
+  activated_customers: {
+    label: '激活客户数',
+    unit: '个',
+    desc: '本期有报价/商机/订单/拜访/跟进等任一业务行为的客户数量',
+    group: 'customer',
+  },
+  key_accounts: {
+    label: '重点客户数',
+    unit: '个',
+    desc: '被标记为重点客户/大客户的客户数量',
+    group: 'customer',
+  },
+
+  // 过程活动
+  follow_ups: {
+    label: '跟进次数',
+    unit: '次',
+    desc: '统计周期内记录的所有跟进次数（电话/微信/邮件/拜访等）',
+    group: 'activity',
+  },
+  visit_count: {
+    label: '外出拜访次数',
+    unit: '次',
+    desc: '统计周期内记录为外出拜访的次数',
+    group: 'activity',
+  },
+}
+
 const formatValue = (v: number) => (v == null ? '-' : Number(v).toLocaleString('zh-CN'))
 const getMetricName = (key?: string) => {
-  const map: Record<string, string> = {
-    sales_amount: '销售额',
-    payment_amount: '回款额',
-    profit: '利润',
-    new_customers: '新增客户数',
-    follow_ups: '跟进次数',
-    opportunity_count: '商机数量',
-    win_rate: '成交率',
-    customer_conversion: '客户转化率',
-    customer_satisfaction: '客户满意度',
-    renewal_rate: '续约率',
-  }
-  return map[key || ''] || key || '-'
+  if (!key) return '-'
+  return metricConfig[key]?.label || key
 }
 
 const loadOwners = async () => {
@@ -272,13 +505,24 @@ watch(
 )
 
 const loadTable = async () => {
-  const resp = await targetApi.list({ year: query.year, ownerType: query.ownerType })
+  const params: any = { year: query.year }
+  // 如果选择了对象类型，则传递参数；未选择则加载全部
+  if (query.ownerType && query.ownerType.length > 0) {
+    params.ownerType = query.ownerType
+  }
+  // 如果选择了指标类型，则传递参数；未选择则加载全部
+  if (query.targetTypes && query.targetTypes.length > 0) {
+    // 以逗号分隔字符串传给后端，避免 targetTypes[] 解析问题
+    params.targetTypes = query.targetTypes.join(',')
+  }
+  const resp = await targetApi.list(params)
   tableData.value = resp.data || []
 }
 
 const handleReset = () => {
   query.year = new Date().getFullYear()
-  query.ownerType = 'department'
+  query.ownerType = []
+  query.targetTypes = []
   loadTable()
 }
 
@@ -306,19 +550,7 @@ const monthLabel = (q: number, m: number) => {
 watch(
   () => form.targetType,
   (t) => {
-    const unitMap: Record<string, string> = {
-      sales_amount: '元',
-      payment_amount: '元',
-      profit: '元',
-      new_customers: '个',
-      follow_ups: '次',
-      opportunity_count: '个',
-      win_rate: '%',
-      customer_conversion: '%',
-      customer_satisfaction: '%',
-      renewal_rate: '%',
-    }
-    form.unit = unitMap[t] || '元'
+    form.unit = metricConfig[t]?.unit || '元'
   },
   { immediate: true },
 )
@@ -357,6 +589,79 @@ const saveTargets = async () => {
     ElMessage.error(e?.message || '保存失败')
   } finally {
     saving.value = false
+  }
+}
+
+// 处理表格选择变化
+const handleSelectionChange = (selection: any[]) => {
+  selectedRows.value = selection
+}
+
+// 单个删除
+const handleDelete = async (row: any) => {
+  try {
+    await ElMessageBox.confirm(
+      `确定要删除"${row.ownerName}"的"${getMetricName(row.typeName)}"目标吗？`,
+      '确认删除',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning',
+      }
+    )
+    
+    await targetApi.delete({
+      ownerType: row.ownerType,
+      ownerId: row.ownerId,
+      targetType: row.typeName,
+      year: query.year,
+    })
+    
+    ElMessage.success('删除成功')
+    await loadTable()
+  } catch (error: any) {
+    if (error !== 'cancel') {
+      ElMessage.error(error?.message || '删除失败')
+    }
+  }
+}
+
+// 批量删除
+const handleBatchDelete = async () => {
+  if (selectedRows.value.length === 0) {
+    ElMessage.warning('请选择要删除的目标')
+    return
+  }
+  
+  try {
+    await ElMessageBox.confirm(
+      `确定要删除选中的 ${selectedRows.value.length} 条目标吗？`,
+      '确认批量删除',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning',
+      }
+    )
+    
+    // 批量删除
+    const deletePromises = selectedRows.value.map((row) =>
+      targetApi.delete({
+        ownerType: row.ownerType,
+        ownerId: row.ownerId,
+        targetType: row.typeName,
+        year: query.year,
+      })
+    )
+    
+    await Promise.all(deletePromises)
+    ElMessage.success('批量删除成功')
+    selectedRows.value = []
+    await loadTable()
+  } catch (error: any) {
+    if (error !== 'cancel') {
+      ElMessage.error(error?.message || '批量删除失败')
+    }
   }
 }
 

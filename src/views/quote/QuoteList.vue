@@ -27,6 +27,8 @@
               >
                 <el-option label="全部" :value="undefined" />
                 <el-option label="草稿" value="draft" />
+                <el-option label="待审批" value="pending_approval" />
+                <el-option label="已审批" value="approved" />
                 <el-option label="已发送" value="sent" />
                 <el-option label="已接受" value="accepted" />
                 <el-option label="已拒绝" value="rejected" />
@@ -51,9 +53,27 @@
           v-loading="loading"
           style="width: 100%"
           border
+          show-summary
+          :summary-method="getSummaries"
         >
-          <el-table-column prop="quoteNumber" label="报价单号" min-width="150" />
-          <el-table-column prop="customer.name" label="客户" width="150" />
+          <el-table-column type="index" label="序号" width="60" align="center" />
+          <el-table-column prop="quoteNumber" label="报价单号" width="150">
+            <template #default="{ row }">
+              <el-link type="primary" :underline="false" @click="viewQuote(row)" style="cursor: pointer">
+                {{ row.quoteNumber }}
+              </el-link>
+            </template>
+          </el-table-column>
+          <el-table-column prop="customer.name" label="客户" width="150" show-overflow-tooltip>
+            <template #default="{ row }">
+              <span class="customer-name">{{ row.customer?.name || '-' }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column prop="opportunity.name" label="商机" width="150" show-overflow-tooltip>
+            <template #default="{ row }">
+              <span class="opportunity-name">{{ row.opportunity?.name || '-' }}</span>
+            </template>
+          </el-table-column>
           <el-table-column prop="totalAmount" label="总金额" width="120" align="right">
             <template #default="{ row }">
               {{ formatCurrency(row.totalAmount) }}
@@ -69,36 +89,64 @@
               {{ row.expiryDate ? formatDate(row.expiryDate) : '-' }}
             </template>
           </el-table-column>
-          <el-table-column prop="status" label="状态" width="100">
+          <el-table-column prop="status" label="状态" width="120">
             <template #default="{ row }">
               <el-tag :type="getStatusType(row.status)">
                 {{ getStatusName(row.status) }}
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column prop="owner.username" label="负责人" width="120" />
-          <el-table-column prop="createdAt" label="创建时间" width="180">
+          <el-table-column prop="owner" label="负责人" width="120">
             <template #default="{ row }">
-              {{ formatDate(row.createdAt) }}
+              {{ row.owner?.user?.username || row.owner?.username || '-' }}
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="280" fixed="right">
+          <el-table-column label="部门" width="120">
             <template #default="{ row }">
-              <el-button type="primary" size="small" :icon="View" @click="viewQuote(row)">
-                查看
-              </el-button>
-              <el-button type="warning" size="small" :icon="Edit" @click="editQuote(row)">
+              <span v-if="row.department?.name">{{ row.department.name }}</span>
+              <span v-else class="text-gray-400">-</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="创建者" width="120">
+            <template #default="{ row }">
+              {{ row.creator?.user?.username || row.creator?.nickname || '-' }}
+            </template>
+          </el-table-column>
+          <el-table-column prop="createdAt" label="创建时间" width="180">
+            <template #default="{ row }">
+              {{ formatDateTime(row.createdAt) }}
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="300" fixed="right">
+            <template #default="{ row }">
+              <div class="action-buttons">
+              <el-button
+                v-if="row.status === 'draft'"
+                type="warning"
+                size="small"
+                :icon="Edit"
+                @click="editQuote(row)"
+              >
                 编辑
+              </el-button>
+              <el-button
+                v-if="row.status === 'draft' || row.status === 'rejected'"
+                type="success"
+                size="small"
+                @click="viewQuote(row)"
+              >
+                {{ row.status === 'rejected' ? '重新提交审批' : '提交审批' }}
+              </el-button>
+              <el-button type="info" size="small" :icon="Printer" @click="printQuote(row)">
+                打印
               </el-button>
               <el-button type="info" size="small" @click="createContractFromQuote(row)">
                 创建合同
               </el-button>
-              <el-button type="success" size="small" @click="createOrderFromQuote(row)">
-                创建订单
-              </el-button>
               <el-button type="danger" size="small" :icon="Delete" @click="deleteQuote(row)">
                 删除
               </el-button>
+              </div>
             </template>
           </el-table-column>
         </el-table>
@@ -125,218 +173,95 @@
       width="1000px"
       :close-on-click-modal="false"
     >
-      <el-form ref="formRef" :model="formData" :rules="formRules" label-width="100px">
-        <el-row :gutter="20">
-          <el-col :span="12">
-            <el-form-item label="报价单号" prop="quoteNumber">
-              <el-input v-model="formData.quoteNumber" placeholder="请输入报价单号" />
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="客户" prop="customerId">
-              <el-select
-                v-model="formData.customerId"
-                placeholder="请选择客户"
-                filterable
-                style="width: 100%"
-                @change="handleCustomerChange"
-              >
-                <el-option
-                  v-for="customer in availableCustomers"
-                  :key="customer.id"
-                  :label="customer.name"
-                  :value="parseInt(customer.id)"
-                />
-              </el-select>
-            </el-form-item>
-          </el-col>
-        </el-row>
-        <el-row :gutter="20">
-          <el-col :span="12">
-            <el-form-item label="联系人" prop="contactId">
-              <el-select
-                v-model="formData.contactId"
-                placeholder="请选择联系人（可选）"
-                filterable
-                clearable
-                style="width: 100%"
-                :disabled="!formData.customerId"
-              >
-                <el-option
-                  v-for="contact in availableContacts"
-                  :key="contact.id"
-                  :label="`${contact.name}${contact.position ? ' - ' + contact.position : ''}`"
-                  :value="parseInt(contact.id)"
-                />
-              </el-select>
-            </el-form-item>
-          </el-col>
-        </el-row>
-        <el-row :gutter="20">
-          <el-col :span="12">
-            <el-form-item label="报价日期" prop="quoteDate">
-              <el-date-picker
-                v-model="formData.quoteDate"
-                type="date"
-                placeholder="请选择报价日期"
-                style="width: 100%"
-                format="YYYY-MM-DD"
-                value-format="YYYY-MM-DD"
-              />
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="有效期" prop="expiryDate">
-              <el-date-picker
-                v-model="formData.expiryDate"
-                type="date"
-                placeholder="请选择有效期"
-                style="width: 100%"
-                format="YYYY-MM-DD"
-                value-format="YYYY-MM-DD"
-              />
-            </el-form-item>
-          </el-col>
-        </el-row>
-        <el-form-item label="状态" prop="status">
-          <el-select v-model="formData.status" placeholder="请选择状态" style="width: 200px">
-            <el-option label="草稿" value="draft" />
-            <el-option label="已发送" value="sent" />
-            <el-option label="已接受" value="accepted" />
-            <el-option label="已拒绝" value="rejected" />
-            <el-option label="已过期" value="expired" />
-          </el-select>
-        </el-form-item>
-
-        <!-- 报价明细 -->
-        <el-form-item label="报价明细" prop="items">
-          <div class="quote-items-section">
-            <el-table :data="formData.items" border style="width: 100%">
-              <el-table-column label="产品" min-width="200">
-                <template #default="{ row, $index }">
-                  <el-select
-                    v-model="row.productId"
-                    placeholder="请选择产品"
-                    filterable
-                    style="width: 100%"
-                    @change="calculateItemAmount($index)"
-                  >
-                    <el-option
-                      v-for="product in availableProducts"
-                      :key="product.id"
-                      :label="`${product.name} (${product.code || ''})`"
-                      :value="parseInt(product.id)"
-                    />
-                  </el-select>
-                </template>
-              </el-table-column>
-              <el-table-column label="数量" width="120">
-                <template #default="{ row, $index }">
-                  <el-input-number
-                    v-model="row.quantity"
-                    :min="0.01"
-                    :precision="2"
-                    :controls="false"
-                    style="width: 100%"
-                    @change="calculateItemAmount($index)"
-                  />
-                </template>
-              </el-table-column>
-              <el-table-column label="单价" width="120">
-                <template #default="{ row, $index }">
-                  <el-input-number
-                    v-model="row.unitPrice"
-                    :min="0"
-                    :precision="2"
-                    :controls="false"
-                    style="width: 100%"
-                    @change="calculateItemAmount($index)"
-                  />
-                </template>
-              </el-table-column>
-              <el-table-column label="折扣(%)" width="120">
-                <template #default="{ row, $index }">
-                  <el-input-number
-                    v-model="row.discount"
-                    :min="0"
-                    :max="100"
-                    :precision="2"
-                    :controls="false"
-                    style="width: 100%"
-                    @change="calculateItemAmount($index)"
-                  />
-                </template>
-              </el-table-column>
-              <el-table-column label="金额" width="120" align="right">
-                <template #default="{ row }">
-                  {{ formatCurrency(row.amount) }}
-                </template>
-              </el-table-column>
-              <el-table-column label="操作" width="80" align="center">
-                <template #default="{ $index }">
-                  <el-button
-                    type="danger"
-                    size="small"
-                    :icon="Delete"
-                    @click="removeItem($index)"
-                  />
-                </template>
-              </el-table-column>
-            </el-table>
-            <el-button
-              type="primary"
-              :icon="Plus"
-              @click="addItem"
-              style="margin-top: 10px"
-            >
-              添加明细
-            </el-button>
-            <div class="total-amount">
-              <strong>总金额：{{ formatCurrency(totalAmount) }}</strong>
-            </div>
-          </div>
-        </el-form-item>
-
-        <el-form-item label="备注" prop="notes">
-          <el-input
-            v-model="formData.notes"
-            type="textarea"
-            :rows="3"
-            placeholder="请输入备注"
-          />
-        </el-form-item>
-      </el-form>
+      <QuoteForm
+        ref="quoteFormRef"
+        :quote="currentQuote"
+        @submit="(data) => handleQuoteSubmitWithStatus(data)"
+        @cancel="dialogVisible = false"
+      />
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="submitLoading" @click="handleSubmit">确定</el-button>
+        <el-button
+          v-if="hasWorkflowTemplate"
+          :loading="submitLoading"
+          @click="handleSaveDraft"
+        >
+          保存草稿
+        </el-button>
+        <el-button
+          v-if="hasWorkflowTemplate"
+          type="primary"
+          :loading="submitLoading"
+          @click="handleSubmitApproval"
+        >
+          提交审批
+        </el-button>
+        <el-button
+          v-if="!hasWorkflowTemplate"
+          type="primary"
+          :loading="submitLoading"
+          @click="handleSubmit"
+        >
+          提交
+        </el-button>
       </template>
     </el-dialog>
+
+    <!-- 打印对话框 -->
+    <el-dialog
+      v-model="printDialogVisible"
+      title="打印报价单"
+      width="90%"
+      :close-on-click-modal="false"
+      class="print-dialog"
+    >
+      <QuotePrint
+        v-if="printQuoteData"
+        ref="quotePrintRef"
+        :quote="printQuoteData"
+      />
+      <template #footer>
+        <el-button @click="printDialogVisible = false">关闭</el-button>
+        <el-button type="primary" :icon="Printer" @click="handlePrint">打印</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 报价详情对话框 -->
+    <QuoteDetailDialog
+      v-model="quoteDetailDialogVisible"
+      :quote-id="currentQuoteId"
+      @edit="handleQuoteEdit"
+      @updated="handleQuoteUpdated"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Search, Refresh, Edit, Delete, View } from '@element-plus/icons-vue'
+import { Plus, Search, Refresh, Edit, Delete, Printer } from '@element-plus/icons-vue'
 import quoteApi, {
   type Quote,
   type CreateQuoteDto,
   type UpdateQuoteDto,
   type QueryQuoteDto,
-  type CreateQuoteItemDto,
 } from '@/api/quote'
-import customerApi from '@/api/customer'
-import productApi from '@/api/product'
-import orderApi from '@/api/order'
 import contractApi from '@/api/contract'
+import QuoteForm from '@/components/quote/QuoteForm.vue'
+import QuotePrint from '@/components/quote/QuotePrint.vue'
+import QuoteDetailDialog from '@/components/quote/QuoteDetailDialog.vue'
+import { getWorkflowTemplates, submitQuoteApproval, type WorkflowTemplate } from '@/api/workflow'
 
 const router = useRouter()
 
 // 搜索表单
-const searchForm = reactive({
+const searchForm = reactive<{
+  search: string
+  status?: 'draft' | 'pending_approval' | 'approved' | 'sent' | 'accepted' | 'rejected' | 'expired'
+}>({
   search: '',
-  status: undefined as string | undefined,
+  status: undefined,
 })
 
 // 报价列表
@@ -346,7 +271,7 @@ const loading = ref(false)
 // 分页
 const pagination = reactive({
   page: 1,
-  pageSize: 10,
+  pageSize: 50,
   total: 0,
 })
 
@@ -354,62 +279,31 @@ const pagination = reactive({
 const dialogVisible = ref(false)
 const dialogTitle = ref('')
 const submitLoading = ref(false)
-const formRef = ref()
-const isEdit = ref(false)
-const currentId = ref<string>('')
+const quoteFormRef = ref<InstanceType<typeof QuoteForm>>()
+const hasWorkflowTemplate = ref(false)
+const currentQuote = ref<Quote | null>(null)
+const submitStatus = ref<'draft' | 'pending_approval' | 'approved'>('draft')
+const workflowTemplates = ref<WorkflowTemplate[]>([])
 
-// 表单数据
-const formData = reactive<CreateQuoteDto & { contactId?: number }>({
-  quoteNumber: '',
-  customerId: 0,
-  contactId: undefined,
-  opportunityId: undefined,
-  quoteDate: '',
-  expiryDate: '',
-  status: 'draft',
-  notes: '',
-  items: [],
-})
+// 打印对话框相关
+const printDialogVisible = ref(false)
+const printQuoteData = ref<Quote | null>(null)
+const quotePrintRef = ref<InstanceType<typeof QuotePrint>>()
 
-// 可用客户、联系人和产品列表
-const availableCustomers = ref<Array<{ id: string; name: string }>>([])
-const availableContacts = ref<Array<{ id: string; name: string; position?: string }>>([])
-const availableProducts = ref<Array<{ id: string; name: string; code?: string }>>([])
-
-// 计算总金额
-const totalAmount = computed(() => {
-  return formData.items.reduce((sum, item) => {
-    return sum + (item.amount || 0)
-  }, 0)
-})
-
-// 表单验证规则
-const formRules = {
-  quoteNumber: [{ required: true, message: '请输入报价单号', trigger: 'blur' }],
-  customerId: [{ required: true, message: '请选择客户', trigger: 'change' }],
-  quoteDate: [{ required: true, message: '请选择报价日期', trigger: 'change' }],
-  items: [
-    { required: true, message: '请至少添加一条报价明细', trigger: 'change' },
-    {
-      validator: (rule: any, value: any, callback: any) => {
-        if (!value || value.length === 0) {
-          callback(new Error('请至少添加一条报价明细'))
-        } else {
-          callback()
-        }
-      },
-      trigger: 'change',
-    },
-  ],
-}
+// 报价详情对话框相关
+const quoteDetailDialogVisible = ref(false)
+const currentQuoteId = ref<string | number>()
 
 // 获取状态类型
 const getStatusType = (status: string) => {
   const typeMap: Record<string, string> = {
     draft: 'info',
+    pending_approval: 'warning',
+    approved: 'success',
+    active: 'success',
+    rejected: 'danger',
     sent: 'warning',
     accepted: 'success',
-    rejected: 'danger',
     expired: 'default',
   }
   return typeMap[status] || 'default'
@@ -419,9 +313,12 @@ const getStatusType = (status: string) => {
 const getStatusName = (status: string) => {
   const nameMap: Record<string, string> = {
     draft: '草稿',
+    pending_approval: '审批中',
+    approved: '已审批通过',
+    active: '已生效',
+    rejected: '已拒绝',
     sent: '已发送',
     accepted: '已接受',
-    rejected: '已拒绝',
     expired: '已过期',
   }
   return nameMap[status] || status
@@ -430,6 +327,43 @@ const getStatusName = (status: string) => {
 // 格式化日期
 const formatDate = (dateString: string) => {
   return new Date(dateString).toLocaleDateString('zh-CN')
+}
+
+// 格式化日期时间（包含时分秒）
+const formatDateTime = (dateString: string) => {
+  return new Date(dateString).toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  })
+}
+
+// 合计行方法
+const getSummaries = (param: { columns: any[]; data: Quote[] }) => {
+  const { columns, data } = param
+  const sums: string[] = []
+  
+  columns.forEach((column, index) => {
+    if (index === 0) {
+      sums[index] = '合计'
+      return
+    }
+    
+    if (column.property === 'totalAmount') {
+      const total = data.reduce((sum, item) => {
+        const amount = Number(item.totalAmount) || 0
+        return sum + amount
+      }, 0)
+      sums[index] = formatCurrency(total)
+    } else {
+      sums[index] = ''
+    }
+  })
+  
+  return sums
 }
 
 // 格式化货币
@@ -465,30 +399,6 @@ const loadQuotes = async () => {
   }
 }
 
-// 加载客户列表
-const loadCustomers = async () => {
-  try {
-    const response = await customerApi.getList({ page: 1, limit: 1000 })
-    if (response.code === 200) {
-      availableCustomers.value = response.data.customers
-    }
-  } catch (error) {
-    console.error('加载客户列表失败:', error)
-  }
-}
-
-// 加载产品列表
-const loadProducts = async () => {
-  try {
-    const response = await productApi.getList({ page: 1, limit: 1000, status: 'active' })
-    if (response.code === 200) {
-      availableProducts.value = response.data.products
-    }
-  } catch (error) {
-    console.error('加载产品列表失败:', error)
-  }
-}
-
 // 搜索
 const handleSearch = () => {
   pagination.page = 1
@@ -515,26 +425,53 @@ const handleCurrentChange = (page: number) => {
   loadQuotes()
 }
 
+// 检查是否有审批流模板
+const checkWorkflowTemplate = async () => {
+  try {
+    const response = await getWorkflowTemplates('quote') as unknown as {
+      code: number
+      data?: WorkflowTemplate[]
+    }
+    if (response.code === 200) {
+      const activeTemplates = (response.data || []).filter((t: WorkflowTemplate) => t.isActive)
+      workflowTemplates.value = activeTemplates
+      hasWorkflowTemplate.value = activeTemplates.length > 0
+    } else {
+      workflowTemplates.value = []
+      hasWorkflowTemplate.value = false
+    }
+  } catch (error) {
+    console.error('检查审批流模板失败:', error)
+    workflowTemplates.value = []
+    hasWorkflowTemplate.value = false
+  }
+}
+
 // 新增报价
-const goToCreate = () => {
-  isEdit.value = false
+const goToCreate = async () => {
   dialogTitle.value = '新增报价'
-  resetForm()
+  currentQuote.value = null
+  await checkWorkflowTemplate()
   dialogVisible.value = true
+  nextTick(() => {
+    quoteFormRef.value?.resetForm()
+  })
 }
 
 // 查看报价
 const viewQuote = async (row: Quote) => {
-  try {
-    const response = await quoteApi.getDetail(row.id)
-    if (response.code === 200) {
-      // 可以打开详情对话框或跳转到详情页
-      ElMessage.info('查看报价详情功能待实现')
-    }
-  } catch (error) {
-    console.error('获取报价详情失败:', error)
-    ElMessage.error('获取报价详情失败')
-  }
+  currentQuoteId.value = row.id
+  quoteDetailDialogVisible.value = true
+}
+
+// 处理报价编辑
+const handleQuoteEdit = (quote: Quote) => {
+  editQuote(quote)
+}
+
+// 处理报价更新
+const handleQuoteUpdated = () => {
+  loadQuotes()
 }
 
 // 编辑报价
@@ -542,36 +479,9 @@ const editQuote = async (row: Quote) => {
   try {
     const response = await quoteApi.getDetail(row.id)
     if (response.code === 200) {
-      isEdit.value = true
-      currentId.value = row.id
       dialogTitle.value = '编辑报价'
-      const quote = response.data
-      Object.assign(formData, {
-        quoteNumber: quote.quoteNumber,
-        customerId: parseInt(quote.customerId),
-        contactId: quote.contactId ? parseInt(quote.contactId) : undefined,
-        opportunityId: quote.opportunityId ? parseInt(quote.opportunityId) : undefined,
-        quoteDate: quote.quoteDate,
-        expiryDate: quote.expiryDate || '',
-        status: quote.status,
-        notes: quote.notes || '',
-        items: (quote.items || []).map((item: any) => ({
-          productId: parseInt(item.productId),
-          quantity: item.quantity,
-          unitPrice: item.unitPrice,
-          discount: item.discount || 0,
-          amount: item.amount,
-          notes: item.notes || '',
-        })),
-      })
-      // 先设置联系人ID（如果有），再加载联系人列表
-      const savedContactId = quote.contactId ? parseInt(quote.contactId) : undefined
-      // 加载该客户的联系人列表
-      await handleCustomerChange()
-      // 恢复联系人选择（在加载联系人列表后）
-      if (savedContactId) {
-        formData.contactId = savedContactId
-      }
+      currentQuote.value = response.data
+      await checkWorkflowTemplate()
       dialogVisible.value = true
     }
   } catch (error) {
@@ -600,7 +510,32 @@ const deleteQuote = async (row: Quote) => {
   }
 }
 
-// 从报价创建订单
+// 打印报价
+const printQuote = async (row: Quote) => {
+  try {
+    // 加载完整的报价详情（包含明细）
+    const response = await quoteApi.getDetail(row.id)
+    if (response.code === 200 && response.data) {
+      printQuoteData.value = response.data
+      printDialogVisible.value = true
+    } else {
+      ElMessage.error('加载报价详情失败')
+    }
+  } catch (error: any) {
+    ElMessage.error(error?.response?.data?.message || '加载报价详情失败')
+  }
+}
+
+
+// 执行打印
+const handlePrint = () => {
+  nextTick(() => {
+    if (quotePrintRef.value) {
+      quotePrintRef.value.print()
+    }
+  })
+}
+
 const createContractFromQuote = async (row: Quote) => {
   try {
     await ElMessageBox.confirm('确定要从该报价创建合同吗？', '提示', {
@@ -622,130 +557,136 @@ const createContractFromQuote = async (row: Quote) => {
   }
 }
 
-const createOrderFromQuote = async (row: Quote) => {
+// 处理报价表单提交
+const handleQuoteSubmit = async (data: CreateQuoteDto | UpdateQuoteDto, status?: 'draft' | 'pending_approval' | 'approved', needSubmitApproval = false) => {
   try {
-    await ElMessageBox.confirm('确定要从该报价创建订单吗？', '提示', {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
-      type: 'info',
-    })
-
-    const response = await orderApi.createFromQuote(row.id)
-    if (response.code === 201) {
-      ElMessage.success('订单创建成功')
-      router.push({ name: 'Orders' })
-    }
-  } catch (error) {
-    if (error !== 'cancel') {
-      console.error('创建订单失败:', error)
-      ElMessage.error('创建订单失败')
-    }
-  }
-}
-
-// 重置表单
-const resetForm = () => {
-  Object.assign(formData, {
-    quoteNumber: '',
-    customerId: 0,
-    contactId: undefined,
-    opportunityId: undefined,
-    quoteDate: '',
-    expiryDate: '',
-    status: 'draft',
-    notes: '',
-    items: [],
-  })
-  availableContacts.value = []
-  formRef.value?.clearValidate()
-}
-
-// 添加明细项
-const addItem = () => {
-  formData.items.push({
-    productId: 0,
-    quantity: 1,
-    unitPrice: 0,
-    discount: 0,
-    notes: '',
-  })
-}
-
-// 移除明细项
-const removeItem = (index: number) => {
-  formData.items.splice(index, 1)
-}
-
-// 计算明细项金额
-const calculateItemAmount = (index: number) => {
-  const item = formData.items[index]
-  if (item.quantity && item.unitPrice) {
-    const discount = item.discount || 0
-    item.amount = item.quantity * item.unitPrice * (1 - discount / 100)
-  }
-}
-
-// 客户变化时加载联系人
-const handleCustomerChange = async () => {
-  // 清空联系人选择
-  formData.contactId = undefined
-  availableContacts.value = []
-  
-  if (formData.customerId) {
-    try {
-      // 获取客户详情，包含联系人列表
-      const response = await customerApi.getDetail(formData.customerId.toString())
-      if (response.code === 200 && response.data.contacts) {
-        availableContacts.value = response.data.contacts.map((contact: any) => ({
-          id: contact.id,
-          name: contact.name,
-          position: contact.position,
-        }))
-      }
-    } catch (error) {
-      console.error('加载联系人列表失败:', error)
-      availableContacts.value = []
-    }
-  }
-}
-
-// 提交表单
-const handleSubmit = async () => {
-  try {
-    await formRef.value?.validate()
-
     submitLoading.value = true
 
-    // 确保所有明细项都有金额
-    formData.items.forEach((item, index) => {
-      calculateItemAmount(index)
-    })
+    // 设置状态
+    if (status) {
+      if ('status' in data) {
+        (data as any).status = status
+      } else {
+        (data as any).status = status
+      }
+    }
 
-    if (isEdit.value) {
-      await quoteApi.update(currentId.value, formData)
+    let quoteId: string | number | undefined
+
+    if (currentQuote.value) {
+      // 编辑模式
+      await quoteApi.update(currentQuote.value.id, data as UpdateQuoteDto)
+      quoteId = currentQuote.value.id
       ElMessage.success('更新成功')
     } else {
-      await quoteApi.create(formData)
-      ElMessage.success('创建成功')
+      // 新建模式
+      const response = await quoteApi.create(data as CreateQuoteDto) as unknown as {
+        code: number
+        data?: Quote
+      }
+      if (response.code === 201 && response.data) {
+        quoteId = response.data.id
+        ElMessage.success('创建成功')
+      }
+    }
+
+    // 如果需要提交审批，且报价已创建/更新成功
+    if (needSubmitApproval && quoteId && workflowTemplates.value.length > 0) {
+      try {
+        // 如果只有一个启用的模板，直接提交
+        if (workflowTemplates.value.length === 1) {
+          await submitQuoteApproval(Number(quoteId), {
+            templateId: workflowTemplates.value[0].id,
+          }) as unknown as { code: number }
+          ElMessage.success('提交审批成功')
+        } else {
+          // 如果有多个模板，需要用户选择（这里暂时使用第一个，后续可以优化为弹出选择对话框）
+          await submitQuoteApproval(Number(quoteId), {
+            templateId: workflowTemplates.value[0].id,
+          }) as unknown as { code: number }
+          ElMessage.success('提交审批成功')
+        }
+      } catch (error) {
+        console.error('提交审批失败:', error)
+        ElMessage.warning('报价已保存，但提交审批失败，请稍后手动提交审批')
+      }
     }
 
     dialogVisible.value = false
     loadQuotes()
   } catch (error: any) {
-    if (error !== false) {
-      console.error('提交失败:', error)
-      ElMessage.error(error.message || '提交失败')
-    }
+    console.error('提交失败:', error)
+    ElMessage.error(error.message || '提交失败')
   } finally {
     submitLoading.value = false
+  }
+}
+
+// 处理报价表单提交（带状态）
+const handleQuoteSubmitWithStatus = async (data: CreateQuoteDto | UpdateQuoteDto) => {
+  let status: 'draft' | 'pending_approval' | 'approved' = 'draft'
+  let needSubmitApproval = false
+  
+  if (hasWorkflowTemplate.value) {
+    // 有审批流配置，根据按钮类型设置状态
+    if (submitStatus.value === 'pending_approval') {
+      // 提交审批时，先保存为草稿状态，然后通过API提交审批（API会将状态改为pending_approval）
+      status = 'draft'
+      needSubmitApproval = true
+    } else {
+      status = 'draft'
+    }
+  } else {
+    // 没有审批流配置，直接设置为已审批
+    status = 'approved'
+  }
+  
+  await handleQuoteSubmit(data, status, needSubmitApproval)
+  // 重置状态
+  submitStatus.value = 'draft'
+}
+
+// 保存草稿
+const handleSaveDraft = async () => {
+  if (!quoteFormRef.value) {
+    ElMessage.warning('表单未初始化')
+    return
+  }
+  submitStatus.value = 'draft'
+  const success = await quoteFormRef.value.submit()
+  if (!success) {
+    submitStatus.value = 'draft'
+  }
+}
+
+// 提交审批
+const handleSubmitApproval = async () => {
+  if (!quoteFormRef.value) {
+    ElMessage.warning('表单未初始化')
+    return
+  }
+  submitStatus.value = 'pending_approval'
+  const success = await quoteFormRef.value.submit()
+  if (!success) {
+    submitStatus.value = 'draft'
+  }
+}
+
+// 提交表单（通过表单组件的submit方法）
+const handleSubmit = async () => {
+  if (!quoteFormRef.value) {
+    ElMessage.warning('表单未初始化')
+    return
+  }
+  const success = await quoteFormRef.value.submit()
+  if (success) {
+    // submit事件会在handleQuoteSubmit中处理
   }
 }
 
 // 初始化
 onMounted(() => {
   loadQuotes()
-  loadCustomers()
-  loadProducts()
 })
 </script>
 
@@ -756,15 +697,25 @@ onMounted(() => {
   @extend .table-page;
 }
 
-.quote-items-section {
-  width: 100%;
+.customer-name,
+.opportunity-name {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.total-amount {
-  margin-top: 10px;
-  text-align: right;
-  font-size: 16px;
-  color: var(--el-color-primary);
+.action-buttons {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 4px;
+  white-space: nowrap;
+
+  .el-button {
+    flex-shrink: 0;
+  }
 }
+
 </style>
 

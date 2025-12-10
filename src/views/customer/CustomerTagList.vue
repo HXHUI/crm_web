@@ -5,7 +5,7 @@
       <div class="toolbar">
         <div class="toolbar-left">
           <el-form :model="searchForm" :inline="true" size="default" class="search-form">
-            <el-form-item label="标签名称">
+            <el-form-item>
               <el-input
                 v-model="searchForm.name"
                 placeholder="请输入标签名称"
@@ -14,7 +14,7 @@
                 @keyup.enter="handleSearch"
               />
             </el-form-item>
-            <el-form-item label="标签颜色">
+            <el-form-item>
               <el-select
                 v-model="searchForm.color"
                 placeholder="请选择颜色"
@@ -165,7 +165,7 @@ const searchForm = reactive({
 // 分页
 const pagination = reactive({
   page: 1,
-  limit: 10,
+  limit: 50,
   total: 0
 })
 

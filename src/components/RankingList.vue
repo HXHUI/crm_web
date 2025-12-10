@@ -100,6 +100,7 @@ import { statisticsApi, type RankingItem } from '@/api/statistics'
 const props = defineProps<{
   scopeFilter?: string
   periodFilter?: string
+  customDateRange?: [string, string] | null
 }>()
 
 // 响应式数据
@@ -133,6 +134,14 @@ const periodFilterText = computed(() => {
     month: '本月',
     quarter: '本季度',
     year: '本年',
+    last_week: '上周',
+    last_month: '上月',
+    last_quarter: '上季度',
+    last_year: '上年',
+    custom: '自定义期间'
+  }
+  if (props.periodFilter === 'custom' && props.customDateRange && props.customDateRange.length === 2) {
+    return `${props.customDateRange[0]} 至 ${props.customDateRange[1]}`
   }
   return map[props.periodFilter || 'month'] || '本月'
 })

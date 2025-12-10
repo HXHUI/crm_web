@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { User, Member, Tenant, LoginRequest, RegisterRequest } from '@/types'
-import { login, register, logout, getCurrentUser } from '@/api/auth'
+import { login, register, logout, getCurrentUser, getAccessibleTenants, switchTenant } from '@/api/auth'
 
 export const useAuthStore = defineStore('auth', () => {
   // 状态
@@ -9,6 +9,8 @@ export const useAuthStore = defineStore('auth', () => {
   const user = ref<User | null>(null)
   const member = ref<Member | null>(null)
   const tenant = ref<Tenant | null>(null)
+  const accessibleTenants = ref<Tenant[]>([])
+  const currentDepartmentId = ref<number | null>(null)
   const loading = ref(false)
 
   // 计算属性
@@ -42,6 +44,14 @@ export const useAuthStore = defineStore('auth', () => {
       localStorage.setItem('member', JSON.stringify(response.data.member))
       localStorage.setItem('tenant', JSON.stringify(response.data.tenant))
 
+      // 获取可访问的租户列表
+      try {
+        await fetchAccessibleTenants()
+      } catch (error) {
+        console.error('获取租户列表失败:', error)
+        // 不影响登录流程
+      }
+
       return response.data
     } catch (error) {
       throw error
@@ -69,6 +79,14 @@ export const useAuthStore = defineStore('auth', () => {
       localStorage.setItem('user', JSON.stringify(response.data.user))
       localStorage.setItem('member', JSON.stringify(response.data.member))
       localStorage.setItem('tenant', JSON.stringify(response.data.tenant))
+
+      // 获取可访问的租户列表
+      try {
+        await fetchAccessibleTenants()
+      } catch (error) {
+        console.error('获取租户列表失败:', error)
+        // 不影响注册流程
+      }
 
       return response.data
     } catch (error) {
@@ -103,12 +121,14 @@ export const useAuthStore = defineStore('auth', () => {
       user.value = null
       member.value = null
       tenant.value = null
+      currentDepartmentId.value = null
       
       // 清除 localStorage
       localStorage.removeItem('token')
       localStorage.removeItem('user')
       localStorage.removeItem('member')
       localStorage.removeItem('tenant')
+      localStorage.removeItem('currentDepartmentId')
     }
   }
 
@@ -140,27 +160,124 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  // 获取可访问的租户列表
+  const fetchAccessibleTenants = async () => {
+    try {
+      if (!token.value) return
+      
+      loading.value = true
+      const response = await getAccessibleTenants()
+      accessibleTenants.value = response.data || []
+      
+      // 标记当前租户
+      if (tenant.value) {
+        accessibleTenants.value = accessibleTenants.value.map(t => ({
+          ...t,
+          isCurrent: t.id === tenant.value?.id
+        }))
+      }
+      
+      return accessibleTenants.value
+    } catch (error) {
+      console.error('获取租户列表失败:', error)
+      throw error
+    } finally {
+      loading.value = false
+    }
+  }
+
+  // 切换租户
+  const switchTenantUser = async (tenantId: string | number) => {
+    try {
+      loading.value = true
+      
+      const response = await switchTenant(tenantId)
+      
+      // 更新状态
+      token.value = response.data.access_token
+      user.value = response.data.user as User
+      member.value = response.data.member as Member
+      tenant.value = response.data.tenant as Tenant
+      
+      // 更新localStorage
+      localStorage.setItem('token', response.data.access_token)
+      localStorage.setItem('user', JSON.stringify(response.data.user))
+      localStorage.setItem('member', JSON.stringify(response.data.member))
+      localStorage.setItem('tenant', JSON.stringify(response.data.tenant))
+      
+      // 重新获取可访问租户列表（因为切换后可能有新的租户列表）
+      try {
+        await fetchAccessibleTenants()
+      } catch (error) {
+        console.error('刷新租户列表失败:', error)
+        // 即使刷新失败，也更新当前标记
+        accessibleTenants.value = accessibleTenants.value.map(t => ({
+          ...t,
+          isCurrent: t.id === tenant.value?.id
+        }))
+      }
+      
+      return response.data
+    } catch (error) {
+      console.error('切换租户失败:', error)
+      throw error
+    } finally {
+      loading.value = false
+    }
+  }
+
+  // 设置当前部门ID
+  const setCurrentDepartment = (departmentId: number | null) => {
+    currentDepartmentId.value = departmentId
+    if (departmentId) {
+      localStorage.setItem('currentDepartmentId', departmentId.toString())
+    } else {
+      localStorage.removeItem('currentDepartmentId')
+    }
+  }
+
   // 初始化认证状态
   const initAuth = async () => {
     const storedToken = localStorage.getItem('token')
+    
+    if (!storedToken) {
+      return // 没有token，不需要初始化
+    }
+    
+    // 先设置token，这样请求拦截器可以使用它
+    token.value = storedToken
+    
+    // 尝试从localStorage恢复用户信息（用于快速显示）
     const storedUser = localStorage.getItem('user')
     const storedMember = localStorage.getItem('member')
     const storedTenant = localStorage.getItem('tenant')
+    const storedDepartmentId = localStorage.getItem('currentDepartmentId')
     
-    if (storedToken && storedUser && storedMember && storedTenant) {
-      token.value = storedToken
+    if (storedUser && storedMember && storedTenant) {
+      try {
       user.value = JSON.parse(storedUser)
       member.value = JSON.parse(storedMember)
       tenant.value = JSON.parse(storedTenant)
+      } catch (error) {
+        console.error('解析localStorage数据失败:', error)
+      }
+    }
+    
+    // 恢复当前部门ID
+    if (storedDepartmentId) {
+      currentDepartmentId.value = parseInt(storedDepartmentId, 10)
+    }
       
-      // 验证token是否仍然有效
+    // 验证token是否仍然有效，并从服务器获取最新的用户信息
+    // 这会确保使用token中的memberId和tenantId获取正确的租户信息
       try {
         await fetchCurrentUser()
+      // 获取可访问的租户列表
+      await fetchAccessibleTenants()
       } catch (error) {
         // 如果token无效，清除认证状态
         console.error('Token验证失败:', error)
         await logoutUser()
-      }
     }
   }
 
@@ -170,6 +287,8 @@ export const useAuthStore = defineStore('auth', () => {
     user,
     member,
     tenant,
+    accessibleTenants,
+    currentDepartmentId,
     loading,
     
     // 计算属性
@@ -184,6 +303,9 @@ export const useAuthStore = defineStore('auth', () => {
     registerUser,
     logoutUser,
     fetchCurrentUser,
+    fetchAccessibleTenants,
+    switchTenantUser,
+    setCurrentDepartment,
     initAuth
   }
 })

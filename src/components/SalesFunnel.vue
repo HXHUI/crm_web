@@ -16,16 +16,6 @@
     <div class="funnel-content" v-if="funnelData">
       <div class="funnel-chart-container">
         <div class="funnel-chart" ref="funnelChartRef"></div>
-        <div class="funnel-legend">
-          <div v-for="(item, index) in funnelStages" :key="item.key" class="legend-item">
-            <div class="legend-color" :style="{ backgroundColor: getStageColor(index) }"></div>
-            <div class="legend-text">
-              <div class="legend-name">{{ item.name }}</div>
-              <div class="legend-count">{{ item.count }}个</div>
-              <div class="legend-amount">¥{{ item.amount.toLocaleString() }}</div>
-            </div>
-          </div>
-        </div>
       </div>
 
       <!-- 转化率统计 -->
@@ -391,64 +381,14 @@ onUnmounted(() => {
 }
 
 .funnel-chart-container {
-  display: flex;
-  align-items: center;
-  gap: 24px;
+  width: 100%;
   min-height: 400px;
 }
 
 .funnel-chart {
-  flex: 1;
+  width: 100%;
   height: 400px;
   min-width: 300px;
-}
-
-.funnel-legend {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  min-width: 200px;
-}
-
-.legend-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 16px;
-  background: #f8f9fa;
-  border-radius: 8px;
-  border: 1px solid #e9ecef;
-}
-
-.legend-color {
-  width: 16px;
-  height: 16px;
-  border-radius: 4px;
-  flex-shrink: 0;
-}
-
-.legend-text {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  flex: 1;
-}
-
-.legend-name {
-  font-size: 14px;
-  font-weight: 600;
-  color: #303133;
-}
-
-.legend-count {
-  font-size: 12px;
-  color: #409eff;
-  font-weight: 600;
-}
-
-.legend-amount {
-  font-size: 11px;
-  color: #909399;
 }
 
 .conversion-stats {
@@ -502,19 +442,12 @@ onUnmounted(() => {
   }
 
   .funnel-chart-container {
-    flex-direction: column;
-    align-items: center;
-    gap: 16px;
+    min-height: 350px;
   }
 
   .funnel-chart {
     min-width: 250px;
-    height: 300px;
-  }
-
-  .funnel-legend {
-    min-width: auto;
-    width: 100%;
+    height: 350px;
   }
 
   .conversion-stats {
@@ -525,23 +458,7 @@ onUnmounted(() => {
 @media (max-width: 480px) {
   .funnel-chart {
     min-width: 200px;
-    height: 250px;
-  }
-
-  .legend-item {
-    padding: 10px 12px;
-  }
-
-  .legend-name {
-    font-size: 13px;
-  }
-
-  .legend-count {
-    font-size: 11px;
-  }
-
-  .legend-amount {
-    font-size: 10px;
+    height: 300px;
   }
 
   .conversion-stats {

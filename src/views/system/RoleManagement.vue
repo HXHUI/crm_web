@@ -194,13 +194,13 @@ const searchForm = reactive<QueryRoleDto>({
   search: '',
   isActive: undefined,
   page: 1,
-  limit: 10
+  limit: 50
 })
 
 // 分页信息
 const pagination = reactive({
   page: 1,
-  limit: 10,
+  limit: 50,
   total: 0
 })
 
@@ -255,7 +255,7 @@ const handleReset = () => {
     search: '',
     isActive: undefined,
     page: 1,
-    limit: 10
+    limit: 50
   })
   pagination.page = 1
   loadData()

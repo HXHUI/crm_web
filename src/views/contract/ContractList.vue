@@ -41,6 +41,9 @@
               >
                 <el-option label="全部" :value="undefined" />
                 <el-option label="草稿" value="draft" />
+                <el-option label="审批中" value="pending_approval" />
+                <el-option label="已审批通过" value="approved" />
+                <el-option label="已拒绝" value="rejected" />
                 <el-option label="待签署" value="pending_sign" />
                 <el-option label="已签署" value="signed" />
                 <el-option label="已生效" value="active" />
@@ -66,9 +69,18 @@
           v-loading="loading"
           style="width: 100%"
           border
+          show-summary
+          :summary-method="getSummaries"
         >
-          <el-table-column prop="contractNumber" label="合同编号" min-width="150" />
-          <el-table-column prop="customer.name" label="客户" width="150" />
+          <el-table-column type="index" label="序号" width="60" align="center" />
+          <el-table-column prop="contractNumber" label="合同编号" min-width="150">
+            <template #default="{ row }">
+              <el-link type="primary" :underline="false" @click="viewContract(row)" style="cursor: pointer">
+                {{ row.contractNumber }}
+              </el-link>
+            </template>
+          </el-table-column>
+          <el-table-column prop="customer.name" label="客户" width="150" show-overflow-tooltip />
           <el-table-column prop="type" label="类型" width="100">
             <template #default="{ row }">
               <el-tag :type="getTypeType(row.type)">
@@ -103,23 +115,53 @@
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column prop="owner.username" label="负责人" width="120" />
-          <el-table-column prop="createdAt" label="创建时间" width="180">
+          <el-table-column prop="owner.username" label="负责人" width="120">
             <template #default="{ row }">
-              {{ formatDate(row.createdAt) }}
+              <span v-if="row.owner">{{ row.owner.username }}</span>
+              <span v-else class="text-gray-400">-</span>
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="320" fixed="right">
+          <el-table-column label="部门" width="120">
             <template #default="{ row }">
-              <el-button type="primary" size="small" :icon="View" @click="viewContract(row)">
-                查看
-              </el-button>
-              <el-button type="warning" size="small" :icon="Edit" @click="editContract(row)">
+              <span v-if="row.department?.name">{{ row.department.name }}</span>
+              <span v-else class="text-gray-400">-</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="创建者" width="120">
+            <template #default="{ row }">
+              {{ row.creator?.user?.username || row.creator?.nickname || '-' }}
+            </template>
+          </el-table-column>
+          <el-table-column prop="createdAt" label="创建时间" width="180">
+            <template #default="{ row }">
+              {{ formatDateTime(row.createdAt) }}
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="400" fixed="right">
+            <template #default="{ row }">
+              <el-button
+                v-if="row.status === 'draft'"
+                type="warning"
+                size="small"
+                :icon="Edit"
+                @click="editContract(row)"
+              >
                 编辑
               </el-button>
               <el-button
-                v-if="row.status === 'signed' || row.status === 'active'"
+                v-if="row.status === 'draft' || row.status === 'rejected'"
                 type="success"
+                size="small"
+                @click="viewContract(row)"
+              >
+                {{ row.status === 'rejected' ? '重新提交审批' : '提交审批' }}
+              </el-button>
+              <el-button type="info" size="small" :icon="Printer" @click="printContract(row)">
+                打印
+              </el-button>
+              <el-button
+                v-if="row.status === 'signed' || row.status === 'active'"
+                type="info"
                 size="small"
                 @click="createOrderFromContract(row)"
               >
@@ -154,267 +196,86 @@
       width="1200px"
       :close-on-click-modal="false"
     >
-      <el-form ref="formRef" :model="formData" :rules="formRules" label-width="100px">
-        <el-row :gutter="20">
-          <el-col :span="12">
-            <el-form-item label="合同编号" prop="contractNumber">
-              <el-input v-model="formData.contractNumber" placeholder="请输入合同编号" />
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="客户" prop="customerId">
-              <el-select
-                v-model="formData.customerId"
-                placeholder="请选择客户"
-                filterable
-                style="width: 100%"
-                @change="handleCustomerChange"
-              >
-                <el-option
-                  v-for="customer in availableCustomers"
-                  :key="customer.id"
-                  :label="customer.name"
-                  :value="parseInt(customer.id)"
-                />
-              </el-select>
-            </el-form-item>
-          </el-col>
-        </el-row>
-        <el-row :gutter="20">
-          <el-col :span="12">
-            <el-form-item label="联系人" prop="contactId">
-              <el-select
-                v-model="formData.contactId"
-                placeholder="请选择联系人（可选）"
-                filterable
-                clearable
-                style="width: 100%"
-                :disabled="!formData.customerId"
-              >
-                <el-option
-                  v-for="contact in availableContacts"
-                  :key="contact.id"
-                  :label="`${contact.name}${contact.position ? ' - ' + contact.position : ''}`"
-                  :value="parseInt(contact.id)"
-                />
-              </el-select>
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="合同类型" prop="type">
-              <el-select v-model="formData.type" placeholder="请选择合同类型" style="width: 100%">
-                <el-option label="销售合同" value="sales" />
-                <el-option label="服务合同" value="service" />
-                <el-option label="维护合同" value="maintenance" />
-                <el-option label="其他" value="other" />
-              </el-select>
-            </el-form-item>
-          </el-col>
-        </el-row>
-        <el-row :gutter="20">
-          <el-col :span="12">
-            <el-form-item label="签署日期" prop="signDate">
-              <el-date-picker
-                v-model="formData.signDate"
-                type="date"
-                placeholder="请选择签署日期"
-                style="width: 100%"
-                format="YYYY-MM-DD"
-                value-format="YYYY-MM-DD"
-              />
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="生效日期" prop="effectiveDate">
-              <el-date-picker
-                v-model="formData.effectiveDate"
-                type="date"
-                placeholder="请选择生效日期"
-                style="width: 100%"
-                format="YYYY-MM-DD"
-                value-format="YYYY-MM-DD"
-              />
-            </el-form-item>
-          </el-col>
-        </el-row>
-        <el-row :gutter="20">
-          <el-col :span="12">
-            <el-form-item label="到期日期" prop="expiryDate">
-              <el-date-picker
-                v-model="formData.expiryDate"
-                type="date"
-                placeholder="请选择到期日期"
-                style="width: 100%"
-                format="YYYY-MM-DD"
-                value-format="YYYY-MM-DD"
-              />
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="状态" prop="status">
-              <el-select v-model="formData.status" placeholder="请选择状态" style="width: 100%">
-                <el-option label="草稿" value="draft" />
-                <el-option label="待签署" value="pending_sign" />
-                <el-option label="已签署" value="signed" />
-                <el-option label="已生效" value="active" />
-                <el-option label="已到期" value="expired" />
-                <el-option label="已终止" value="terminated" />
-              </el-select>
-            </el-form-item>
-          </el-col>
-        </el-row>
-
-        <!-- 合同明细 -->
-        <el-form-item label="合同明细" prop="items">
-          <div class="contract-items-section">
-            <el-table :data="formData.items" border style="width: 100%">
-              <el-table-column label="产品" min-width="200">
-                <template #default="{ row, $index }">
-                  <el-select
-                    v-model="row.productId"
-                    placeholder="请选择产品"
-                    filterable
-                    style="width: 100%"
-                    @change="calculateItemAmount($index)"
-                  >
-                    <el-option
-                      v-for="product in availableProducts"
-                      :key="product.id"
-                      :label="`${product.name} (${product.code || ''})`"
-                      :value="parseInt(product.id)"
-                    />
-                  </el-select>
-                </template>
-              </el-table-column>
-              <el-table-column label="数量" width="120">
-                <template #default="{ row, $index }">
-                  <el-input-number
-                    v-model="row.quantity"
-                    :min="0.01"
-                    :precision="2"
-                    :controls="false"
-                    style="width: 100%"
-                    @change="calculateItemAmount($index)"
-                  />
-                </template>
-              </el-table-column>
-              <el-table-column label="单价" width="120">
-                <template #default="{ row, $index }">
-                  <el-input-number
-                    v-model="row.unitPrice"
-                    :min="0"
-                    :precision="2"
-                    :controls="false"
-                    style="width: 100%"
-                    @change="calculateItemAmount($index)"
-                  />
-                </template>
-              </el-table-column>
-              <el-table-column label="折扣(%)" width="120">
-                <template #default="{ row, $index }">
-                  <el-input-number
-                    v-model="row.discount"
-                    :min="0"
-                    :max="100"
-                    :precision="2"
-                    :controls="false"
-                    style="width: 100%"
-                    @change="calculateItemAmount($index)"
-                  />
-                </template>
-              </el-table-column>
-              <el-table-column label="金额" width="120" align="right">
-                <template #default="{ row }">
-                  {{ formatCurrency(row.amount) }}
-                </template>
-              </el-table-column>
-              <el-table-column label="操作" width="80" align="center">
-                <template #default="{ $index }">
-                  <el-button
-                    type="danger"
-                    size="small"
-                    :icon="Delete"
-                    @click="removeItem($index)"
-                  />
-                </template>
-              </el-table-column>
-            </el-table>
-            <el-button
-              type="primary"
-              :icon="Plus"
-              @click="addItem"
-              style="margin-top: 10px"
-            >
-              添加明细
-            </el-button>
-            <div class="total-amount">
-              <strong>总金额：{{ formatCurrency(totalAmount) }}</strong>
-            </div>
-          </div>
-        </el-form-item>
-
-        <!-- 合同内容 -->
-        <el-form-item label="合同内容" prop="content">
-          <el-input
-            v-model="formData.content"
-            type="textarea"
-            :rows="6"
-            placeholder="请输入合同内容/条款"
-          />
-        </el-form-item>
-
-        <!-- 合同附件 -->
-        <el-form-item label="合同附件">
-          <el-upload
-            :action="uploadAction"
-            :headers="uploadHeaders"
-            :file-list="attachmentList"
-            :on-success="handleAttachmentSuccess"
-            :on-remove="handleAttachmentRemove"
-            :before-upload="beforeUpload"
-            multiple
-            list-type="text"
-          >
-            <el-button type="primary" :icon="Plus">上传附件</el-button>
-            <template #tip>
-              <div class="el-upload__tip">支持PDF、Word、Excel等格式，单个文件不超过10MB</div>
-            </template>
-          </el-upload>
-        </el-form-item>
-
-        <el-form-item label="备注" prop="notes">
-          <el-input
-            v-model="formData.notes"
-            type="textarea"
-            :rows="3"
-            placeholder="请输入备注"
-          />
-        </el-form-item>
-      </el-form>
+      <ContractForm
+        ref="contractFormRef"
+        :contract="currentContract"
+        @submit="(data) => handleContractSubmitWithStatus(data)"
+        @cancel="dialogVisible = false"
+      />
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="submitLoading" @click="handleSubmit">确定</el-button>
+        <el-button
+          v-if="hasWorkflowTemplate"
+          :loading="submitLoading"
+          @click="handleSaveDraft"
+        >
+          保存草稿
+        </el-button>
+        <el-button
+          v-if="hasWorkflowTemplate"
+          type="primary"
+          :loading="submitLoading"
+          @click="handleSubmitApproval"
+        >
+          提交审批
+        </el-button>
+        <el-button
+          v-if="!hasWorkflowTemplate"
+          type="primary"
+          :loading="submitLoading"
+          @click="handleSubmit"
+        >
+          提交
+        </el-button>
       </template>
     </el-dialog>
+
+    <!-- 打印对话框 -->
+    <el-dialog
+      v-model="printDialogVisible"
+      title="打印合同"
+      width="90%"
+      :close-on-click-modal="false"
+      class="print-dialog"
+    >
+      <ContractPrint
+        v-if="printContractData"
+        ref="contractPrintRef"
+        :contract="printContractData"
+      />
+      <template #footer>
+        <el-button @click="printDialogVisible = false">关闭</el-button>
+        <el-button type="primary" :icon="Printer" @click="handlePrint">打印</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 合同详情对话框 -->
+    <ContractDetailDialog
+      v-model="contractDetailDialogVisible"
+      :contract-id="currentContractId"
+      @edit="handleContractEdit"
+      @updated="handleContractUpdated"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Search, Refresh, Edit, Delete, View } from '@element-plus/icons-vue'
+import { Plus, Search, Refresh, Edit, Delete, Printer } from '@element-plus/icons-vue'
 import type { UploadFile, UploadProps } from 'element-plus'
 import contractApi, {
   type Contract,
   type CreateContractDto,
   type UpdateContractDto,
   type QueryContractDto,
-  type CreateContractItemDto,
 } from '@/api/contract'
-import customerApi from '@/api/customer'
-import productApi from '@/api/product'
+import ContractPrint from '@/components/contract/ContractPrint.vue'
+import ContractForm from '@/components/contract/ContractForm.vue'
 import orderApi from '@/api/order'
+import ContractDetailDialog from '@/components/contract/ContractDetailDialog.vue'
+import { getWorkflowTemplates, submitContractApproval, type WorkflowTemplate } from '@/api/workflow'
 
 const router = useRouter()
 
@@ -432,7 +293,7 @@ const loading = ref(false)
 // 分页
 const pagination = reactive({
   page: 1,
-  pageSize: 10,
+  pageSize: 50,
   total: 0,
 })
 
@@ -440,81 +301,54 @@ const pagination = reactive({
 const dialogVisible = ref(false)
 const dialogTitle = ref('')
 const submitLoading = ref(false)
-const formRef = ref()
-const isEdit = ref(false)
-const currentId = ref<string>('')
+const contractFormRef = ref<InstanceType<typeof ContractForm>>()
+const currentContract = ref<Contract | null>(null)
 
-// 表单数据
-const formData = reactive<CreateContractDto & { contactId?: number }>({
-  contractNumber: '',
-  customerId: 0,
-  contactId: undefined,
-  quoteId: undefined,
-  opportunityId: undefined,
-  type: 'sales',
-  status: 'draft',
-  signDate: '',
-  effectiveDate: '',
-  expiryDate: '',
-  content: '',
-  attachments: [],
-  templateId: undefined,
-  notes: '',
-  items: [],
-})
+// 打印对话框相关
+const printDialogVisible = ref(false)
+const printContractData = ref<Contract | null>(null)
+const contractPrintRef = ref<InstanceType<typeof ContractPrint>>()
 
-// 可用客户、联系人和产品列表
-const availableCustomers = ref<Array<{ id: string; name: string }>>([])
-const availableContacts = ref<Array<{ id: string; name: string; position?: string }>>([])
-const availableProducts = ref<Array<{ id: string; name: string; code?: string }>>([])
+// 合同详情对话框
+const contractDetailDialogVisible = ref(false)
+const currentContractId = ref<string | number | undefined>(undefined)
 
-// 附件列表
-const attachmentList = ref<UploadFile[]>([])
+// 审批流模板相关
+const hasWorkflowTemplate = ref(false)
+const workflowTemplates = ref<WorkflowTemplate[]>([])
+const submitStatus = ref<'draft' | 'pending_approval' | 'approved'>('draft')
 
-// 上传地址
-const uploadAction = computed(() => {
-  const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api/v1'
-  return `${baseURL}/upload`
-})
-
-// 上传请求头（包含认证token）
-const uploadHeaders = computed(() => {
-  const token = localStorage.getItem('token')
-  return {
-    Authorization: token ? `Bearer ${token}` : '',
-  }
-})
-
-// 计算总金额
-const totalAmount = computed(() => {
-  return formData.items.reduce((sum, item) => {
-    return sum + (item.amount || 0)
-  }, 0)
-})
-
-// 表单验证规则
-const formRules = {
-  contractNumber: [{ required: true, message: '请输入合同编号', trigger: 'blur' }],
-  customerId: [{ required: true, message: '请选择客户', trigger: 'change' }],
-  items: [
-    { required: true, message: '请至少添加一条合同明细', trigger: 'change' },
-    {
-      validator: (rule: any, value: any, callback: any) => {
-        if (!value || value.length === 0) {
-          callback(new Error('请至少添加一条合同明细'))
-        } else {
-          callback()
-        }
-      },
-      trigger: 'change',
-    },
-  ],
+// 合计行方法
+const getSummaries = (param: { columns: any[]; data: Contract[] }) => {
+  const { columns, data } = param
+  const sums: string[] = []
+  
+  columns.forEach((column, index) => {
+    if (index === 0) {
+      sums[index] = '合计'
+      return
+    }
+    
+    if (column.property === 'totalAmount') {
+      const total = data.reduce((sum, item) => {
+        const amount = Number(item.totalAmount) || 0
+        return sum + amount
+      }, 0)
+      sums[index] = formatCurrency(total)
+    } else {
+      sums[index] = ''
+    }
+  })
+  
+  return sums
 }
 
 // 格式化货币
-const formatCurrency = (value: number) => {
-  if (!value) return '¥0.00'
-  return `¥${value.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`
+const formatCurrency = (value: number | string | null | undefined) => {
+  if (!value && value !== 0) return '¥0.00'
+  const numValue = typeof value === 'string' ? parseFloat(value) : Number(value)
+  if (isNaN(numValue)) return '¥0.00'
+  return `¥${numValue.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`
 }
 
 // 格式化日期
@@ -524,10 +358,26 @@ const formatDate = (date: string | Date) => {
   return d.toLocaleDateString('zh-CN')
 }
 
+// 格式化日期时间
+const formatDateTime = (date: string | Date) => {
+  if (!date) return '-'
+  const d = new Date(date)
+  const year = d.getFullYear()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  const hours = String(d.getHours()).padStart(2, '0')
+  const minutes = String(d.getMinutes()).padStart(2, '0')
+  const seconds = String(d.getSeconds()).padStart(2, '0')
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`
+}
+
 // 获取状态类型
 const getStatusType = (status: string) => {
   const statusMap: Record<string, string> = {
     draft: 'info',
+    pending_approval: 'warning',
+    approved: 'success',
+    rejected: 'danger',
     pending_sign: 'warning',
     signed: 'success',
     active: 'success',
@@ -541,6 +391,9 @@ const getStatusType = (status: string) => {
 const getStatusName = (status: string) => {
   const statusMap: Record<string, string> = {
     draft: '草稿',
+    pending_approval: '审批中',
+    approved: '已审批通过',
+    rejected: '已拒绝',
     pending_sign: '待签署',
     signed: '已签署',
     active: '已生效',
@@ -624,24 +477,169 @@ const handleCurrentChange = (page: number) => {
   loadContracts()
 }
 
+// 检查是否有审批流模板
+const checkWorkflowTemplate = async () => {
+  try {
+    const response = await getWorkflowTemplates('contract') as unknown as {
+      code: number
+      data?: WorkflowTemplate[]
+    }
+    if (response.code === 200) {
+      const activeTemplates = (response.data || []).filter((t: WorkflowTemplate) => t.isActive)
+      workflowTemplates.value = activeTemplates
+      hasWorkflowTemplate.value = activeTemplates.length > 0
+    } else {
+      workflowTemplates.value = []
+      hasWorkflowTemplate.value = false
+    }
+  } catch (error) {
+    console.error('检查审批流模板失败:', error)
+    workflowTemplates.value = []
+    hasWorkflowTemplate.value = false
+  }
+}
+
 // 新增合同
-const goToCreate = () => {
-  isEdit.value = false
+const goToCreate = async () => {
   dialogTitle.value = '新增合同'
-  resetForm()
+  currentContract.value = null
+  await checkWorkflowTemplate()
   dialogVisible.value = true
+  nextTick(() => {
+    contractFormRef.value?.resetForm()
+  })
 }
 
 // 查看合同
-const viewContract = async (row: Contract) => {
-  try {
-    const response = await contractApi.getDetail(row.id)
-    if (response.code === 200) {
-      ElMessage.info('查看合同详情功能待实现')
+const viewContract = (row: Contract) => {
+  currentContractId.value = row.id
+  contractDetailDialogVisible.value = true
+}
+
+// 处理合同编辑
+const handleContractEdit = (contract: Contract) => {
+  contractDetailDialogVisible.value = false
+  editContract(contract)
+}
+
+// 处理合同更新
+const handleContractUpdated = () => {
+  loadContracts()
+}
+
+// 处理合同表单提交（带状态）
+const handleContractSubmitWithStatus = async (data: CreateContractDto | UpdateContractDto) => {
+  let status: 'draft' | 'pending_approval' | 'approved' = 'draft'
+  let needSubmitApproval = false
+  
+  if (hasWorkflowTemplate.value) {
+    // 有审批流配置，根据按钮类型设置状态
+    if (submitStatus.value === 'pending_approval') {
+      // 提交审批时，先保存为草稿状态，然后通过API提交审批（API会将状态改为pending_approval）
+      status = 'draft'
+      needSubmitApproval = true
+    } else {
+      status = 'draft'
     }
-  } catch (error) {
-    console.error('获取合同详情失败:', error)
-    ElMessage.error('获取合同详情失败')
+  } else {
+    // 没有审批流配置，直接设置为已审批
+    status = 'approved'
+  }
+  
+  await handleContractSubmit(data, status, needSubmitApproval)
+  // 重置状态
+  submitStatus.value = 'draft'
+}
+
+// 处理合同表单提交
+const handleContractSubmit = async (data: CreateContractDto | UpdateContractDto, status?: 'draft' | 'pending_approval' | 'approved', needSubmitApproval = false) => {
+  try {
+    submitLoading.value = true
+
+    // 设置状态
+    if (status) {
+      if ('status' in data) {
+        (data as any).status = status
+      } else {
+        (data as any).status = status
+      }
+    }
+
+    let contractId: string | number | undefined
+
+    if (currentContract.value) {
+      // 编辑模式
+      await contractApi.update(currentContract.value.id, data as UpdateContractDto)
+      contractId = currentContract.value.id
+      ElMessage.success('更新成功')
+    } else {
+      // 创建模式
+      const response = await contractApi.create(data as CreateContractDto) as unknown as { code: number; data?: Contract }
+      if (response.code === 201 && response.data) {
+        contractId = response.data.id
+        ElMessage.success('创建成功')
+      }
+    }
+
+    // 如果需要提交审批
+    if (needSubmitApproval && contractId && workflowTemplates.value.length > 0) {
+      try {
+        const templateId = workflowTemplates.value[0].id
+        await submitContractApproval(Number(contractId), {
+          templateId,
+        })
+        ElMessage.success('提交审批成功')
+      } catch (error) {
+        console.error('提交审批失败:', error)
+        ElMessage.error('提交审批失败')
+      }
+    }
+
+    dialogVisible.value = false
+    loadContracts()
+  } catch (error: any) {
+    console.error('提交失败:', error)
+    ElMessage.error(error?.response?.data?.message || error?.message || '提交失败')
+  } finally {
+    submitLoading.value = false
+  }
+}
+
+// 保存草稿
+const handleSaveDraft = async () => {
+  if (!contractFormRef.value) {
+    ElMessage.warning('表单未初始化')
+    return
+  }
+  submitStatus.value = 'draft'
+  const success = await contractFormRef.value.submit()
+  if (!success) {
+    submitStatus.value = 'draft'
+  }
+}
+
+// 提交审批
+const handleSubmitApproval = async () => {
+  if (!contractFormRef.value) {
+    ElMessage.warning('表单未初始化')
+    return
+  }
+  submitStatus.value = 'pending_approval'
+  const success = await contractFormRef.value.submit()
+  if (!success) {
+    submitStatus.value = 'draft'
+  }
+}
+
+// 提交表单（通过表单组件的submit方法）
+const handleSubmit = async () => {
+  if (!contractFormRef.value) {
+    ElMessage.warning('表单未初始化')
+    return
+  }
+  const success = await contractFormRef.value.submit()
+  if (success) {
+    // submit事件会在handleContractSubmit中处理
   }
 }
 
@@ -650,45 +648,9 @@ const editContract = async (row: Contract) => {
   try {
     const response = await contractApi.getDetail(row.id)
     if (response.code === 200) {
-      isEdit.value = true
-      currentId.value = row.id
       dialogTitle.value = '编辑合同'
-      const contract = response.data
-      Object.assign(formData, {
-        contractNumber: contract.contractNumber,
-        customerId: parseInt(contract.customerId),
-        contactId: contract.contactId ? parseInt(contract.contactId) : undefined,
-        quoteId: contract.quoteId ? parseInt(contract.quoteId) : undefined,
-        opportunityId: contract.opportunityId ? parseInt(contract.opportunityId) : undefined,
-        type: contract.type,
-        status: contract.status,
-        signDate: contract.signDate || '',
-        effectiveDate: contract.effectiveDate || '',
-        expiryDate: contract.expiryDate || '',
-        content: contract.content || '',
-        attachments: contract.attachments || [],
-        templateId: contract.templateId ? parseInt(contract.templateId) : undefined,
-        notes: contract.notes || '',
-        items: (contract.items || []).map((item: any) => ({
-          productId: parseInt(item.productId),
-          quantity: item.quantity,
-          unitPrice: item.unitPrice,
-          discount: item.discount || 0,
-          amount: item.amount,
-          notes: item.notes || '',
-        })),
-      })
-      // 加载该客户的联系人列表
-      await handleCustomerChange()
-      // 恢复联系人选择
-      if (contract.contactId) {
-        formData.contactId = parseInt(contract.contactId)
-      }
-      // 设置附件列表
-      attachmentList.value = (contract.attachments || []).map((url: string) => ({
-        name: url.split('/').pop() || '附件',
-        url,
-      }))
+      currentContract.value = response.data
+      await checkWorkflowTemplate()
       dialogVisible.value = true
     }
   } catch (error) {
@@ -698,6 +660,31 @@ const editContract = async (row: Contract) => {
 }
 
 // 删除合同
+// 打印合同
+const printContract = async (row: Contract) => {
+  try {
+    // 加载完整的合同详情（包含明细）
+    const response = await contractApi.getDetail(row.id)
+    if (response.code === 200 && response.data) {
+      printContractData.value = response.data
+      printDialogVisible.value = true
+    } else {
+      ElMessage.error('加载合同详情失败')
+    }
+  } catch (error: any) {
+    ElMessage.error(error?.response?.data?.message || '加载合同详情失败')
+  }
+}
+
+// 执行打印
+const handlePrint = () => {
+  nextTick(() => {
+    if (contractPrintRef.value) {
+      contractPrintRef.value.print()
+    }
+  })
+}
+
 const deleteContract = async (row: Contract) => {
   try {
     await ElMessageBox.confirm('确定要删除该合同吗？', '提示', {
@@ -736,8 +723,7 @@ const createOrderFromContract = async (row: Contract) => {
 // 重置表单
 const resetForm = () => {
   Object.assign(formData, {
-    contractNumber: '',
-    customerId: 0,
+    customerId: undefined,
     contactId: undefined,
     quoteId: undefined,
     opportunityId: undefined,
@@ -759,14 +745,36 @@ const resetForm = () => {
 
 // 添加明细项
 const addItem = () => {
-  formData.items.push({
+  const newItem: CreateContractItemDto & { amount?: number; priceComponents?: Record<string, number>; taxRate?: number; unitPriceExclTax?: number; taxAmount?: number; amountExclTax?: number; packagingUnit?: string; packagingSpec?: string; _product?: ProductInfo } = {
     productId: 0,
     quantity: 1,
+    packagingUnit: undefined,
+    packagingSpec: undefined,
     unitPrice: 0,
     discount: 0,
-    amount: 0,
+    taxRate: defaultTaxRate.value,
+    unitPriceExclTax: 0,
+    taxAmount: 0,
+    amountExclTax: 0,
     notes: '',
-  })
+  }
+
+  // 复杂模式下初始化价格组成项
+  if (pricingConfig.value.pricingMode === 'complex' && pricingConfig.value.priceComponents) {
+    newItem.priceComponents = {}
+    pricingConfig.value.priceComponents.forEach((component) => {
+      newItem.priceComponents![component.key] = component.defaultValue || 0
+    })
+    // 计算初始单价
+    newItem.unitPrice = Object.values(newItem.priceComponents).reduce(
+      (sum, val) => sum + (Number(val) || 0),
+      0,
+    )
+  }
+
+  formData.items.push(newItem)
+  // 初始化时计算税额相关字段
+  calculateItemTaxAmounts(formData.items.length - 1)
 }
 
 // 移除明细项
@@ -778,13 +786,211 @@ const removeItem = (index: number) => {
   })
 }
 
+// 计算明细项的价格组成项（复杂模式）
+const calculateItemPriceComponents = (index: number) => {
+  const item = formData.items[index]
+  if (pricingConfig.value.pricingMode === 'complex') {
+    // 确保 priceComponents 存在
+    if (!item.priceComponents) {
+      item.priceComponents = {}
+    }
+    // 计算单价：所有价格组成项之和
+    const total = Object.values(item.priceComponents).reduce((sum, value) => {
+      return sum + (Number(value) || 0)
+    }, 0)
+    item.unitPrice = total
+  }
+  // 重新计算金额
+  calculateItemAmount(index)
+}
+
 // 计算明细项金额
 const calculateItemAmount = (index: number) => {
   const item = formData.items[index]
   if (item && item.quantity && item.unitPrice) {
     const discount = item.discount || 0
     item.amount = item.quantity * item.unitPrice * (1 - discount / 100)
+  } else {
+    item.amount = 0
   }
+  // 重新计算税额相关字段
+  calculateItemTaxAmounts(index)
+}
+
+// 计算明细项的税额相关字段
+const calculateItemTaxAmounts = (index: number) => {
+  const item = formData.items[index]
+  if (!item) return
+
+  const quantity = Number(item.quantity) || 0
+  const unitPrice = Number(item.unitPrice) || 0  // 含税单价
+  const discount = Number(item.discount) || 0
+  const taxRate = Number(item.taxRate) || 0  // 税率(%)
+
+  // 计算含税金额
+  const amount = quantity > 0 && unitPrice > 0
+    ? quantity * unitPrice * (1 - discount / 100)
+    : 0
+  item.amount = Math.round(amount * 100) / 100
+
+  // 计算不含税单价
+  if (taxRate > 0 && taxRate !== -100) {
+    item.unitPriceExclTax = unitPrice / (1 + taxRate / 100)
+  } else {
+    item.unitPriceExclTax = unitPrice
+  }
+  item.unitPriceExclTax = Math.round(item.unitPriceExclTax * 100) / 100
+
+  // 计算不含税金额
+  if (taxRate > 0 && taxRate !== -100) {
+    item.amountExclTax = amount / (1 + taxRate / 100)
+  } else {
+    item.amountExclTax = amount
+  }
+  item.amountExclTax = Math.round(item.amountExclTax * 100) / 100
+
+  // 计算税金
+  item.taxAmount = amount - item.amountExclTax
+  item.taxAmount = Math.round(item.taxAmount * 100) / 100
+}
+
+// 获取可用的辅助单位列表（仅销售用途）
+const getAvailableAuxiliaryUnitsForItem = (index: number) => {
+  const item = formData.items[index]
+  return getAvailableAuxiliaryUnits(item._product, 'sales')
+}
+
+// 获取显示用的数量（根据包装单位转换）
+const getDisplayQuantityForItem = (index: number): number => {
+  const item = formData.items[index]
+  return getDisplayQuantity(item)
+}
+
+// 处理数量输入（转换为主单位存储）
+const handleQuantityInput = (index: number, displayValue: number) => {
+  const item = formData.items[index]
+  if (!item) return
+  item.quantity = convertQuantityToMainUnit(item, displayValue)
+  calculateItemAmount(index)
+}
+
+// 处理包装数量输入（从包装单位转换为主单位存储）
+const handlePackagingQuantityInput = (index: number, displayValue: number) => {
+  const item = formData.items[index]
+  if (!item) return
+  // 将包装数量转换为主单位数量
+  item.quantity = convertQuantityToMainUnit(item, displayValue)
+  calculateItemAmount(index)
+}
+
+// 格式化数字（保留2位小数）
+const formatNumber = (value: number) => {
+  if (value === undefined || value === null) return '0.00'
+  return new Intl.NumberFormat('zh-CN', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value)
+}
+
+// 加载单位选项（从系统字典）
+const loadUnitOptions = async () => {
+  try {
+    const res = await dictionaryApi.getItemsTree('product_unit')
+    if (res.code === 200 && res.data) {
+      // 扁平化字典树
+      const flattenItems = (nodes: DictItemTreeNode[]): { label: string; value: string }[] => {
+        const result: { label: string; value: string }[] = []
+        nodes.forEach((node) => {
+          result.push({
+            label: node.label,
+            value: node.value || String(node.id),
+          })
+          if (node.children && node.children.length > 0) {
+            result.push(...flattenItems(node.children))
+          }
+        })
+        return result
+      }
+      unitOptions.value = flattenItems(res.data)
+    }
+  } catch (error) {
+    console.error('加载单位选项失败:', error)
+    unitOptions.value = []
+  }
+}
+
+// 获取单位的中文标签
+const getUnitLabel = (unitValue: string): string => {
+  if (!unitValue) return ''
+  const unitOption = unitOptions.value.find(opt => opt.value === unitValue)
+  return unitOption ? unitOption.label : unitValue
+}
+
+// 获取包装单位标签（只显示用途为销售的单位）
+const getPackagingUnitLabel = (row: ContractFormData['items'][0]): string => {
+  if (!row.packagingUnit) return ''
+  return getUnitLabel(row.packagingUnit)
+}
+
+// 获取显示用的单价（根据包装单位转换）
+const getDisplayUnitPriceForItem = (index: number): number => {
+  const item = formData.items[index]
+  return getDisplayUnitPrice(item)
+}
+
+// 处理单价输入（转换为主单位存储）
+const handleUnitPriceInput = (index: number, displayValue: number) => {
+  const item = formData.items[index]
+  if (!item) return
+  item.unitPrice = convertUnitPriceToMainUnit(item, displayValue)
+  calculateItemAmount(index)
+}
+
+// 处理包装单位变化
+const handlePackagingUnitChangeForItem = (index: number, unit: string) => {
+  const item = formData.items[index]
+  if (!item) return
+  item.packagingUnit = unit
+  item.packagingSpec = handlePackagingUnitChange(item, unit)
+  // 重新计算显示值（数量保持不变，只是显示转换）
+  calculateItemAmount(index)
+}
+
+// 处理产品选择变化
+const handleProductChange = async (index: number, productId: number) => {
+  const item = formData.items[index]
+  if (!item || !productId) return
+
+  // 加载产品详情（包含辅助单位）
+  try {
+    const res = await productApi.getDetail(String(productId))
+    if (res.code === 200 && res.data) {
+      item._product = {
+        unit: res.data.unit,
+        auxiliaryUnits: (res.data.auxiliaryUnits || []) as ProductInfo['auxiliaryUnits']
+      }
+
+      // 优先使用用途为"销售"的辅助单位，如果没有则使用主单位
+      const salesAuxUnit = item._product.auxiliaryUnits?.find(aux => aux.purpose === 'sales')
+      if (salesAuxUnit) {
+        item.packagingUnit = salesAuxUnit.unit
+        item.packagingSpec = salesAuxUnit.description || `${salesAuxUnit.conversionRate}${res.data.unit}/${salesAuxUnit.unit}`
+      } else {
+        // 默认使用主单位
+        item.packagingUnit = res.data.unit
+        item.packagingSpec = ''
+      }
+
+      // 如果产品有价格，自动填充单价
+      if (res.data.price) {
+        item.unitPrice = res.data.price
+      }
+    }
+  } catch (error) {
+    console.error('加载产品详情失败:', error)
+  }
+
+  calculateItemAmount(index)
 }
 
 // 客户变化时加载联系人
@@ -809,40 +1015,6 @@ const handleCustomerChange = async () => {
   }
 }
 
-// 提交表单
-const handleSubmit = async () => {
-  try {
-    await formRef.value?.validate()
-
-    submitLoading.value = true
-
-    // 确保所有明细项都有金额
-    formData.items.forEach((item, index) => {
-      calculateItemAmount(index)
-    })
-
-    // 从附件列表获取URL
-    formData.attachments = attachmentList.value.map((file) => file.url || file.response?.data?.url || '').filter(Boolean)
-
-    if (isEdit.value) {
-      await contractApi.update(currentId.value, formData)
-      ElMessage.success('更新成功')
-    } else {
-      await contractApi.create(formData)
-      ElMessage.success('创建成功')
-    }
-
-    dialogVisible.value = false
-    loadContracts()
-  } catch (error: any) {
-    if (error !== false) {
-      console.error('提交失败:', error)
-      ElMessage.error(error.message || '提交失败')
-    }
-  } finally {
-    submitLoading.value = false
-  }
-}
 
 // 附件上传前检查
 const beforeUpload: UploadProps['beforeUpload'] = (file) => {
@@ -882,7 +1054,8 @@ const handleAttachmentSuccess: UploadProps['onSuccess'] = (response: any, file: 
 // 附件移除
 const handleAttachmentRemove: UploadProps['onRemove'] = (file: UploadFile) => {
   // 从附件列表中移除
-  const url = file.url || (file.response?.data?.url || file.response?.url || file.response)
+  const resp: any = file.response || {}
+  const url = file.url || resp.data?.url || resp.url || resp
   if (url) {
     formData.attachments = (formData.attachments || []).filter((att) => att !== url)
   }
@@ -918,11 +1091,77 @@ const loadProducts = async () => {
   }
 }
 
+// 加载默认税率
+const loadDefaultTaxRate = async () => {
+  const tenantId = authStore.currentTenant?.id
+  if (!tenantId) {
+    return
+  }
+  try {
+    const tenant = authStore.currentTenant
+    if (tenant && typeof (tenant as any).defaultTaxRate === 'number') {
+      defaultTaxRate.value = (tenant as any).defaultTaxRate
+    } else {
+      // 如果租户信息中没有，尝试从租户详情中获取
+      try {
+        const tenantResponse = await tenantApi.getDetail(tenantId)
+        if (tenantResponse.code === 200 && tenantResponse.data && typeof (tenantResponse.data as any).defaultTaxRate === 'number') {
+          defaultTaxRate.value = (tenantResponse.data as any).defaultTaxRate
+        }
+      } catch {
+        // 如果获取失败，使用默认值 0
+        defaultTaxRate.value = 0
+      }
+    }
+  } catch (error) {
+    console.error('加载默认税率失败:', error)
+    defaultTaxRate.value = 0
+  }
+}
+
+// 加载价格配置
+const loadPricingConfig = async () => {
+  const tenantId = authStore.currentTenant?.id
+  if (!tenantId) {
+    return
+  }
+  try {
+    pricingConfigLoading.value = true
+    const response = await tenantApi.getPricingConfig(tenantId)
+    if (response.code === 200) {
+      pricingConfig.value = response.data
+    } else {
+      pricingConfig.value = {
+        pricingMode: 'simple',
+        priceComponents: [],
+      }
+    }
+  } catch (error) {
+    console.error('加载价格配置失败:', error)
+    pricingConfig.value = {
+      pricingMode: 'simple',
+      priceComponents: [],
+    }
+  } finally {
+    pricingConfigLoading.value = false
+  }
+}
+
 // 初始化
-onMounted(() => {
-  loadContracts()
-  loadCustomers()
-  loadProducts()
+onMounted(async () => {
+  // 优先加载合同列表数据
+  await loadContracts()
+
+  // 并行加载其他数据（即使失败也不影响合同列表显示）
+  Promise.all([
+    loadPricingConfig(),
+    loadDefaultTaxRate(),
+    loadUnitOptions(),
+    loadCustomers(),
+    loadProducts(),
+  ]).catch((error) => {
+    console.error('加载辅助数据失败:', error)
+  })
 })
 </script>
 
@@ -938,9 +1177,24 @@ onMounted(() => {
 }
 
 .total-amount {
-  margin-top: 10px;
+  margin-top: 16px;
+  padding: 12px;
+  background-color: #f5f7fa;
+  border-radius: 4px;
   text-align: right;
+
+  .total-row {
+    margin-bottom: 8px;
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+
+    strong {
   font-size: 16px;
+      color: #303133;
+    }
+  }
   color: var(--el-color-primary);
 }
 </style>

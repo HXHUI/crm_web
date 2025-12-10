@@ -14,6 +14,9 @@ export interface Contact {
   notes?: string
   otherContacts?: Record<string, string>
   customerId: string
+  parentId?: string
+  parent?: Contact
+  children?: Contact[]
   customer?: {
     id: string
     name: string
@@ -35,6 +38,7 @@ export interface CreateContactDto {
   notes?: string
   otherContacts?: Record<string, string>
   customerId: string
+  parentId?: number
 }
 
 export interface UpdateContactDto {
@@ -48,9 +52,11 @@ export interface UpdateContactDto {
   isPrimary?: boolean
   notes?: string
   otherContacts?: Record<string, string>
+  parentId?: number
 }
 
 export interface QueryContactDto {
+  search?: string
   name?: string
   email?: string
   phone?: string
@@ -108,7 +114,7 @@ export const contactApi = {
     request.get<{ code: number; message: string; data: ContactStats }>('/contacts/stats'),
 
   // 获取客户的所有联系人
-  getByCustomer: (customerId: string) => 
+  getContactsByCustomer: (customerId: string | number) => 
     request.get<{ code: number; message: string; data: Contact[] }>(`/contacts/customer/${customerId}`),
 }
 

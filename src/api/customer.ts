@@ -14,7 +14,6 @@ export interface Customer {
   estimatedValue?: number
   source?: string
   level?: string
-  poolType: 'public' | 'private'
   ownerId?: string
   owner?: {
     id: string
@@ -59,11 +58,11 @@ export interface CreateCustomerDto {
   estimatedValue?: number
   source?: string
   level?: string
-  poolType?: 'public' | 'private'
   province?: string
   city?: string
   district?: string
   addressDetail?: string
+  ownerId?: number
 }
 
 export interface UpdateCustomerDto {
@@ -79,11 +78,11 @@ export interface UpdateCustomerDto {
   estimatedValue?: number
   source?: string
   level?: string
-  poolType?: 'public' | 'private'
   province?: string
   city?: string
   district?: string
   addressDetail?: string
+  ownerId?: number
 }
 
 export interface QueryCustomerDto {
@@ -118,6 +117,55 @@ export interface CreateContactDto {
   isPrimary?: boolean
   notes?: string
   otherContacts?: Record<string, string>
+}
+
+export interface CustomerProfile {
+  id: string
+  customerId: string
+  invoiceRequirement?: 'special_vat' | 'normal_invoice' | 'no_invoice'
+  invoiceRemark?: string
+  shippingMethods?: string[]
+  mainCategoryIds?: number[]
+  competitorBrands?: string[]
+  creditLimit?: number
+  creditTier?: 'tier_150k' | 'tier_100k' | 'tier_50k' | 'none'
+  createdAt: string
+  updatedAt: string
+}
+
+export interface CustomerCreditHistory {
+  id: string
+  customerId: string
+  oldLimit?: number
+  newLimit?: number
+  oldTier?: string
+  newTier?: string
+  oldRating?: string
+  newRating?: string
+  changeReason?: string
+  changedBy?: number
+  changer?: {
+    id: string
+    username: string
+  }
+  createdAt: string
+}
+
+export interface CreateCustomerProfileDto {
+  invoiceRequirement?: 'special_vat' | 'normal_invoice' | 'no_invoice'
+  invoiceRemark?: string
+  shippingMethods?: string[]
+  mainCategoryIds?: number[]
+  competitorBrands?: string[]
+  creditLimit?: number
+  creditTier?: 'tier_150k' | 'tier_100k' | 'tier_50k' | 'none'
+}
+
+export interface UpdateCreditInfoDto {
+  creditLimit?: number
+  creditTier?: 'tier_150k' | 'tier_100k' | 'tier_50k' | 'none'
+  level?: string
+  changeReason: string
 }
 
 // 客户管理API
@@ -187,6 +235,41 @@ export const customerApi = {
 
   releaseCustomer: (id: string): Promise<{ code: number; message: string }> => {
     return request.post(`/customers/${id}/release`)
+  },
+
+  // 更新客户状态
+  updateStatus: (
+    id: string,
+    status: 'lead' | 'qualified' | 'proposal' | 'negotiation' | 'closed_won' | 'closed_lost',
+  ): Promise<{ code: number; message: string; data: Customer }> => {
+    return request.patch(`/customers/${id}/status`, { status })
+  },
+
+  // 合作与信用信息相关API
+  getCustomerProfile: (
+    customerId: string,
+  ): Promise<{ code: number; message: string; data: CustomerProfile | null }> => {
+    return request.get(`/customers/${customerId}/profile`)
+  },
+
+  updateCustomerProfile: (
+    customerId: string,
+    data: CreateCustomerProfileDto,
+  ): Promise<{ code: number; message: string; data: CustomerProfile }> => {
+    return request.patch(`/customers/${customerId}/profile`, data)
+  },
+
+  updateCreditInfo: (
+    customerId: string,
+    data: UpdateCreditInfoDto,
+  ): Promise<{ code: number; message: string; data: { profile: CustomerProfile; customer: Customer; history: CustomerCreditHistory } }> => {
+    return request.patch(`/customers/${customerId}/profile/credit`, data)
+  },
+
+  getCreditHistory: (
+    customerId: string,
+  ): Promise<{ code: number; message: string; data: CustomerCreditHistory[] }> => {
+    return request.get(`/customers/${customerId}/profile/credit-history`)
   },
 }
 

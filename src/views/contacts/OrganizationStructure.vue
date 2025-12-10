@@ -26,14 +26,15 @@
           <el-tree
             :data="departmentTree"
             :props="treeProps"
-            node-key="id"
+            node-key="treeId"
             :expand-on-click-node="false"
             :default-expand-all="true"
-            @node-click="handleDepartmentClick"
+            :highlight-current="true"
+            :current-node-key="selectedTreeNodeId"
             class="tree"
           >
             <template #default="{ data }">
-              <div class="tree-node" :class="{ 'is-selected': currentDepartment.id === data.id }">
+              <div class="tree-node" :class="{ 'is-selected': selectedTreeNodeId === data.treeId }">
                 <div class="node-content" @click="handleDepartmentClick(data)">
                   <el-icon class="node-icon">
                     <OfficeBuilding v-if="data.type === 'company' || data.isTenant" />
@@ -85,7 +86,7 @@
                           <span v-else>删除</span>
                         </el-dropdown-item>
                         <el-dropdown-item command="info" disabled>
-                          {{ data.type === 'company' ? '租户ID' : '部门ID' }}: {{ data.id }}
+                          {{ data.type === 'company' ? '租户ID' : '部门ID' }}: {{ getNodeDisplayId(data) }}
                         </el-dropdown-item>
                       </el-dropdown-menu>
                     </template>
@@ -99,45 +100,47 @@
 
       <!-- 右侧成员列表 -->
       <div class="main-content">
-        <div class="content-header">
-          <div class="header-info">
-            <h2 class="department-title">
-              {{ currentDepartment.name }} · {{ currentDepartment.memberCount }}人
-            </h2>
+        <!-- 工具栏 -->
+        <div class="toolbar-section">
+          <div class="toolbar-header">
+            <div class="header-info">
+              <h2 class="department-title">
+                {{ currentDepartment.name }} · {{ currentDepartment.memberCount }}人
+              </h2>
+            </div>
+            <div class="header-actions">
+              <el-button type="primary" :icon="Plus" @click="handleAddMember"> 添加成员 </el-button>
+              <el-dropdown @command="handleBatchAction">
+                <el-button>
+                  批量导入/导出<el-icon class="el-icon--right"><arrow-down /></el-icon>
+                </el-button>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item command="import">批量导入</el-dropdown-item>
+                    <el-dropdown-item command="export">批量导出</el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
+              <el-button @click="handleBatchEdit">批量添加成员</el-button>
+              <el-button @click="handleBatchDelete">删除</el-button>
+              <el-button @click="handleWechatInvite">微信邀请</el-button>
+            </div>
           </div>
-
-          <div class="header-actions">
-            <el-button type="primary" :icon="Plus" @click="handleAddMember"> 添加成员 </el-button>
-            <el-dropdown @command="handleBatchAction">
-              <el-button>
-                批量导入/导出<el-icon class="el-icon--right"><arrow-down /></el-icon>
-              </el-button>
-              <template #dropdown>
-                <el-dropdown-menu>
-                  <el-dropdown-item command="import">批量导入</el-dropdown-item>
-                  <el-dropdown-item command="export">批量导出</el-dropdown-item>
-                </el-dropdown-menu>
-              </template>
-            </el-dropdown>
-            <el-button @click="handleBatchEdit">批量设置成员信息</el-button>
-            <el-button @click="handleBatchDelete">删除</el-button>
-            <el-button @click="handleWechatInvite">微信邀请</el-button>
+          <!-- 提示信息 -->
+          <div v-if="currentDepartment.unjoinedCount > 0" class="notice-banner">
+            <el-icon><Warning /></el-icon>
+            <span>当前部门尚有{{ currentDepartment.unjoinedCount }}人未加入</span>
+            <el-link type="primary">立即邀请</el-link>
+            <el-link type="primary">导出</el-link>
           </div>
         </div>
 
-        <!-- 提示信息 -->
-        <div v-if="currentDepartment.unjoinedCount > 0" class="notice-banner">
-          <el-icon><Warning /></el-icon>
-          <span>当前部门尚有{{ currentDepartment.unjoinedCount }}人未加入</span>
-          <el-link type="primary">立即邀请</el-link>
-          <el-link type="primary">导出</el-link>
-        </div>
-
-        <!-- 成员表格 -->
-        <div class="member-table">
+        <!-- 列表 -->
+        <div class="list-section" ref="tableWrapperRef">
           <el-table
             :data="currentDepartment.members"
             style="width: 100%"
+            :height="tableHeight"
             @selection-change="handleSelectionChange"
             v-loading="loading"
             border
@@ -150,6 +153,19 @@
                     {{ scope.row.user?.username?.charAt(0) || '?' }}
                   </el-avatar>
                   <span class="name-text">{{ scope.row.user?.username || '未设置' }}</span>
+                  <el-tag
+                    v-if="
+                      scope.row.isManager === true ||
+                      (currentDepartment.managerId &&
+                        (String(scope.row.id) === String(currentDepartment.managerId) ||
+                          Number(scope.row.id) === Number(currentDepartment.managerId)))
+                    "
+                    type="success"
+                    size="small"
+                    style="margin-left: 8px"
+                  >
+                    负责人
+                  </el-tag>
                 </div>
               </template>
             </el-table-column>
@@ -181,12 +197,6 @@
                 <span>{{ scope.row.user?.email || '-' }}</span>
               </template>
             </el-table-column>
-            <el-table-column prop="isManager" label="部门负责人" width="120" align="center">
-              <template #default="scope">
-                <el-tag v-if="scope.row.isManager" type="success" size="small">是</el-tag>
-                <span v-else>否</span>
-              </template>
-            </el-table-column>
             <el-table-column label="操作" width="200" fixed="right">
               <template #default="scope">
                 <el-button type="text" size="small" @click="handleEditMember(scope.row)">
@@ -198,6 +208,19 @@
               </template>
             </el-table-column>
           </el-table>
+        </div>
+
+        <!-- 分页 -->
+        <div class="pagination-section">
+          <el-pagination
+            v-model:current-page="memberPagination.page"
+            v-model:page-size="memberPagination.limit"
+            :page-sizes="[10, 20, 50, 100]"
+            :total="memberPagination.total"
+            layout="total, sizes, prev, pager, next, jumper"
+            @size-change="handleMemberPageSizeChange"
+            @current-change="handleMemberPageChange"
+          />
         </div>
       </div>
     </div>
@@ -235,7 +258,7 @@
             clearable
             check-strictly
           />
-          <div v-if="departmentForm.parentId === null" class="text-sm text-gray-500 mt-1">
+          <div v-if="departmentForm.parentId === 'root' || departmentForm.parentId === null" class="text-sm text-gray-500 mt-1">
             将在租户根节点下创建根级部门
           </div>
         </el-form-item>
@@ -345,11 +368,89 @@
         </el-button>
       </template>
     </el-dialog>
+
+    <!-- 批量设置成员对话框 -->
+    <el-dialog
+      v-model="batchEditDialogVisible"
+      title="批量添加成员到部门"
+      width="700px"
+      :close-on-click-modal="false"
+    >
+      <div class="batch-edit-info">
+        <el-alert
+          :title="`请选择要添加到「${currentDepartment.name}」的成员（已排除当前部门内的成员）`"
+          type="info"
+          :closable="false"
+          show-icon
+        />
+      </div>
+      <div style="margin-top: 20px">
+        <el-input
+          v-model="memberSearchKeyword"
+          placeholder="搜索成员姓名、手机、邮箱"
+          :prefix-icon="Search"
+          clearable
+          style="margin-bottom: 16px"
+        />
+        <el-table
+          :data="filteredAvailableMembers"
+          style="width: 100%"
+          max-height="450"
+          @selection-change="handleBatchMemberSelectionChange"
+          v-loading="loadingAvailableMembers"
+        >
+          <el-table-column type="selection" width="55" />
+          <el-table-column label="姓名" min-width="150">
+            <template #default="scope">
+              <div class="member-name">
+                <el-avatar :size="32" :src="scope.row.user?.avatar">
+                  {{ scope.row.user?.username?.charAt(0) || '?' }}
+                </el-avatar>
+                <span class="name-text">{{ scope.row.user?.username || '未设置' }}</span>
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column prop="user.phone" label="手机" width="150">
+            <template #default="scope">
+              <span>{{ scope.row.user?.phone || '-' }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column prop="user.email" label="邮箱" min-width="150" show-overflow-tooltip>
+            <template #default="scope">
+              <span>{{ scope.row.user?.email || '-' }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="所属部门" min-width="150" show-overflow-tooltip>
+            <template #default="scope">
+              <span v-if="scope.row.departments && scope.row.departments.length > 0">
+                {{ scope.row.departments.map((dept: any) => dept.name).join('; ') }}
+              </span>
+              <span v-else>-</span>
+            </template>
+          </el-table-column>
+        </el-table>
+        <div style="margin-top: 16px; text-align: right; color: #909399; font-size: 14px">
+          已选择 {{ batchSelectedMembers.length }} 个成员
+        </div>
+      </div>
+
+      <template #footer>
+        <el-button @click="handleBatchEditCancel">取消</el-button>
+        <el-button
+          type="primary"
+          @click="handleSubmitBatchEdit"
+          :loading="batchEditSubmitting"
+          :disabled="batchSelectedMembers.length === 0"
+        >
+          确定 ({{ batchSelectedMembers.length }})
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, nextTick, onUnmounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   Plus,
@@ -363,9 +464,12 @@ import {
 import {
   getDepartmentTree,
   getDepartmentMembers,
+  getDepartmentById,
   createDepartment,
   updateDepartment,
   deleteDepartment,
+  addDepartmentMember,
+  batchAddDepartmentMembers,
   removeDepartmentMember,
   type Department,
   type Member,
@@ -410,15 +514,81 @@ const currentOperationDepartment = ref<Department | null>(null)
 
 // 部门树数据
 const departmentTree = ref<Department[]>([])
+const selectedTreeNodeId = ref<string>('')
+
+const getTreeNodeKey = (node: any) => {
+  if (node.isTenant || node.id === 'root') {
+    const originalId = node.originalTenantId ?? node.id
+    return `tenant-${originalId}`
+  }
+  return `dept-${node.id}`
+}
+
+const getNodeDisplayId = (node: any) => {
+  if (node.type === 'company' || node.isTenant) {
+    return node.originalTenantId ?? node.id
+  }
+  return node.id
+}
+
+const findNodeById = (nodes: any[], id: string) => {
+  for (const node of nodes) {
+    if (node.id === id) {
+      return node
+    }
+    if (node.children && node.children.length > 0) {
+      const found = findNodeById(node.children, id)
+      if (found) {
+        return found
+      }
+    }
+  }
+  return null
+}
+
+const assignTreeIds = (nodes: any[]) => {
+  nodes.forEach((node) => {
+    if (node.isTenant && node.id !== 'root') {
+      node.originalTenantId = node.id
+      node.id = 'root'
+    }
+    node.treeId = getTreeNodeKey(node)
+    if (node.children && node.children.length > 0) {
+      assignTreeIds(node.children)
+    }
+  })
+}
 
 // 当前选中的部门
 const currentDepartment = ref<any>({
   id: '',
   name: '',
+  managerId: undefined,
   memberCount: 0,
   unjoinedCount: 0,
   members: [],
 })
+
+// 成员列表分页
+const memberPagination = reactive({
+  page: 1,
+  limit: 20,
+  total: 0,
+})
+
+// 表格高度
+const tableWrapperRef = ref<HTMLElement | null>(null)
+const tableHeight = ref<number | string>('100%')
+
+// 计算表格高度
+const calculateTableHeight = () => {
+  nextTick(() => {
+    if (tableWrapperRef.value) {
+      const wrapperHeight = tableWrapperRef.value.clientHeight
+      tableHeight.value = wrapperHeight || '100%'
+    }
+  })
+}
 
 // 认证状态
 const authStore = useAuthStore()
@@ -428,6 +598,28 @@ const memberDialogVisible = ref(false)
 const memberDialogTitle = ref('添加成员')
 const memberSubmitting = ref(false)
 const memberFormRef = ref()
+
+// 批量编辑相关
+const batchEditDialogVisible = ref(false)
+const batchEditSubmitting = ref(false)
+const batchSelectedMembers = ref<any[]>([]) // 批量编辑选中的成员
+const availableMembers = ref<any[]>([]) // 可用的成员列表（租户下所有成员，排除当前部门的）
+const loadingAvailableMembers = ref(false)
+const memberSearchKeyword = ref('') // 成员搜索关键词
+
+// 过滤后的可用成员（根据搜索关键词）
+const filteredAvailableMembers = computed(() => {
+  if (!memberSearchKeyword.value.trim()) {
+    return availableMembers.value
+  }
+  const keyword = memberSearchKeyword.value.toLowerCase()
+  return availableMembers.value.filter((member) => {
+    const username = member.user?.username?.toLowerCase() || ''
+    const phone = member.user?.phone?.toLowerCase() || ''
+    const email = member.user?.email?.toLowerCase() || ''
+    return username.includes(keyword) || phone.includes(keyword) || email.includes(keyword)
+  })
+})
 
 // 成员表单数据
 const memberForm = reactive<CreateUserDto & { id?: string; isEdit?: boolean }>({
@@ -475,17 +667,22 @@ const departmentTreeOptions = computed(() => {
     }))
   }
 
-  // 添加租户根节点作为选项
-  const options = convertToOptions(departmentTree.value)
+  // 处理部门树，排除租户节点，只转换其子节点（根级部门）
+  let options: any[] = []
   if (departmentTree.value.length > 0) {
     const tenantNode = departmentTree.value[0] as any
     if (tenantNode.type === 'company' && tenantNode.isTenant) {
-      // 在选项列表开头添加租户根节点
+      // 只转换租户节点的子节点（根级部门），不包含租户节点本身
+      options = tenantNode.children ? convertToOptions(tenantNode.children) : []
+      // 在选项列表开头添加租户根节点，使用 'root' 作为标识符
       options.unshift({
-        id: null, // 使用null表示租户根节点
+        id: 'root', // 使用 'root' 表示租户根节点，便于 el-tree-select 显示
         name: tenantNode.name,
         children: [],
       })
+    } else {
+      // 如果没有租户节点，直接转换所有部门
+      options = convertToOptions(departmentTree.value)
     }
   }
 
@@ -498,6 +695,7 @@ const loadDepartmentTree = async () => {
     loading.value = true
     const response = await getDepartmentTree()
     departmentTree.value = response.data || []
+    assignTreeIds(departmentTree.value)
 
     // 如果有部门，默认选中第一个
     if (departmentTree.value.length > 0) {
@@ -512,45 +710,104 @@ const loadDepartmentTree = async () => {
 }
 
 // 处理部门点击
-const handleDepartmentClick = async (data: any) => {
+const handleDepartmentClick = async (data: any, forceRefresh = false) => {
   try {
+    const enrichedNode =
+      data.treeId || data.children || data.isTenant
+        ? data
+        : findNodeById(departmentTree.value, data.id)
+    const targetNode = enrichedNode || data
+    const newSelectedId = targetNode.treeId || getTreeNodeKey(targetNode)
+
+    // 如果点击的是同一个节点且不是强制刷新，不重复请求
+    if (!forceRefresh && selectedTreeNodeId.value === newSelectedId && currentDepartment.value.id === targetNode.id) {
+      return
+    }
+
     loading.value = true
+    selectedTreeNodeId.value = newSelectedId
+
+    // 重置分页到第一页（仅在切换部门时）
+    if (currentDepartment.value.id !== targetNode.id) {
+      memberPagination.page = 1
+    }
 
     // 如果是租户根节点，显示所有成员
-    if (data.isTenant) {
+    if (targetNode.isTenant || targetNode.id === 'root') {
       // 这里可以调用获取所有成员的接口，暂时使用部门成员接口
-      const response = await getDepartmentMembers(data.id, {
-        page: 1,
-        limit: 100,
+      const response = await getDepartmentMembers(targetNode.id, {
+        page: memberPagination.page,
+        limit: memberPagination.limit,
       })
 
+      const members = response.data.members || []
+      const total = response.data.total || members.length
+
       currentDepartment.value = {
-        id: data.id,
-        name: data.name,
-        memberCount: data.memberCount || 0,
+        id: targetNode.id,
+        name: targetNode.name,
+        managerId: targetNode.managerId,
+        memberCount: total, // 使用实际返回的成员总数
         unjoinedCount: 0,
-        members: response.data.members || [],
+        members: members,
       }
+      memberPagination.total = total
     } else {
       // 普通部门，显示部门成员
-      const response = await getDepartmentMembers(data.id, {
-        page: 1,
-        limit: 100,
+      // 先获取部门详情以获取managerId
+      let departmentDetail = null
+      try {
+        const detailResponse = await getDepartmentById(targetNode.id)
+        if (detailResponse.code === 200) {
+          departmentDetail = detailResponse.data
+        }
+      } catch (error) {
+        console.error('获取部门详情失败:', error)
+      }
+
+      const response = await getDepartmentMembers(targetNode.id, {
+        page: memberPagination.page,
+        limit: memberPagination.limit,
       })
 
+      const members = response.data.members || []
+      const total = response.data.total || members.length
+
       currentDepartment.value = {
-        id: data.id,
-        name: data.name,
-        memberCount: data.memberCount || 0,
+        id: targetNode.id,
+        name: targetNode.name,
+        managerId: departmentDetail?.managerId || targetNode.managerId,
+        memberCount: total, // 使用实际返回的成员总数
         unjoinedCount: 0,
-        members: response.data.members || [],
+        members: members,
       }
+      memberPagination.total = total
     }
+
+    // 重新计算表格高度
+    calculateTableHeight()
   } catch (error) {
     console.error('加载部门成员失败:', error)
     ElMessage.error('加载部门成员失败')
   } finally {
     loading.value = false
+  }
+}
+
+// 处理成员列表分页变化
+const handleMemberPageChange = async (page: number) => {
+  memberPagination.page = page
+  if (currentDepartment.value.id) {
+    await handleDepartmentClick({ id: currentDepartment.value.id }, true)
+  }
+}
+
+// 处理成员列表每页数量变化
+const handleMemberPageSizeChange = async (limit: number) => {
+  memberPagination.limit = limit
+  memberPagination.page = 1 // 重置到第一页
+  if (currentDepartment.value.id) {
+    await handleDepartmentClick({ id: currentDepartment.value.id }, true)
   }
 }
 
@@ -620,7 +877,7 @@ const handleDepartmentAction = async (command: string, data: any) => {
       await handleDeleteDepartment(data)
       break
     case 'info':
-      ElMessage.info(`${data.type === 'company' ? '租户ID' : '部门ID'}: ${data.id}`)
+      ElMessage.info(`${data.type === 'company' ? '租户ID' : '部门ID'}: ${getNodeDisplayId(data)}`)
       break
   }
 }
@@ -664,6 +921,7 @@ const handleDeleteDepartment = async (department: any) => {
       currentDepartment.value = {
         id: '',
         name: '',
+        managerId: undefined,
         memberCount: 0,
         unjoinedCount: 0,
         members: [],
@@ -778,10 +1036,10 @@ const handleSubmitMember = async () => {
         password: _,
         tenantId: __,
         departmentId: ___,
-        roleIds: ____,
         isEdit: _____,
         ...updateData
       } = memberForm
+      // 包含 roleIds 在更新数据中
       const id = memberForm.id
       const response = await userApi.update(id!, updateData)
 
@@ -841,13 +1099,17 @@ const openDepartmentDialog = (type: 'add' | 'edit', parentId?: string | null, de
       departmentDialogTitle.value = '添加部门'
     }
     resetDepartmentForm()
-    departmentForm.parentId = parentId || undefined
+    // 如果 parentId 是 null，设置为 'root' 以便 el-tree-select 能正确显示
+    departmentForm.parentId = parentId === null ? 'root' : (parentId || undefined)
   } else {
     departmentDialogTitle.value = '编辑部门'
     departmentForm.id = department?.id
     departmentForm.name = department?.name || ''
     departmentForm.description = department?.description || ''
-    departmentForm.parentId = department?.parentId
+    // 编辑时，如果 parentId 是 null 或 undefined，设置为 'root' 以便显示
+    departmentForm.parentId = department?.parentId === null || department?.parentId === undefined
+      ? 'root'
+      : department?.parentId
   }
   departmentDialogVisible.value = true
 }
@@ -871,19 +1133,27 @@ const handleSubmitDepartment = async () => {
 
     if (departmentForm.id) {
       // 编辑部门
+      // 如果 parentId 是 'root'，表示在租户根节点下，应该发送 undefined
+      const parentId = departmentForm.parentId === 'root' || departmentForm.parentId === null
+        ? undefined
+        : departmentForm.parentId
       const updateData: UpdateDepartmentDto = {
         name: departmentForm.name,
         description: departmentForm.description,
-        parentId: departmentForm.parentId,
+        parentId: parentId,
       }
       await updateDepartment(departmentForm.id, updateData)
       ElMessage.success('更新部门成功')
     } else {
       // 创建部门
+      // 如果 parentId 是 'root'，表示在租户根节点下创建，应该发送 undefined
+      const parentId = departmentForm.parentId === 'root' || departmentForm.parentId === null
+        ? undefined
+        : departmentForm.parentId
       const createData: CreateDepartmentDto = {
         name: departmentForm.name,
         description: departmentForm.description,
-        parentId: departmentForm.parentId === null ? 'root' : departmentForm.parentId,
+        parentId: parentId,
       }
       await createDepartment(createData)
       ElMessage.success('创建部门成功')
@@ -955,8 +1225,137 @@ const handleBatchAction = (command: string) => {
 }
 
 // 处理批量编辑
-const handleBatchEdit = () => {
-  ElMessage.info('批量设置成员信息功能开发中...')
+const handleBatchEdit = async () => {
+  try {
+    // 检查租户信息
+    if (!authStore.tenant?.id) {
+      ElMessage.error('租户信息未找到，请重新登录')
+      return
+    }
+
+    // 重置状态
+    batchSelectedMembers.value = []
+    memberSearchKeyword.value = ''
+    loadingAvailableMembers.value = true
+
+    try {
+      // 获取租户下所有成员
+      const allMembersResponse = await getDepartmentMembers('root', {
+        page: 1,
+        limit: 1000, // 获取所有成员
+      })
+
+      const allMembers = allMembersResponse.data.members || []
+
+      // 获取当前部门的成员ID列表
+      const currentDeptMemberIds = new Set(
+        (currentDepartment.value.members || []).map((m: any) => m.id)
+      )
+
+      // 过滤掉已经在当前部门的成员
+      availableMembers.value = allMembers.filter(
+        (member: any) => !currentDeptMemberIds.has(member.id)
+      )
+
+      if (availableMembers.value.length === 0) {
+        ElMessage.warning('当前租户下没有可添加的成员（所有成员都已在本部门）')
+        return
+      }
+
+      batchEditDialogVisible.value = true
+    } catch (error: any) {
+      console.error('加载成员列表失败:', error)
+      ElMessage.error(error.response?.data?.message || '加载成员列表失败')
+    } finally {
+      loadingAvailableMembers.value = false
+    }
+  } catch (error) {
+    console.error('打开批量设置失败:', error)
+    ElMessage.error('打开批量设置失败')
+  }
+}
+
+// 批量编辑成员选择变化
+const handleBatchMemberSelectionChange = (selection: any[]) => {
+  batchSelectedMembers.value = selection
+}
+
+// 批量编辑取消
+const handleBatchEditCancel = () => {
+  batchEditDialogVisible.value = false
+  batchSelectedMembers.value = []
+  memberSearchKeyword.value = ''
+}
+
+// 提交批量编辑（将选中的成员添加到当前部门）
+const handleSubmitBatchEdit = async () => {
+  if (batchSelectedMembers.value.length === 0) {
+    ElMessage.warning('请先选择要添加的成员')
+    return
+  }
+
+  // 检查当前部门
+  if (!currentDepartment.value.id || currentDepartment.value.id === 'root') {
+    ElMessage.warning('请先选择一个部门')
+    return
+  }
+
+  try {
+    await ElMessageBox.confirm(
+      `确定要将 ${batchSelectedMembers.value.length} 个成员添加到「${currentDepartment.value.name}」吗？`,
+      '确认批量添加',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning',
+      }
+    )
+  } catch {
+    return // 用户取消
+  }
+
+  try {
+    batchEditSubmitting.value = true
+
+    // 批量添加成员到当前部门
+    const memberIds = batchSelectedMembers.value.map(m => m.id)
+    const response = await batchAddDepartmentMembers(currentDepartment.value.id, {
+      memberIds: memberIds,
+      position: '',
+      isManager: false,
+    })
+
+    // 显示结果
+    if (response.code === 201) {
+      const result = response.data || {}
+      const successCount = result.success || memberIds.length
+      const skippedCount = result.skipped || 0
+
+      if (skippedCount > 0) {
+        ElMessage.warning(`成功添加 ${successCount} 个成员，${skippedCount} 个成员已在部门中`)
+      } else {
+        ElMessage.success(`成功添加 ${successCount} 个成员到「${currentDepartment.value.name}」`)
+      }
+    } else {
+      ElMessage.error(response.message || '批量添加成员失败')
+    }
+
+    batchEditDialogVisible.value = false
+
+    // 重新加载当前部门成员（强制刷新）
+    if (currentDepartment.value.id) {
+      await handleDepartmentClick({ id: currentDepartment.value.id }, true)
+    }
+
+    // 清空选择
+    batchSelectedMembers.value = []
+    memberSearchKeyword.value = ''
+  } catch (error: any) {
+    console.error('批量添加成员失败:', error)
+    ElMessage.error(error.response?.data?.message || '批量添加成员失败，请稍后重试')
+  } finally {
+    batchEditSubmitting.value = false
+  }
 }
 
 // 处理批量删除
@@ -1060,12 +1459,25 @@ const handleDeleteMember = async (member: Member) => {
     })
 
     try {
-      await removeDepartmentMember(currentDepartment.value.id, member.id)
+      const response = await removeDepartmentMember(currentDepartment.value.id, member.id)
       loadingInstance.close()
-      ElMessage.success('删除成员成功')
 
-      // 重新加载当前部门成员
-      await handleDepartmentClick(currentDepartment.value as Department)
+      // 检查响应是否成功（204 或其他成功状态码）
+      if (response && (response.code === 204 || (response.code >= 200 && response.code < 300))) {
+        ElMessage.success('删除成员成功')
+
+        // 如果当前页只有一条数据，删除后应该跳转到上一页
+        if (currentDepartment.value.members.length === 1 && memberPagination.page > 1) {
+          memberPagination.page -= 1
+        }
+
+        // 重新加载当前部门成员（强制刷新）
+        if (currentDepartment.value.id) {
+          await handleDepartmentClick({ id: currentDepartment.value.id }, true)
+        }
+      } else {
+        ElMessage.error('删除成员失败，请稍后重试')
+      }
     } catch (deleteError: any) {
       loadingInstance.close()
 
@@ -1089,6 +1501,15 @@ const handleDeleteMember = async (member: Member) => {
 // 组件挂载时加载数据
 onMounted(() => {
   loadDepartmentTree()
+  calculateTableHeight()
+
+  // 监听窗口大小变化
+  window.addEventListener('resize', calculateTableHeight)
+})
+
+// 组件卸载时移除监听
+onUnmounted(() => {
+  window.removeEventListener('resize', calculateTableHeight)
 })
 </script>
 
@@ -1143,14 +1564,12 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   width: 100%;
-  padding: 8px 16px;
+  padding: 10px 16px;
+  margin: 6px 0;
   cursor: pointer;
   transition: all 0.3s;
   position: relative;
-}
-
-.tree-node:hover {
-  background-color: #f5f7fa;
+  border-radius: 8px;
 }
 
 .tree-node:hover .node-actions {
@@ -1159,15 +1578,26 @@ onMounted(() => {
   pointer-events: auto;
 }
 
-.tree-node.is-selected {
-  background-color: #ecf5ff;
-  color: #409eff;
-}
-
 .tree-node.is-selected .node-actions {
   opacity: 1;
   visibility: visible;
   pointer-events: auto;
+}
+
+/* 设置树节点行高为35px */
+:deep(.el-tree-node__content) {
+  height: 35px;
+  line-height: 35px;
+}
+
+/* 悬停和选中状态：只改变 el-tree-node__content 的背景色，和悬停效果一致 */
+:deep(.el-tree-node__content:hover) {
+  background-color: #f5f7fa;
+}
+
+/* 选中状态：使用 Element Plus 原生的 is-current 类 */
+:deep(.el-tree-node.is-current > .el-tree-node__content) {
+  background-color: #f5f7fa;
 }
 
 .node-content {
@@ -1230,11 +1660,18 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  height: 100%;
+  min-height: 0;
 }
 
-.content-header {
-  padding: 15px;
+/* 工具栏区域 */
+.toolbar-section {
+  flex-shrink: 0;
   border-bottom: 1px solid #e6e6e6;
+}
+
+.toolbar-header {
+  padding: 15px;
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
@@ -1269,7 +1706,7 @@ onMounted(() => {
   border: 1px solid #ffd591;
   border-radius: 4px;
   padding: 12px 16px;
-  margin: 0 0 16px;
+  margin: 0 15px 15px;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -1281,11 +1718,22 @@ onMounted(() => {
   color: #faad14;
 }
 
-/* 成员表格 */
-.member-table {
+/* 列表区域 */
+.list-section {
   flex: 1;
-  padding: 0 0 24px;
-  overflow: auto;
+  min-height: 0;
+  overflow: hidden;
+  padding: 0;
+}
+
+/* 分页区域 */
+.pagination-section {
+  padding: 16px;
+  display: flex;
+  justify-content: flex-end;
+  border-top: 1px solid #e6e6e6;
+  flex-shrink: 0;
+  background: #fff;
 }
 
 .member-name {
@@ -1318,6 +1766,41 @@ onMounted(() => {
 
 :deep(.el-table tr:hover > td) {
   background-color: #f5f7fa;
+}
+
+/* 批量编辑对话框样式 */
+.batch-edit-container {
+  display: flex;
+  gap: 20px;
+  min-height: 500px;
+}
+
+.batch-edit-left {
+  flex: 1;
+  min-width: 0;
+}
+
+.batch-edit-right {
+  flex: 1;
+  min-width: 0;
+  border-left: 1px solid #e6e6e6;
+  padding-left: 20px;
+}
+
+.batch-edit-info {
+  margin-bottom: 16px;
+}
+
+.text-sm {
+  font-size: 12px;
+}
+
+.text-gray-500 {
+  color: #909399;
+}
+
+.mt-1 {
+  margin-top: 4px;
 }
 
 /* 响应式设计 */

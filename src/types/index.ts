@@ -14,8 +14,14 @@ export interface User {
 export interface Tenant {
   id: string
   name: string
-  domain: string
+  domain?: string
+  description?: string
+  logo?: string
   ownerId: string
+  parentId?: string
+  parentName?: string
+  level?: number
+  config?: Record<string, unknown>
   status: 'active' | 'inactive' | 'suspended'
   createdAt: string
   updatedAt: string

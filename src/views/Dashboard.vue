@@ -7,95 +7,178 @@
           v-model="scopeFilter"
           placeholder="选择范围"
           size="default"
-          style="width: 140px; margin-right: 12px"
+          style="width: 160px; margin-right: 12px"
+          @change="handleScopeChange"
         >
-          <el-option label="本人及下属" value="me_and_subordinates" />
-          <el-option label="全部" value="all" />
+          <el-option-group label="范围">
+            <el-option label="全部" value="all" />
+          </el-option-group>
+          <el-option-group v-if="userDepartments.length > 0" label="部门">
+            <el-option
+              v-for="dept in userDepartments"
+              :key="`department_${dept.id}`"
+              :label="dept.name"
+              :value="`department_${dept.id}`"
+            />
+          </el-option-group>
+          <el-option-group v-if="userAndSubordinates.length > 0" label="用户">
+            <el-option
+              v-for="item in userAndSubordinates"
+              :key="`member_${item.id}`"
+              :label="item.label"
+              :value="`member_${item.id}`"
+            />
+          </el-option-group>
         </el-select>
         <el-select
           v-model="periodFilter"
           placeholder="选择周期"
           size="default"
-          style="width: 120px"
-          @change="handleFilterChange"
+          style="width: 140px; margin-right: 12px"
+          @change="handlePeriodChange"
         >
-          <el-option label="本周" value="week" />
-          <el-option label="本月" value="month" />
-          <el-option label="本季度" value="quarter" />
-          <el-option label="本年" value="year" />
+          <el-option-group label="当前周期">
+            <el-option label="本周" value="week" />
+            <el-option label="本月" value="month" />
+            <el-option label="本季度" value="quarter" />
+            <el-option label="本年" value="year" />
+          </el-option-group>
+          <el-option-group label="上一周期">
+            <el-option label="上周" value="last_week" />
+            <el-option label="上月" value="last_month" />
+            <el-option label="上季度" value="last_quarter" />
+            <el-option label="上年" value="last_year" />
+          </el-option-group>
+          <el-option-group label="自定义">
+            <el-option label="自定义期间" value="custom" />
+          </el-option-group>
         </el-select>
+        <el-date-picker
+          v-if="periodFilter === 'custom'"
+          v-model="customDateRange"
+          type="daterange"
+          range-separator="至"
+          start-placeholder="开始"
+          end-placeholder="结束"
+          size="default"
+          style="width: 240px; margin-right: 12px"
+          format="YYYY-MM-DD"
+          value-format="YYYY-MM-DD"
+          @change="handleCustomDateChange"
+        />
+        <el-button
+          v-if="periodFilter === 'custom' && customDateRange && customDateRange.length === 2"
+          type="primary"
+          size="default"
+          @click="handleFilterChange"
+        >
+          应用
+        </el-button>
       </div>
     </div>
 
     <!-- 销售简报 -->
-    <SalesBrief :scope-filter="scopeFilter" :period-filter="periodFilter" />
+    <SalesBrief
+      :scope-filter="scopeFilter"
+      :parsed-scope-filter="parsedScopeFilter"
+      :period-filter="periodFilter"
+      :custom-date-range="customDateRange"
+    />
 
-    <!-- 第一行：客户分布地图、客户来源分布、销售漏斗 -->
+    <!-- 第一行：客户分布地图（全部客户、已成交客户）、客户来源分布 -->
     <div class="first-row-layout">
-      <div class="chart-item map-item">
-        <CustomerMap :scope-filter="scopeFilter" />
+      <div class="chart-item maps-container">
+        <div class="maps-card">
+          <div class="maps-header">
+            <div class="title-with-icon">
+              <el-icon class="title-icon"><Location /></el-icon>
+              <h3 class="card-title">客户分布地图</h3>
+            </div>
+            <div class="filter-display">{{ getScopeFilterText() }}</div>
+          </div>
+          <div class="maps-content">
+            <div class="map-item-inline">
+            <CustomerMap
+              :scope-filter="scopeFilter"
+              :parsed-scope-filter="parsedScopeFilter"
+              title="全部客户"
+              :only-converted="false"
+              :show-card="false"
+            />
+            </div>
+            <div class="map-item-inline">
+            <CustomerMap
+              :scope-filter="scopeFilter"
+              :parsed-scope-filter="parsedScopeFilter"
+              title="已成交客户"
+              :only-converted="true"
+              :show-card="false"
+            />
+            </div>
+          </div>
+        </div>
       </div>
 
       <div class="chart-item source-item">
-        <CustomerSourceDistribution :scope-filter="scopeFilter" />
-      </div>
-
-      <div class="chart-item funnel-item">
-        <SalesFunnel :scope-filter="scopeFilter" />
+        <CustomerSourceDistribution
+          :scope-filter="scopeFilter"
+          :parsed-scope-filter="parsedScopeFilter"
+        />
       </div>
     </div>
 
-    <!-- 第二行：数据汇总、客户遗忘提醒、排行榜 -->
+    <!-- 第二行：目标分析和销售漏斗 -->
     <div class="second-row-layout">
-      <div class="column-item">
-        <DataSummary :scope-filter="scopeFilter" :period-filter="periodFilter" />
+      <div class="chart-item target-analysis-item">
+        <TargetAnalysis
+          :scope-filter="scopeFilter"
+          :parsed-scope-filter="parsedScopeFilter"
+        />
       </div>
-
-      <div class="column-item">
-        <CustomerReminder :scope-filter="scopeFilter" />
-      </div>
-
-      <div class="column-item">
-        <RankingList :scope-filter="scopeFilter" :period-filter="periodFilter" />
+      <div class="chart-item funnel-item">
+        <SalesFunnel
+          :scope-filter="scopeFilter"
+          :parsed-scope-filter="parsedScopeFilter"
+        />
       </div>
     </div>
 
-    <!-- 最近活动 -->
-    <div class="recent-activities">
-      <el-card>
-        <template #header>
-          <div class="card-header">
-            <span>最近活动</span>
-            <el-button type="primary" size="small" @click="$router.push('/activities')"
-              >查看全部</el-button
-            >
-          </div>
-        </template>
-        <el-timeline>
-          <el-timeline-item
-            v-for="activity in recentActivities"
-            :key="activity.id"
-            :timestamp="activity.createdAt"
-            placement="top"
-          >
-            <el-card>
-              <h4>{{ activity.title }}</h4>
-              <p>{{ activity.description }}</p>
-              <el-tag :type="getActivityTypeColor(activity.type)">{{
-                getActivityTypeName(activity.type)
-              }}</el-tag>
-            </el-card>
-          </el-timeline-item>
-        </el-timeline>
-      </el-card>
+    <!-- 第三行：数据汇总、客户遗忘提醒、排行榜 -->
+    <div class="third-row-layout">
+      <div class="column-item">
+        <DataSummary
+          :scope-filter="scopeFilter"
+          :parsed-scope-filter="parsedScopeFilter"
+          :period-filter="periodFilter"
+          :custom-date-range="customDateRange"
+        />
+      </div>
+
+      <div class="column-item">
+        <CustomerReminder
+          :scope-filter="scopeFilter"
+          :parsed-scope-filter="parsedScopeFilter"
+        />
+      </div>
+
+      <div class="column-item">
+        <RankingList
+          :scope-filter="scopeFilter"
+          :parsed-scope-filter="parsedScopeFilter"
+          :period-filter="periodFilter"
+          :custom-date-range="customDateRange"
+        />
+      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
+import { ElMessage } from 'element-plus'
+import { Location } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/stores/modules/auth'
-import type { Activity } from '@/types'
+import { getMemberDepartments, getDepartmentMembers, type Department, type Member } from '@/api/department'
 import SalesBrief from '@/components/SalesBrief.vue'
 import DataSummary from '@/components/DataSummary.vue'
 import CustomerReminder from '@/components/CustomerReminder.vue'
@@ -103,26 +186,198 @@ import SalesFunnel from '@/components/SalesFunnel.vue'
 import CustomerSourceDistribution from '@/components/CustomerSourceDistribution.vue'
 import CustomerMap from '@/components/CustomerMap.vue'
 import RankingList from '@/components/RankingList.vue'
+import TargetAnalysis from '@/components/TargetAnalysis.vue'
+
 
 const authStore = useAuthStore()
 
 // 当前用户
-const currentUser = computed(() => authStore.currentUser)
 const currentMember = computed(() => authStore.currentMember)
-const currentTenant = computed(() => authStore.currentTenant)
-const isTenantOwner = computed(() => authStore.isTenantOwner)
 
-// 图表周期
-const chartPeriod = ref<'week' | 'month' | 'year'>('month')
+// 范围选择相关数据
+const userDepartments = ref<Department[]>([])
+const userAndSubordinates = ref<Array<{ id: string; label: string; type: 'self' | 'subordinate' }>>([])
+const loadingScopeOptions = ref(false)
 
 // 过滤条件
-const scopeFilter = ref('me_and_subordinates')
+const scopeFilter = ref('')
 const periodFilter = ref('month')
+const customDateRange = ref<[string, string] | null>(null)
+
+// 解析范围过滤条件
+const parsedScopeFilter = computed(() => {
+  if (scopeFilter.value === 'all') {
+    return { type: 'all' as const }
+  }
+  if (scopeFilter.value.startsWith('department_')) {
+    const departmentId = scopeFilter.value.replace('department_', '')
+    return { type: 'department' as const, departmentId: parseInt(departmentId) }
+  }
+  if (scopeFilter.value.startsWith('member_')) {
+    const memberId = scopeFilter.value.replace('member_', '')
+    return { type: 'member' as const, memberId: parseInt(memberId) }
+  }
+  // 默认返回全部
+  return { type: 'all' as const }
+})
+
+// 处理周期变化
+const handlePeriodChange = () => {
+  // 如果不是自定义，直接触发变化
+  if (periodFilter.value !== 'custom') {
+    handleFilterChange()
+  }
+  // 如果是自定义，清空日期范围
+  if (periodFilter.value === 'custom') {
+    customDateRange.value = null
+  }
+}
+
+// 处理自定义日期变化
+const handleCustomDateChange = () => {
+  // 自定义日期变化时，不自动触发，需要用户点击"应用"按钮
+}
+
+// 加载范围选择选项
+const loadScopeOptions = async () => {
+  if (!currentMember.value?.id) return
+
+  try {
+    loadingScopeOptions.value = true
+
+    // 1. 加载用户所属部门
+    const deptResponse = await getMemberDepartments(currentMember.value.id)
+    userDepartments.value = deptResponse.data || []
+
+    // 2. 加载下级用户（不包含当前用户，因为当前用户已经可以通过"本人及下属"选项选择）
+    const userOptions: Array<{ id: string; label: string; type: 'self' | 'subordinate' }> = []
+
+    if (!currentMember.value?.id) {
+      userAndSubordinates.value = userOptions
+      return
+    }
+
+    const member = currentMember.value as unknown as Member & { nickname?: string; isManager?: boolean }
+    const currentMemberId = member.id.toString()
+
+    // 如果用户是部门负责人，加载部门成员
+    if (userDepartments.value.length > 0) {
+
+      for (const dept of userDepartments.value) {
+        // 检查用户是否是部门负责人
+        const deptManagerId = dept.managerId ? dept.managerId.toString() : null
+        const isManager = deptManagerId === currentMemberId || (member.isManager ?? false)
+
+        if (isManager) {
+          try {
+            // 获取部门所有成员
+            let allMembers: Member[] = []
+            let page = 1
+            const limit = 1000
+            let hasMore = true
+
+            while (hasMore) {
+              const membersResponse = await getDepartmentMembers(dept.id, { page, limit })
+
+              let members: Member[] = []
+              if (membersResponse.data) {
+                if (Array.isArray(membersResponse.data)) {
+                  members = membersResponse.data
+                } else if (membersResponse.data.members && Array.isArray(membersResponse.data.members)) {
+                  members = membersResponse.data.members
+                } else if (membersResponse.data.data && Array.isArray(membersResponse.data.data)) {
+                  members = membersResponse.data.data
+                }
+              }
+
+              allMembers = allMembers.concat(members)
+
+              const total = membersResponse.data?.total || membersResponse.data?.data?.total || 0
+              hasMore = allMembers.length < total && members.length === limit
+              page++
+
+              if (page > 100) {
+                console.warn(`部门 ${dept.name} 成员数量过多，已获取前 ${allMembers.length} 个`)
+                break
+              }
+            }
+
+            // 添加部门成员（排除当前用户）
+            allMembers.forEach((memberItem: Member) => {
+              const memberItemTyped = memberItem as Member & { nickname?: string }
+              if (memberItem.id !== currentMemberId) {
+                userOptions.push({
+                  id: memberItem.id.toString(),
+                  label: `${memberItemTyped.nickname || (memberItemTyped.user as { realName?: string })?.realName || memberItemTyped.user?.username || '成员'} (${dept.name})`,
+                  type: 'subordinate'
+                })
+              }
+            })
+          } catch (error) {
+            console.error(`获取部门 ${dept.name} 成员失败:`, error)
+          }
+        }
+      }
+    }
+
+    userAndSubordinates.value = userOptions
+
+    // 首次加载时，如果 scopeFilter 为空，设置为当前用户
+    if (!scopeFilter.value && currentMember.value?.id) {
+      scopeFilter.value = `member_${currentMember.value.id}`
+    }
+  } catch (error) {
+    console.error('加载范围选择选项失败:', error)
+    ElMessage.error('加载范围选择选项失败')
+  } finally {
+    loadingScopeOptions.value = false
+  }
+}
+
+// 处理范围变化
+const handleScopeChange = () => {
+  handleFilterChange()
+}
+
+// 获取范围过滤文本
+const getScopeFilterText = () => {
+  if (scopeFilter.value === 'all') {
+    return '全部'
+  }
+  if (scopeFilter.value.startsWith('department_')) {
+    const departmentId = scopeFilter.value.replace('department_', '')
+    const dept = userDepartments.value.find(d => d.id === departmentId)
+    return dept ? dept.name : '部门'
+  }
+  if (scopeFilter.value.startsWith('member_')) {
+    const memberId = scopeFilter.value.replace('member_', '')
+    const member = userAndSubordinates.value.find(m => m.id === memberId)
+    // 如果找不到，可能是当前用户，尝试从 currentMember 获取
+    if (!member && currentMember.value?.id && memberId === currentMember.value.id.toString()) {
+      const member = currentMember.value as unknown as Member & { nickname?: string }
+      return member.nickname || (member.user as { realName?: string })?.realName || member.user?.username || '当前用户'
+    }
+    return member ? member.label : '用户'
+  }
+  return '全部'
+}
 
 // 处理过滤条件变化
 const handleFilterChange = () => {
+  // 如果是自定义期间，需要验证日期范围
+  if (periodFilter.value === 'custom') {
+    if (!customDateRange.value || customDateRange.value.length !== 2) {
+      ElMessage.warning('请选择完整的日期范围')
+      return
+    }
+  }
+
   // 过滤条件变化时，子组件会自动响应
-  console.log('过滤条件变化:', { scopeFilter: scopeFilter.value, periodFilter: periodFilter.value })
+  console.log('过滤条件变化:', {
+    scopeFilter: scopeFilter.value,
+    periodFilter: periodFilter.value,
+    customDateRange: customDateRange.value
+  })
 }
 
 // 统计数据
@@ -133,32 +388,6 @@ const stats = reactive({
   revenue: 0,
 })
 
-// 最近活动
-const recentActivities = ref<Activity[]>([])
-
-// 获取活动类型颜色
-const getActivityTypeColor = (type: string) => {
-  const colorMap: Record<string, string> = {
-    call: 'primary',
-    meeting: 'success',
-    email: 'info',
-    task: 'warning',
-    note: 'default',
-  }
-  return colorMap[type] || 'default'
-}
-
-// 获取活动类型名称
-const getActivityTypeName = (type: string) => {
-  const nameMap: Record<string, string> = {
-    call: '电话',
-    meeting: '会议',
-    email: '邮件',
-    task: '任务',
-    note: '备注',
-  }
-  return nameMap[type] || type
-}
 
 // 加载数据
 const loadData = async () => {
@@ -169,61 +398,13 @@ const loadData = async () => {
     stats.opportunities = 23
     stats.activities = 89
     stats.revenue = 1250000
-
-    // 模拟最近活动数据
-    recentActivities.value = [
-      {
-        id: '1',
-        title: '客户拜访',
-        description: '与ABC公司进行产品演示',
-        type: 'meeting',
-        status: 'completed',
-        scheduledAt: '2024-01-15T10:00:00Z',
-        completedAt: '2024-01-15T11:30:00Z',
-        ownerId: '1',
-        tenantId: '1',
-        owner: {} as any,
-        tenant: {} as any,
-        createdAt: '2024-01-15T10:00:00Z',
-        updatedAt: '2024-01-15T11:30:00Z',
-      },
-      {
-        id: '2',
-        title: '电话跟进',
-        description: '跟进XYZ公司的询价',
-        type: 'call',
-        status: 'completed',
-        scheduledAt: '2024-01-14T14:00:00Z',
-        completedAt: '2024-01-14T14:30:00Z',
-        ownerId: '1',
-        tenantId: '1',
-        owner: {} as any,
-        tenant: {} as any,
-        createdAt: '2024-01-14T14:00:00Z',
-        updatedAt: '2024-01-14T14:30:00Z',
-      },
-      {
-        id: '3',
-        title: '发送报价单',
-        description: '向DEF公司发送产品报价',
-        type: 'email',
-        status: 'completed',
-        scheduledAt: '2024-01-13T09:00:00Z',
-        completedAt: '2024-01-13T09:15:00Z',
-        ownerId: '1',
-        tenantId: '1',
-        owner: {} as any,
-        tenant: {} as any,
-        createdAt: '2024-01-13T09:00:00Z',
-        updatedAt: '2024-01-13T09:15:00Z',
-      },
-    ]
   } catch (error) {
     console.error('加载数据失败:', error)
   }
 }
 
 onMounted(() => {
+  loadScopeOptions()
   loadData()
 })
 </script>
@@ -250,7 +431,7 @@ onMounted(() => {
   align-items: center;
 }
 
-/* 第一行布局：客户分布地图、客户来源分布、销售漏斗 */
+/* 第一行布局：客户分布地图（全部、已成交）、客户来源分布 */
 .first-row-layout {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
@@ -258,8 +439,92 @@ onMounted(() => {
   margin-bottom: 24px;
 }
 
-/* 第二行布局：数据汇总、客户遗忘提醒、排行榜 */
+/* 地图容器占两列 */
+.maps-container {
+  grid-column: span 2;
+}
+
+/* 地图卡片样式 */
+.maps-card {
+  background: white;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.maps-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.title-with-icon {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.title-icon {
+  font-size: 20px;
+  color: #409eff;
+}
+
+.card-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #303133;
+  margin: 0;
+}
+
+.filter-display {
+  font-size: 12px;
+  color: #909399;
+}
+
+/* 地图内容区域 */
+.maps-content {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  flex: 1;
+}
+
+.map-item-inline {
+  display: flex;
+  flex-direction: column;
+}
+
+/* 无卡片模式下的地图样式 */
+.map-item-inline :deep(.customer-map.no-card) {
+  background: transparent;
+  padding: 0;
+  box-shadow: none;
+  border-radius: 0;
+}
+
+.map-item-inline :deep(.customer-map.no-card .chart-header) {
+  margin-bottom: 12px;
+}
+
+.map-item-inline :deep(.customer-map.no-card .chart-title) {
+  font-size: 16px;
+  font-weight: 500;
+}
+
+/* 第二行布局：销售漏斗和目标分析 */
 .second-row-layout {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 20px;
+  margin-bottom: 24px;
+}
+
+/* 第三行布局：数据汇总、客户遗忘提醒、排行榜 */
+.third-row-layout {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 20px;
@@ -393,19 +658,14 @@ onMounted(() => {
   margin-bottom: 12px;
 }
 
-.recent-activities {
-  margin-bottom: 24px;
-}
-
-.recent-activities .el-card {
-  border: none;
-  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
-}
-
 @media (max-width: 1200px) {
   .first-row-layout {
     grid-template-columns: 1fr 1fr;
     gap: 16px;
+  }
+
+  .maps-container {
+    grid-column: span 2;
   }
 
   .first-row-layout .funnel-item {
@@ -416,12 +676,33 @@ onMounted(() => {
     grid-template-columns: 1fr;
     gap: 16px;
   }
+
+  .target-analysis-item {
+    grid-column: span 1;
+  }
+
+  .funnel-item {
+    grid-column: span 1;
+  }
+
+  .third-row-layout {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
 }
 
 @media (max-width: 900px) {
   .first-row-layout {
     grid-template-columns: 1fr;
     gap: 16px;
+  }
+
+  .maps-container {
+    grid-column: span 1;
+  }
+
+  .maps-content {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -435,7 +716,25 @@ onMounted(() => {
     gap: 12px;
   }
 
+  .maps-container {
+    grid-column: span 1;
+  }
+
+  .maps-content {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
   .second-row-layout {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .target-analysis-item {
+    grid-column: span 1;
+  }
+
+  .third-row-layout {
     grid-template-columns: 1fr;
     gap: 12px;
   }

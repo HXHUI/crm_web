@@ -18,6 +18,18 @@
         <h4 class="section-title">客户汇总</h4>
         <div class="metrics-grid">
           <div class="metric-item">
+            <div class="metric-label">累计客户数</div>
+            <div class="metric-value">{{ summaryData.customerSummary.totalCustomers }}人</div>
+          </div>
+          <div class="metric-item">
+            <div class="metric-label">未成交客户数</div>
+            <div class="metric-value">{{ summaryData.customerSummary.unconvertedCustomers }}人</div>
+          </div>
+          <div class="metric-item">
+            <div class="metric-label">累计成交客户数</div>
+            <div class="metric-value">{{ summaryData.customerSummary.convertedCustomersTotal }}人</div>
+          </div>
+          <div class="metric-item">
             <div class="metric-label">新增客户</div>
             <div class="metric-value">{{ summaryData.customerSummary.newCustomers }}人</div>
           </div>
@@ -68,6 +80,31 @@
           </div>
         </div>
       </div>
+
+      <!-- 合同汇总 -->
+      <div class="summary-section">
+        <h4 class="section-title">合同汇总</h4>
+        <div class="metrics-grid">
+          <div class="metric-item">
+            <div class="metric-label">签约合同</div>
+            <div class="metric-value">{{ summaryData.contractSummary.signedContracts }}个</div>
+          </div>
+          <div class="metric-item">
+            <div class="metric-label">即将到期</div>
+            <div class="metric-value">{{ summaryData.contractSummary.expiringSoon }}个</div>
+          </div>
+          <div class="metric-item">
+            <div class="metric-label">已到期</div>
+            <div class="metric-value">{{ summaryData.contractSummary.expired }}个</div>
+          </div>
+          <div class="metric-item">
+            <div class="metric-label">合同金额</div>
+            <div class="metric-value">
+              ¥{{ summaryData.contractSummary.totalAmount.toLocaleString() }}
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- 加载状态 -->
@@ -93,6 +130,7 @@ import { TrendCharts, QuestionFilled, Loading, Warning } from '@element-plus/ico
 const props = defineProps<{
   scopeFilter?: string
   periodFilter?: string
+  customDateRange?: [string, string] | null
 }>()
 
 // 响应式数据
@@ -115,6 +153,14 @@ const periodFilterText = computed(() => {
     month: '本月',
     quarter: '本季度',
     year: '本年',
+    last_week: '上周',
+    last_month: '上月',
+    last_quarter: '上季度',
+    last_year: '上年',
+    custom: '自定义期间'
+  }
+  if (props.periodFilter === 'custom' && props.customDateRange && props.customDateRange.length === 2) {
+    return `${props.customDateRange[0]} 至 ${props.customDateRange[1]}`
   }
   return map[props.periodFilter || 'month'] || '本月'
 })
@@ -124,7 +170,21 @@ const loadDataSummary = async () => {
   try {
     loading.value = true
     error.value = false
-    const response = await statisticsApi.getDataSummary((props.periodFilter as any) || 'month')
+    // 始终使用租户视图，因为顶部导航选择租户时已经确定了数据范围
+    const period = (props.periodFilter as any) || 'month'
+    const startDate = period === 'custom' && props.customDateRange && props.customDateRange.length === 2
+      ? props.customDateRange[0]
+      : undefined
+    const endDate = period === 'custom' && props.customDateRange && props.customDateRange.length === 2
+      ? props.customDateRange[1]
+      : undefined
+    
+    const response = await statisticsApi.getDataSummary(
+      period,
+      'tenant',
+      startDate,
+      endDate
+    )
     summaryData.value = response.data
   } catch (err) {
     console.error('加载数据汇总失败:', err)
@@ -136,10 +196,11 @@ const loadDataSummary = async () => {
 
 // 监听周期变化
 watch(
-  () => props.periodFilter,
+  [() => props.periodFilter, () => props.customDateRange],
   () => {
     loadDataSummary()
   },
+  { deep: true }
 )
 
 onMounted(() => {
@@ -237,6 +298,12 @@ onMounted(() => {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 16px;
+}
+
+@media (max-width: 1400px) {
+  .metrics-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
 }
 
 .metric-item {
