@@ -61,6 +61,7 @@ export interface CreateActivityDto {
   content?: string
   assignedBy?: string
   ownerId?: string
+  attachments?: string[]
 }
 
 export interface UpdateActivityDto {
@@ -79,6 +80,7 @@ export interface UpdateActivityDto {
   content?: string
   assignedBy?: string
   ownerId?: string
+  attachments?: string[]
 }
 
 export interface QueryActivityDto {
@@ -163,8 +165,8 @@ export const activityApi = {
   },
 
   // 完成活动
-  complete: (id: string, outcome: string): Promise<{ code: number; message: string; data: Activity }> => {
-    return request.patch(`/activities/${id}/complete`, { outcome })
+  complete: (id: string, outcome: string, attachments?: string[]): Promise<{ code: number; message: string; data: Activity }> => {
+    return request.patch(`/activities/${id}/complete`, { outcome, attachments })
   }
 }
 

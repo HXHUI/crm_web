@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { User, Member, Tenant, LoginRequest, RegisterRequest } from '@/types'
 import { login, register, logout, getCurrentUser, getAccessibleTenants, switchTenant } from '@/api/auth'
+import { notificationSocketService } from '@/services/notification-socket.service'
 
 export const useAuthStore = defineStore('auth', () => {
   // 状态
@@ -18,7 +19,7 @@ export const useAuthStore = defineStore('auth', () => {
   const currentUser = computed(() => user.value)
   const currentMember = computed(() => member.value)
   const currentTenant = computed(() => tenant.value)
-  
+
   // 判断当前用户是否为租户负责人
   const isTenantOwner = computed(() => {
     return user.value && tenant.value && user.value.id === tenant.value.ownerId
@@ -49,6 +50,18 @@ export const useAuthStore = defineStore('auth', () => {
         await fetchAccessibleTenants()
       } catch (error) {
         console.error('获取租户列表失败:', error)
+        // 不影响登录流程
+      }
+
+      // 连接通知 WebSocket
+      try {
+        notificationSocketService.connect(response.data.access_token)
+        // 请求浏览器通知权限
+        notificationSocketService.requestPermission().catch(() => {
+          // 用户拒绝权限，静默失败
+        })
+      } catch (error) {
+        console.error('连接通知 WebSocket 失败:', error)
         // 不影响登录流程
       }
 
@@ -88,6 +101,18 @@ export const useAuthStore = defineStore('auth', () => {
         // 不影响注册流程
       }
 
+      // 连接通知 WebSocket
+      try {
+        notificationSocketService.connect(response.data.access_token)
+        // 请求浏览器通知权限
+        notificationSocketService.requestPermission().catch(() => {
+          // 用户拒绝权限，静默失败
+        })
+      } catch (error) {
+        console.error('连接通知 WebSocket 失败:', error)
+        // 不影响注册流程
+      }
+
       return response.data
     } catch (error) {
       throw error
@@ -95,7 +120,7 @@ export const useAuthStore = defineStore('auth', () => {
       loading.value = false
     }
   }
-  
+
   // 生成租户域名的辅助函数
   const generateDomainFromName = (tenantName: string) => {
     // 将公司名称转换为域名格式
@@ -110,6 +135,9 @@ export const useAuthStore = defineStore('auth', () => {
   // 登出
   const logoutUser = async () => {
     try {
+      // 断开通知 WebSocket 连接
+      notificationSocketService.disconnect()
+
       if (token.value) {
         await logout()
       }
@@ -122,7 +150,7 @@ export const useAuthStore = defineStore('auth', () => {
       member.value = null
       tenant.value = null
       currentDepartmentId.value = null
-      
+
       // 清除 localStorage
       localStorage.removeItem('token')
       localStorage.removeItem('user')
@@ -136,20 +164,20 @@ export const useAuthStore = defineStore('auth', () => {
   const fetchCurrentUser = async () => {
     try {
       if (!token.value) return
-      
+
       loading.value = true
       const response = await getCurrentUser()
-      
+
       // 现在数据在 response.data 中
       user.value = response.data.user
       member.value = response.data.member
       tenant.value = response.data.tenant
-      
+
       // 更新 localStorage
       localStorage.setItem('user', JSON.stringify(response.data.user))
       localStorage.setItem('member', JSON.stringify(response.data.member))
       localStorage.setItem('tenant', JSON.stringify(response.data.tenant))
-      
+
       return response.data
     } catch (error) {
       // 如果获取用户信息失败，清除认证状态
@@ -164,11 +192,11 @@ export const useAuthStore = defineStore('auth', () => {
   const fetchAccessibleTenants = async () => {
     try {
       if (!token.value) return
-      
+
       loading.value = true
       const response = await getAccessibleTenants()
       accessibleTenants.value = response.data || []
-      
+
       // 标记当前租户
       if (tenant.value) {
         accessibleTenants.value = accessibleTenants.value.map(t => ({
@@ -176,7 +204,7 @@ export const useAuthStore = defineStore('auth', () => {
           isCurrent: t.id === tenant.value?.id
         }))
       }
-      
+
       return accessibleTenants.value
     } catch (error) {
       console.error('获取租户列表失败:', error)
@@ -190,21 +218,21 @@ export const useAuthStore = defineStore('auth', () => {
   const switchTenantUser = async (tenantId: string | number) => {
     try {
       loading.value = true
-      
+
       const response = await switchTenant(tenantId)
-      
+
       // 更新状态
       token.value = response.data.access_token
       user.value = response.data.user as User
       member.value = response.data.member as Member
       tenant.value = response.data.tenant as Tenant
-      
+
       // 更新localStorage
       localStorage.setItem('token', response.data.access_token)
       localStorage.setItem('user', JSON.stringify(response.data.user))
       localStorage.setItem('member', JSON.stringify(response.data.member))
       localStorage.setItem('tenant', JSON.stringify(response.data.tenant))
-      
+
       // 重新获取可访问租户列表（因为切换后可能有新的租户列表）
       try {
         await fetchAccessibleTenants()
@@ -216,7 +244,7 @@ export const useAuthStore = defineStore('auth', () => {
           isCurrent: t.id === tenant.value?.id
         }))
       }
-      
+
       return response.data
     } catch (error) {
       console.error('切换租户失败:', error)
@@ -239,20 +267,20 @@ export const useAuthStore = defineStore('auth', () => {
   // 初始化认证状态
   const initAuth = async () => {
     const storedToken = localStorage.getItem('token')
-    
+
     if (!storedToken) {
       return // 没有token，不需要初始化
     }
-    
+
     // 先设置token，这样请求拦截器可以使用它
     token.value = storedToken
-    
+
     // 尝试从localStorage恢复用户信息（用于快速显示）
     const storedUser = localStorage.getItem('user')
     const storedMember = localStorage.getItem('member')
     const storedTenant = localStorage.getItem('tenant')
     const storedDepartmentId = localStorage.getItem('currentDepartmentId')
-    
+
     if (storedUser && storedMember && storedTenant) {
       try {
       user.value = JSON.parse(storedUser)
@@ -262,12 +290,12 @@ export const useAuthStore = defineStore('auth', () => {
         console.error('解析localStorage数据失败:', error)
       }
     }
-    
+
     // 恢复当前部门ID
     if (storedDepartmentId) {
       currentDepartmentId.value = parseInt(storedDepartmentId, 10)
     }
-      
+
     // 验证token是否仍然有效，并从服务器获取最新的用户信息
     // 这会确保使用token中的memberId和tenantId获取正确的租户信息
       try {
@@ -290,14 +318,14 @@ export const useAuthStore = defineStore('auth', () => {
     accessibleTenants,
     currentDepartmentId,
     loading,
-    
+
     // 计算属性
     isAuthenticated,
     currentUser,
     currentMember,
     currentTenant,
     isTenantOwner,
-    
+
     // 方法
     loginUser,
     registerUser,

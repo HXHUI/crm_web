@@ -282,6 +282,15 @@ const renderProvinceMap = async () => {
     }
   })
 
+  // 根据是否已成交客户设置不同的颜色
+  const isConverted = props.onlyConverted || false
+  const visualMapColors = isConverted 
+    ? ['#fff4e6', '#ff8c00'] // 已成交客户使用橙色系
+    : ['#e6f3ff', '#1a8cff'] // 未成交客户使用蓝色系
+  const emphasisColor = isConverted 
+    ? '#ff7f00' // 已成交客户强调色
+    : '#389BB7' // 未成交客户强调色
+
   const option = {
     tooltip: {
       trigger: 'item',
@@ -300,7 +309,7 @@ const renderProvinceMap = async () => {
       text: ['高', '低'],
       calculable: true,
       inRange: {
-        color: ['#e6f3ff', '#1a8cff'],
+        color: visualMapColors,
       },
       textStyle: {
         color: '#333',
@@ -322,7 +331,7 @@ const renderProvinceMap = async () => {
             fontSize: 12,
           },
           itemStyle: {
-            areaColor: '#389BB7',
+            areaColor: emphasisColor,
           },
         },
         data: mapDataSeries,
@@ -330,7 +339,13 @@ const renderProvinceMap = async () => {
     ],
   }
 
-  chartInstance.setOption(option)
+  // 先清除当前地图状态，重置缩放和位置
+  chartInstance.clear()
+  // 设置新选项，使用 notMerge: true 确保完全替换
+  chartInstance.setOption(option, true)
+  // 强制重新渲染，确保地图视图重置
+  await nextTick()
+  chartInstance.resize()
 
   // 监听点击事件，实现下钻
   chartInstance.off('click')
@@ -371,6 +386,15 @@ const renderCityMap = async (provinceName: string) => {
       count: Number(item.count) || 0,
     }))
 
+    // 根据是否已成交客户设置不同的颜色
+    const isConverted = props.onlyConverted || false
+    const visualMapColors = isConverted 
+      ? ['#fff4e6', '#ff8c00'] // 已成交客户使用橙色系
+      : ['#e6f3ff', '#1a8cff'] // 未成交客户使用蓝色系
+    const emphasisColor = isConverted 
+      ? '#ff7f00' // 已成交客户强调色
+      : '#389BB7' // 未成交客户强调色
+
     const option = {
       tooltip: {
         trigger: 'item',
@@ -389,7 +413,7 @@ const renderCityMap = async (provinceName: string) => {
         text: ['高', '低'],
         calculable: true,
         inRange: {
-          color: ['#e6f3ff', '#1a8cff'],
+          color: visualMapColors,
         },
         textStyle: {
           color: '#333',
@@ -411,7 +435,7 @@ const renderCityMap = async (provinceName: string) => {
               fontSize: 12,
             },
             itemStyle: {
-              areaColor: '#389BB7',
+              areaColor: emphasisColor,
             },
           },
           data: mapDataSeries,
@@ -419,7 +443,13 @@ const renderCityMap = async (provinceName: string) => {
       ],
     }
 
-    chartInstance.setOption(option)
+    // 先清除当前地图状态，重置缩放和位置
+    chartInstance.clear()
+    // 设置新选项，使用 notMerge: true 确保完全替换
+    chartInstance.setOption(option, true)
+    // 强制重新渲染，确保地图视图重置
+    await nextTick()
+    chartInstance.resize()
 
     // 城市级别不再支持下钻
     chartInstance.off('click')

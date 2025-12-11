@@ -1,13 +1,42 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { onMounted, watch } from 'vue'
 import { useAuthStore } from '@/stores/modules/auth'
+import { notificationSocketService } from '@/services/notification-socket.service'
 
 const authStore = useAuthStore()
 
-onMounted(() => {
+onMounted(async () => {
   // 初始化认证状态
-  authStore.initAuth()
+  await authStore.initAuth()
+
+  // 如果用户已登录，连接 WebSocket
+  if (authStore.isAuthenticated && authStore.token) {
+    try {
+      notificationSocketService.connect(authStore.token)
+      // 请求浏览器通知权限
+      notificationSocketService.requestPermission().catch(() => {
+        // 用户拒绝权限，静默失败
+      })
+    } catch (error) {
+      console.error('连接通知 WebSocket 失败:', error)
+    }
+  }
 })
+
+// 监听登录状态变化
+watch(
+  () => authStore.isAuthenticated,
+  (isAuthenticated) => {
+    if (isAuthenticated && authStore.token) {
+      // 用户登录后连接 WebSocket
+      notificationSocketService.connect(authStore.token)
+      notificationSocketService.requestPermission().catch(() => {})
+    } else {
+      // 用户登出后断开连接
+      notificationSocketService.disconnect()
+    }
+  }
+)
 </script>
 
 <template>

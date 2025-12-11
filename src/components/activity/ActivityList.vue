@@ -128,6 +128,55 @@
               </div>
             </div>
 
+            <!-- 进行中的活动附件上传 -->
+            <template v-if="act.status === 'in_progress' && isOwner(act)">
+              <div class="attachments-section">
+                <div class="attachments-header">
+                  <span class="label">附件：</span>
+                  <el-upload
+                    :action="uploadAction"
+                    :headers="uploadHeaders"
+                    :file-list="getActivityAttachmentList(act.id)"
+                    :on-success="(response: any, file: UploadFile) => handleActivityAttachmentSuccess(act.id, response, file)"
+                    :on-remove="(file: UploadFile) => handleActivityAttachmentRemove(act.id, file)"
+                    :before-upload="beforeUpload"
+                    multiple
+                    list-type="text"
+                    :show-file-list="false"
+                  >
+                    <el-button type="primary" size="small" :icon="Paperclip">上传附件</el-button>
+                  </el-upload>
+                </div>
+                <!-- 附件列表 -->
+                <div v-if="getActivityAttachments(act.id).length > 0" class="attachments-list">
+                  <div
+                    v-for="(attachment, index) in getActivityAttachments(act.id)"
+                    :key="index"
+                    class="attachment-item"
+                  >
+                    <el-link
+                      :href="attachment.url"
+                      target="_blank"
+                      type="primary"
+                      :icon="Download"
+                    >
+                      {{ getAttachmentName(attachment) }}
+                    </el-link>
+                    <el-button
+                      type="danger"
+                      size="small"
+                      text
+                      :icon="Delete"
+                      @click="removeActivityAttachment(act.id, attachment.url)"
+                      style="margin-left: 8px;"
+                    >
+                      删除
+                    </el-button>
+                  </div>
+                </div>
+              </div>
+            </template>
+
             <!-- 完成结果和完成笔记（仅已完成的活动显示） -->
             <template v-if="act.status === 'completed'">
               <div v-if="act.outcome" class="outcome-line">
@@ -137,6 +186,23 @@
               <div v-if="act.content" class="content-line">
                 <span class="label">完成笔记：</span>
                 <span class="value">{{ act.content }}</span>
+              </div>
+              <!-- 附件列表 -->
+              <div v-if="act.attachments && act.attachments.length > 0" class="attachments-line">
+                <span class="label">附件：</span>
+                <div class="attachments-list">
+                  <el-link
+                    v-for="(attachment, index) in act.attachments"
+                    :key="index"
+                    :href="typeof attachment === 'string' ? attachment : attachment.url"
+                    target="_blank"
+                    type="primary"
+                    :icon="Download"
+                    style="margin-right: 12px; margin-bottom: 4px;"
+                  >
+                    {{ getAttachmentName(typeof attachment === 'string' ? { url: attachment } : attachment) }}
+                  </el-link>
+                </div>
               </div>
             </template>
 
@@ -177,7 +243,7 @@
     </el-dialog>
 
     <!-- 完成活动弹窗 -->
-    <el-dialog v-model="completeDialog.visible" title="完成活动" width="480px">
+    <el-dialog v-model="completeDialog.visible" title="完成活动" width="600px">
       <el-form :model="completeDialog" label-width="100px">
         <el-form-item label="完成结果">
           <el-input
@@ -195,6 +261,23 @@
             placeholder="可记录完成细节"
           />
         </el-form-item>
+        <el-form-item label="附件">
+          <el-upload
+            :action="uploadAction"
+            :headers="uploadHeaders"
+            :file-list="completeDialog.attachmentList"
+            :on-success="handleAttachmentSuccess"
+            :on-remove="handleAttachmentRemove"
+            :before-upload="beforeUpload"
+            multiple
+            list-type="text"
+          >
+            <el-button type="primary" :icon="Paperclip">上传附件</el-button>
+            <template #tip>
+              <div class="el-upload__tip">支持PDF、Word、Excel、图片等格式，单个文件不超过10MB</div>
+            </template>
+          </el-upload>
+        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="completeDialog.visible = false">取消</el-button>
@@ -206,8 +289,9 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, watch, onMounted } from 'vue'
-import { Plus, Search, Refresh, Phone, VideoCamera, Message, EditPen, Document, Location, Clock } from '@element-plus/icons-vue'
+import { Plus, Search, Refresh, Phone, VideoCamera, Message, EditPen, Document, Location, Clock, Paperclip, Download, Delete } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
+import type { UploadFile, UploadProps } from 'element-plus'
 import activityApi, { type Activity, type CreateActivityDto, type UpdateActivityDto } from '@/api/activity'
 import ActivityForm from './ActivityForm.vue'
 import { useAuthStore } from '@/stores/modules/auth'
@@ -239,6 +323,16 @@ const filters = reactive<{ keyword?: string; status?: string; ownerId?: string }
   ownerId: '',
 })
 
+// 活动附件管理（用于进行中的活动）
+const activityAttachments = ref<Record<string, UploadFile[]>>({})
+
+// 附件信息接口
+interface AttachmentInfo {
+  url: string
+  originalname?: string
+  filename?: string
+}
+
 const statusOptions = [
   { label: '计划中', value: 'planned' },
   { label: '进行中', value: 'in_progress' },
@@ -256,7 +350,33 @@ const activityFormRef = ref<InstanceType<typeof ActivityForm>>()
 const saving = ref(false)
 
 // 完成活动相关
-const completeDialog = reactive({ visible: false, id: '', outcome: '', content: '' })
+const completeDialog = reactive<{
+  visible: boolean
+  id: string
+  outcome: string
+  content: string
+  attachmentList: UploadFile[]
+}>({
+  visible: false,
+  id: '',
+  outcome: '',
+  content: '',
+  attachmentList: [],
+})
+
+// 上传地址
+const uploadAction = computed(() => {
+  const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api/v1'
+  return `${baseURL}/upload`
+})
+
+// 上传请求头（包含认证token）
+const uploadHeaders = computed(() => {
+  const token = localStorage.getItem('token')
+  return {
+    Authorization: token ? `Bearer ${token}` : '',
+  }
+})
 
 // 格式化日期（仅日期）
 const formatDateOnly = (dateStr?: string) => {
@@ -464,6 +584,24 @@ const loadActivities = async () => {
           ? { id: a.ownerId || undefined, username: a.ownerUsername || a.ownerName, avatar: null }
           : null,
     }))
+
+    // 初始化进行中活动的附件列表
+    list.forEach((a: Activity) => {
+      if (a.status === 'in_progress' && a.attachments && a.attachments.length > 0) {
+        activityAttachments.value[a.id] = a.attachments.map((att: string | AttachmentInfo, index: number) => {
+          const url = typeof att === 'string' ? att : att.url
+          const originalname = typeof att === 'string' ? undefined : att.originalname
+          return {
+            name: originalname || getAttachmentName(typeof att === 'string' ? { url: att } : att),
+            url,
+            status: 'success',
+            uid: Date.now() + index,
+            response: originalname ? { data: { url, originalname } } : { data: { url } },
+          } as UploadFile
+        })
+      }
+    })
+
     emit('refresh')
   } catch (e) {
     console.error('加载活动失败:', e)
@@ -651,14 +789,248 @@ const openCompleteDialog = (act: Activity) => {
   completeDialog.id = act.id
   completeDialog.outcome = ''
   completeDialog.content = ''
+  completeDialog.attachmentList = []
+}
+
+// 获取附件名称
+const getAttachmentName = (attachment: string | AttachmentInfo) => {
+  if (typeof attachment === 'string') {
+    // 兼容旧格式（纯URL字符串）
+    if (!attachment) return '附件'
+    const parts = attachment.split('/')
+    return parts[parts.length - 1] || '附件'
+  }
+
+  // 新格式（AttachmentInfo对象）
+  if (!attachment || !attachment.url) return '附件'
+
+  // 优先使用 originalname，其次使用 filename，最后从 URL 提取
+  if (attachment.originalname) {
+    let name = attachment.originalname
+    // 尝试处理可能的编码问题
+    try {
+      // 如果文件名包含非ASCII字符，可能是编码问题
+      // 尝试从 latin1 解码（multer 可能使用 latin1 编码）
+      if (/[^\x00-\x7F]/.test(name) && !/[\u4e00-\u9fa5]/.test(name)) {
+        // 看起来可能是 latin1 编码的中文，尝试解码
+        const decoded = decodeURIComponent(escape(name))
+        if (/[\u4e00-\u9fa5]/.test(decoded)) {
+          name = decoded
+        }
+      }
+    } catch {
+      // 如果解码失败，使用原始值
+    }
+    return name
+  }
+
+  if (attachment.filename) {
+    return attachment.filename
+  }
+
+  // 从 URL 提取文件名
+  const parts = attachment.url.split('/')
+  return parts[parts.length - 1] || '附件'
+}
+
+// 上传前验证
+const beforeUpload: UploadProps['beforeUpload'] = (file) => {
+  const isValidType = [
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'image/jpeg',
+    'image/png',
+    'image/gif',
+    'text/plain',
+  ].includes(file.type)
+  const isLt10M = file.size / 1024 / 1024 < 10
+
+  if (!isValidType) {
+    ElMessage.error('只能上传PDF、Word、Excel、图片或文本文件')
+    return false
+  }
+  if (!isLt10M) {
+    ElMessage.error('文件大小不能超过10MB')
+    return false
+  }
+  return true
+}
+
+// 附件上传成功
+const handleAttachmentSuccess: UploadProps['onSuccess'] = (response: any, file: UploadFile) => {
+  const url = response?.data?.url || response?.url || response
+  if (url) {
+    file.url = url
+    ElMessage.success('附件上传成功')
+  } else {
+    ElMessage.error('上传失败：未获取到文件URL')
+  }
+}
+
+// 附件移除
+const handleAttachmentRemove: UploadProps['onRemove'] = () => {
+  // 附件列表会自动更新
+}
+
+// 获取活动的附件列表（用于上传组件）
+const getActivityAttachmentList = (activityId: string): UploadFile[] => {
+  return activityAttachments.value[activityId] || []
+}
+
+// 获取活动的附件信息列表
+const getActivityAttachments = (activityId: string): AttachmentInfo[] => {
+  const files = activityAttachments.value[activityId] || []
+  return files
+    .map((file) => {
+      const resp = (file.response as { data?: { url?: string; originalname?: string; filename?: string }; url?: string; originalname?: string } | string) || {}
+      const url = typeof resp === 'object' && resp !== null
+        ? (resp.data?.url || (resp as { url?: string }).url)
+        : typeof resp === 'string' ? resp : undefined
+      const originalname = typeof resp === 'object' && resp !== null
+        ? (resp.data?.originalname || (resp as { originalname?: string }).originalname)
+        : undefined
+      const filename = typeof resp === 'object' && resp !== null
+        ? (resp.data?.filename || (resp as { filename?: string }).filename)
+        : undefined
+
+      const attachment: AttachmentInfo = {
+        url: file.url || url || '',
+      }
+      if (file.name || originalname) {
+        attachment.originalname = file.name || originalname
+      }
+      if (filename) {
+        attachment.filename = filename
+      }
+      return attachment
+    })
+    .filter((att) => Boolean(att.url))
+}
+
+// 活动附件上传成功
+const handleActivityAttachmentSuccess = async (activityId: string, response: unknown, file: UploadFile) => {
+  const resp = response as { data?: { url?: string; originalname?: string; filename?: string }; url?: string; originalname?: string } | string | null
+  const url = resp && typeof resp === 'object'
+    ? (resp.data?.url || resp.url)
+    : typeof resp === 'string' ? resp : undefined
+  if (url) {
+    file.url = url
+    file.response = resp
+
+    // 保存原文件名
+    const originalname = resp && typeof resp === 'object'
+      ? (resp.data?.originalname || resp.originalname)
+      : undefined
+    if (originalname) {
+      // 如果 originalname 存在，更新 file.name
+      file.name = originalname
+    }
+
+    if (!activityAttachments.value[activityId]) {
+      activityAttachments.value[activityId] = []
+    }
+    // 检查是否已存在相同的附件
+    const existingUrl = activityAttachments.value[activityId].find(f => {
+      const fUrl = f.url || (typeof f.response === 'object' && f.response !== null
+        ? ((f.response as { data?: { url?: string } }).data?.url || (f.response as { url?: string }).url)
+        : typeof f.response === 'string' ? f.response : undefined)
+      return fUrl === url
+    })
+    if (!existingUrl) {
+      activityAttachments.value[activityId].push(file)
+    }
+    ElMessage.success('附件上传成功')
+
+    // 更新活动记录（异步，不阻塞UI显示）
+    updateActivityAttachments(activityId).catch(error => {
+      console.error('更新活动附件失败:', error)
+      // 即使更新失败，附件列表仍然显示，用户可以重试
+    })
+  } else {
+    ElMessage.error('上传失败：未获取到文件URL')
+  }
+}
+
+// 活动附件移除
+const handleActivityAttachmentRemove = async (activityId: string, file: UploadFile) => {
+  if (activityAttachments.value[activityId]) {
+    const resp = (file.response as { data?: { url?: string }; url?: string } | string) || {}
+    const url = file.url || (typeof resp === 'object' && resp !== null
+      ? (resp.data?.url || (resp as { url?: string }).url)
+      : typeof resp === 'string' ? resp : undefined)
+    activityAttachments.value[activityId] = activityAttachments.value[activityId].filter(
+      (f) => {
+        const fResp = (f.response as { data?: { url?: string }; url?: string } | string) || {}
+        const fUrl = f.url || (typeof fResp === 'object' && fResp !== null
+          ? (fResp.data?.url || (fResp as { url?: string }).url)
+          : typeof fResp === 'string' ? fResp : undefined)
+        return fUrl !== url
+      }
+    )
+    // 更新活动记录
+    await updateActivityAttachments(activityId)
+  }
+}
+
+// 删除活动附件
+const removeActivityAttachment = async (activityId: string, attachmentUrl: string) => {
+  if (activityAttachments.value[activityId]) {
+    activityAttachments.value[activityId] = activityAttachments.value[activityId].filter(
+      (f) => {
+        const fUrl = f.url || (f.response as any)?.data?.url || (f.response as any)?.url || f.response
+        return fUrl !== attachmentUrl
+      }
+    )
+    // 更新活动记录
+    await updateActivityAttachments(activityId)
+  }
+}
+
+// 更新活动附件
+const updateActivityAttachments = async (activityId: string) => {
+  try {
+    const attachmentInfos = getActivityAttachments(activityId)
+    // 保存附件信息（包含URL和原文件名）
+    const attachments = attachmentInfos.map(att => ({
+      url: att.url,
+      originalname: att.originalname,
+    }))
+    await activityApi.update(activityId, { attachments: attachments.map(a => a.url) })
+    // 更新活动对象中的附件列表，使其与 activityAttachments 同步
+    const activity = activities.value.find(a => a.id === activityId)
+    if (activity) {
+      // 保存完整的附件信息
+      activity.attachments = attachments as any
+    }
+    // 不刷新整个列表，只更新当前活动的附件数据，避免UI闪烁
+  } catch (error) {
+    console.error('更新活动附件失败:', error)
+    ElMessage.error('更新附件失败')
+    // 如果更新失败，可以选择刷新列表以恢复状态
+    await refreshActivities()
+  }
 }
 
 // 提交完成
 const submitComplete = async () => {
   try {
-    await activityApi.complete(completeDialog.id, completeDialog.outcome)
+    // 收集附件URL列表
+    const attachments = completeDialog.attachmentList
+      .map((file) => {
+        const resp: any = file.response || {}
+        return file.url || resp.data?.url || resp.url || resp
+      })
+      .filter(Boolean)
+
+    await activityApi.complete(completeDialog.id, completeDialog.outcome, attachments.length > 0 ? attachments : undefined)
     ElMessage.success('已完成活动')
     completeDialog.visible = false
+    completeDialog.outcome = ''
+    completeDialog.content = ''
+    completeDialog.attachmentList = []
     await refreshActivities()
   } catch (e) {
     ElMessage.error('完成失败')
@@ -823,7 +1195,9 @@ defineExpose({
           }
 
           .outcome-line,
-          .content-line {
+          .content-line,
+          .attachments-line,
+          .attachments-section {
             font-size: 13px;
             color: #606266;
             margin-bottom: 6px;
@@ -837,6 +1211,35 @@ defineExpose({
 
             .value {
               color: #303133;
+            }
+          }
+
+          .attachments-line,
+          .attachments-section {
+            .attachments-list {
+              display: flex;
+              flex-wrap: wrap;
+              gap: 8px;
+              margin-top: 8px;
+            }
+          }
+
+          .attachments-section {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid #f0f0f0;
+
+            .attachments-header {
+              display: flex;
+              align-items: center;
+              justify-content: space-between;
+              margin-bottom: 8px;
+            }
+
+            .attachment-item {
+              display: flex;
+              align-items: center;
+              margin-bottom: 4px;
             }
           }
 

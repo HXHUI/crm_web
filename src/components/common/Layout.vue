@@ -168,6 +168,7 @@
             >
           </nav>
           <div class="top-actions">
+          <NotificationBell v-if="isAuthenticated" />
           <el-dropdown trigger="click" @command="handleCommand">
           <div class="user-mini">
             <div class="avatar">{{ userInitial }}</div>
@@ -182,6 +183,10 @@
                 <el-dropdown-item command="profile">
                   <el-icon><User /></el-icon>
                   <span>个人信息</span>
+                </el-dropdown-item>
+                <el-dropdown-item command="notification-settings">
+                  <el-icon><Bell /></el-icon>
+                  <span>通知设置</span>
                 </el-dropdown-item>
                 <el-dropdown-item v-if="isTenantOwner" command="tenant" divided>
                   <el-icon><OfficeBuilding /></el-icon>
@@ -280,8 +285,10 @@ import {
   Clock,
   Location,
   UserFilled,
+  Bell,
 } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
+import NotificationBell from '../NotificationBell.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -291,6 +298,7 @@ const tenantStore = useTenantStore()
 const currentUser = computed(() => authStore.currentUser)
 const isTenantOwner = computed(() => authStore.isTenantOwner)
 const isAdmin = computed(() => true)
+const isAuthenticated = computed(() => authStore.isAuthenticated)
 
 const userInitial = computed(() => (currentUser.value?.username?.[0] || 'U').toUpperCase())
 const currentTenantName = computed(() => authStore.currentTenant?.name || '租户')
@@ -301,8 +309,8 @@ const currentDepartmentName = computed(() => {
   if (!authStore.currentDepartmentId) return '未选择部门'
   const dept = memberDepartments.value.find(d => {
     const dId = typeof d.id === 'string' ? parseInt(d.id, 10) : d.id
-    const currentId = typeof authStore.currentDepartmentId === 'string' 
-      ? parseInt(authStore.currentDepartmentId, 10) 
+    const currentId = typeof authStore.currentDepartmentId === 'string'
+      ? parseInt(authStore.currentDepartmentId, 10)
       : authStore.currentDepartmentId
     return dId === currentId
   })
@@ -332,15 +340,15 @@ const fetchMemberDepartments = async () => {
 
     // 如果成员只有一个部门，自动设置为当前部门
     if (memberDepartments.value.length === 1 && !authStore.currentDepartmentId) {
-      const deptId = typeof memberDepartments.value[0].id === 'string' 
-        ? parseInt(memberDepartments.value[0].id, 10) 
+      const deptId = typeof memberDepartments.value[0].id === 'string'
+        ? parseInt(memberDepartments.value[0].id, 10)
         : memberDepartments.value[0].id
       authStore.setCurrentDepartment(deptId)
     }
     // 验证当前部门 ID 是否在部门列表中
     else if (authStore.currentDepartmentId && memberDepartments.value.length > 0) {
-      const currentId = typeof authStore.currentDepartmentId === 'string' 
-        ? parseInt(authStore.currentDepartmentId, 10) 
+      const currentId = typeof authStore.currentDepartmentId === 'string'
+        ? parseInt(authStore.currentDepartmentId, 10)
         : authStore.currentDepartmentId
       const isValid = memberDepartments.value.some(d => {
         const dId = typeof d.id === 'string' ? parseInt(d.id, 10) : d.id
@@ -365,7 +373,7 @@ const handleDepartmentSwitch = (departmentId: string | number) => {
     return id === deptId
   })
   const deptName = dept?.name || '未选择部门'
-  
+
   authStore.setCurrentDepartment(deptId)
   ElMessage.success(`已切换到 ${deptName}`)
 }
@@ -513,6 +521,10 @@ const handleCommand = (command: string) => {
     case 'profile':
       // 跳转到个人信息页面
       goto('/profile')
+      break
+    case 'notification-settings':
+      // 跳转到通知设置页面
+      goto('/notifications/settings')
       break
     case 'tenant':
       // 跳转到企业信息页面

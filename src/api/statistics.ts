@@ -449,6 +449,102 @@ export const statisticsApi = {
       { params }
     )
   },
+  // 获取月度合同金额（含同比）
+  getMonthlyContractAmountWithYOY: (
+    year: number,
+    scopeType?: 'me_and_subordinates' | 'all' | 'department' | 'member',
+    departmentId?: number,
+    memberId?: number,
+  ) => {
+    const params: any = { year }
+    if (scopeType) params.scopeType = scopeType
+    if (departmentId) params.departmentId = departmentId
+    if (memberId) params.memberId = memberId
+    return request.get<{ current: number[]; yearOverYear: number[] }>(
+      '/statistics/monthly-contract-amount-with-yoy',
+      { params }
+    )
+  },
+  // 获取月度订单金额（含同比）
+  getMonthlyOrderAmountWithYOY: (
+    year: number,
+    scopeType?: 'me_and_subordinates' | 'all' | 'department' | 'member',
+    departmentId?: number,
+    memberId?: number,
+  ) => {
+    const params: any = { year }
+    if (scopeType) params.scopeType = scopeType
+    if (departmentId) params.departmentId = departmentId
+    if (memberId) params.memberId = memberId
+    return request.get<{ current: number[]; yearOverYear: number[] }>(
+      '/statistics/monthly-order-amount-with-yoy',
+      { params }
+    )
+  },
+  // 获取月度新增线索数（含同比）
+  getMonthlyLeadCountWithYOY: (
+    year: number,
+    scopeType?: 'me_and_subordinates' | 'all' | 'department' | 'member',
+    departmentId?: number,
+    memberId?: number,
+  ) => {
+    const params: any = { year }
+    if (scopeType) params.scopeType = scopeType
+    if (departmentId) params.departmentId = departmentId
+    if (memberId) params.memberId = memberId
+    return request.get<{ current: number[]; yearOverYear: number[] }>(
+      '/statistics/monthly-lead-count-with-yoy',
+      { params }
+    )
+  },
+  // 获取月度新增客户数（含同比）
+  getMonthlyCustomerCountWithYOY: (
+    year: number,
+    scopeType?: 'me_and_subordinates' | 'all' | 'department' | 'member',
+    departmentId?: number,
+    memberId?: number,
+  ) => {
+    const params: any = { year }
+    if (scopeType) params.scopeType = scopeType
+    if (departmentId) params.departmentId = departmentId
+    if (memberId) params.memberId = memberId
+    return request.get<{ current: number[]; yearOverYear: number[] }>(
+      '/statistics/monthly-customer-count-with-yoy',
+      { params }
+    )
+  },
+  // 获取月度新增商机数（含同比）
+  getMonthlyOpportunityCountWithYOY: (
+    year: number,
+    scopeType?: 'me_and_subordinates' | 'all' | 'department' | 'member',
+    departmentId?: number,
+    memberId?: number,
+  ) => {
+    const params: any = { year }
+    if (scopeType) params.scopeType = scopeType
+    if (departmentId) params.departmentId = departmentId
+    if (memberId) params.memberId = memberId
+    return request.get<{ current: number[]; yearOverYear: number[] }>(
+      '/statistics/monthly-opportunity-count-with-yoy',
+      { params }
+    )
+  },
+  // 获取月度赢单商机数（含同比）
+  getMonthlyWonOpportunityCountWithYOY: (
+    year: number,
+    scopeType?: 'me_and_subordinates' | 'all' | 'department' | 'member',
+    departmentId?: number,
+    memberId?: number,
+  ) => {
+    const params: any = { year }
+    if (scopeType) params.scopeType = scopeType
+    if (departmentId) params.departmentId = departmentId
+    if (memberId) params.memberId = memberId
+    return request.get<{ current: number[]; yearOverYear: number[] }>(
+      '/statistics/monthly-won-opportunity-count-with-yoy',
+      { params }
+    )
+  },
 }
 
 // 确保导出正确

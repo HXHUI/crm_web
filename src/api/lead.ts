@@ -102,14 +102,6 @@ const leadApi = {
     request.delete<{ code: number; message: string; data: { affected: number; leadIds: number[] } }>('/leads/batch', {
       data: { leadIds },
     }),
-  moveToPool: (leadIds: string[] | number[]) =>
-    request.post<{ code: number; message: string; data: { affected: number; leadIds: number[] } }>('/leads/move-to-pool', {
-      leadIds,
-    }),
-  claim: (leadIds: string[] | number[]) =>
-    request.post<{ code: number; message: string; data: { affected: number; leadIds: number[] } }>('/leads/claim', {
-      leadIds,
-    }),
   sources: () =>
     request.get<{ code: number; message: string; data: { key: string; label: string }[] }>(
       `/leads/sources`,

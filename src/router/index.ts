@@ -176,6 +176,12 @@ const router = createRouter({
           meta: { title: '租户管理' },
         },
         {
+          path: 'notifications/settings',
+          name: 'NotificationSettings',
+          component: () => import('@/components/NotificationSettings.vue'),
+          meta: { title: '通知设置' },
+        },
+        {
           path: 'profile',
           name: 'Profile',
           component: () => import('@/views/auth/Profile.vue'),

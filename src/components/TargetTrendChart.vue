@@ -42,6 +42,15 @@ let chartInstance: echarts.ECharts | null = null
 
 const currentYear = computed(() => new Date().getFullYear())
 
+// 存储同比和环比数据
+const yearOverYearData = ref<number[]>([])
+const monthOverMonthData = ref<number[]>([])
+// 存储当前实际值数据，用于计算环比
+const currentActuals = ref<number[]>([])
+// 控制同比和环比的显示状态（通过图例控制）
+const showYearOverYear = ref(true) // 默认显示
+const showMonthOverMonth = ref(true) // 默认显示
+
 const loadData = async () => {
   try {
     loading.value = true
@@ -52,27 +61,30 @@ const loadData = async () => {
     const departmentId = props.parsedScopeFilter?.departmentId
     const memberId = props.parsedScopeFilter?.memberId
 
+    // 始终获取同比数据（用于图例控制显示）
+    const actualApiCall = (() => {
+      switch (targetType.value) {
+        case 'contract_amount':
+          return statisticsApi.getMonthlyContractAmountWithYOY(year, scopeType, departmentId, memberId)
+        case 'sales_amount':
+          return statisticsApi.getMonthlyOrderAmountWithYOY(year, scopeType, departmentId, memberId)
+        case 'new_leads':
+          return statisticsApi.getMonthlyLeadCountWithYOY(year, scopeType, departmentId, memberId)
+        case 'new_customers':
+          return statisticsApi.getMonthlyCustomerCountWithYOY(year, scopeType, departmentId, memberId)
+        case 'new_opportunities':
+          return statisticsApi.getMonthlyOpportunityCountWithYOY(year, scopeType, departmentId, memberId)
+        case 'won_opportunities':
+          return statisticsApi.getMonthlyWonOpportunityCountWithYOY(year, scopeType, departmentId, memberId)
+        default:
+          return Promise.resolve({ data: { current: Array(12).fill(0), yearOverYear: Array(12).fill(0) } })
+      }
+    })()
+
     // 并行获取目标数据和实际数据
     const [targetResponse, actualResponse] = await Promise.all([
       targetApi.getTargetTrend(targetType.value as any, year, scopeType, departmentId, memberId),
-      (() => {
-        switch (targetType.value) {
-          case 'contract_amount':
-            return statisticsApi.getMonthlyContractAmount(year, scopeType, departmentId, memberId)
-          case 'sales_amount':
-            return statisticsApi.getMonthlyOrderAmount(year, scopeType, departmentId, memberId)
-          case 'new_leads':
-            return statisticsApi.getMonthlyLeadCount(year, scopeType, departmentId, memberId)
-          case 'new_customers':
-            return statisticsApi.getMonthlyCustomerCount(year, scopeType, departmentId, memberId)
-          case 'new_opportunities':
-            return statisticsApi.getMonthlyOpportunityCount(year, scopeType, departmentId, memberId)
-          case 'won_opportunities':
-            return statisticsApi.getMonthlyWonOpportunityCount(year, scopeType, departmentId, memberId)
-          default:
-            return Promise.resolve({ data: Array(12).fill(0) })
-        }
-      })(),
+      actualApiCall,
     ])
 
     console.log('目标趋势数据:', targetResponse)
@@ -86,20 +98,18 @@ const loadData = async () => {
       return
     }
 
-    // 处理实际数据 - 可能是数组，也可能是对象
+    // 处理实际数据（始终获取同比数据）
     let actualData = actualResponse.data || actualResponse
     let actuals: number[] = []
     
-    if (Array.isArray(actualData)) {
-      // 如果是数组，直接使用
-      actuals = actualData
-    } else if (actualData && typeof actualData === 'object' && 'actuals' in actualData) {
-      // 如果是对象且包含 actuals 属性，使用 actuals
-      actuals = actualData.actuals || []
-      console.log('从对象中提取 actuals:', actuals)
+    // 数据格式为 { current: number[], yearOverYear: number[] }
+    if (actualData && typeof actualData === 'object' && 'current' in actualData) {
+      actuals = actualData.current || []
+      yearOverYearData.value = actualData.yearOverYear || Array(12).fill(0)
     } else {
-      console.warn('实际数据格式未知，使用默认值:', actualData)
+      console.warn('同比数据格式错误，使用默认值')
       actuals = Array(12).fill(0)
+      yearOverYearData.value = Array(12).fill(0)
     }
 
     // 确保 actuals 长度正确
@@ -108,6 +118,12 @@ const loadData = async () => {
     } else if (actuals.length > 12) {
       actuals = actuals.slice(0, 12)
     }
+
+    // 存储当前实际值
+    currentActuals.value = actuals
+
+    // 计算环比数据（始终计算，由图例控制显示）
+    calculateMonthOverMonth(actuals)
 
     // 计算完成率
     const completionRates = targetData.targets.map((target, index) => {
@@ -154,6 +170,23 @@ const loadData = async () => {
   } finally {
     loading.value = false
   }
+}
+
+// 计算环比数据
+const calculateMonthOverMonth = (actuals: number[]) => {
+  if (actuals.length === 0) {
+    monthOverMonthData.value = []
+    return
+  }
+  
+  monthOverMonthData.value = actuals.map((current, index) => {
+    if (index === 0) return 0 // 第一个月没有环比
+    const previous = actuals[index - 1]
+    if (previous === 0) {
+      return current > 0 ? 100 : 0 // 上月为0，当前>0则增长100%
+    }
+    return ((current - previous) / previous) * 100
+  })
 }
 
 const updateChart = (
@@ -232,9 +265,28 @@ const updateChart = (
         const isAmountType = targetType.value === 'contract_amount' || targetType.value === 'sales_amount'
         const unit = isAmountType ? '元' : '个'
         let result = `${params[0].axisValue}<br/>`
+        
+        // 获取当前月份索引
+        const monthIndex = months.indexOf(params[0].axisValue)
+        
         params.forEach((param: any) => {
           if (param.seriesName === '完成率') {
             result += `${param.marker}${param.seriesName}: ${param.value.toFixed(2)}%<br/>`
+          } else if (param.seriesName === '同比') {
+            // 同比显示实际值和百分比变化
+            const currentValue = actuals[monthIndex] || 0
+            const yoyValue = yearOverYearData.value[monthIndex] || 0
+            let yoyPercent = '0.00'
+            if (yoyValue > 0) {
+              yoyPercent = (((currentValue - yoyValue) / yoyValue) * 100).toFixed(2)
+            } else if (currentValue > 0) {
+              yoyPercent = '100.00'
+            }
+            result += `${param.marker}${param.seriesName}: ${param.value.toLocaleString('zh-CN')}${unit} (${yoyPercent >= 0 ? '+' : ''}${yoyPercent}%)<br/>`
+          } else if (param.seriesName === '环比') {
+            // 环比显示百分比变化
+            const momValue = monthOverMonthData.value[monthIndex] || 0
+            result += `${param.marker}${param.seriesName}: ${momValue >= 0 ? '+' : ''}${momValue.toFixed(2)}%<br/>`
           } else {
             result += `${param.marker}${param.seriesName}: ${param.value.toLocaleString('zh-CN')}${unit}<br/>`
           }
@@ -243,8 +295,15 @@ const updateChart = (
       },
     },
     legend: {
-      data: ['目标值', '实际值', '完成率'],
+      data: ['目标值', '实际值', '完成率', '同比', '环比'],
       top: 10,
+      selected: {
+        '目标值': true,
+        '实际值': true,
+        '完成率': true,
+        '同比': showYearOverYear.value,
+        '环比': showMonthOverMonth.value,
+      },
     },
     grid: {
       left: '3%',
@@ -321,6 +380,31 @@ const updateChart = (
           width: 2,
         },
       },
+      {
+        name: '同比',
+        type: 'line',
+        data: yearOverYearData.value,
+        itemStyle: {
+          color: '#ff9800',
+        },
+        lineStyle: {
+          width: 2,
+          type: 'dashed',
+        },
+      },
+      {
+        name: '环比',
+        type: 'line',
+        yAxisIndex: 1, // 使用右侧Y轴（完成率轴）
+        data: monthOverMonthData.value,
+        itemStyle: {
+          color: '#9c27b0',
+        },
+        lineStyle: {
+          width: 2,
+          type: 'dashed',
+        },
+      },
     ],
   }
 
@@ -333,6 +417,16 @@ const updateChart = (
 
     // 设置图表选项（不合并，完全替换）
     chartInstance.setOption(option, true)
+    
+    // 监听图例点击事件，更新显示状态
+    chartInstance.off('legendselectchanged')
+    chartInstance.on('legendselectchanged', (params: any) => {
+      if (params.name === '同比') {
+        showYearOverYear.value = params.selected['同比']
+      } else if (params.name === '环比') {
+        showMonthOverMonth.value = params.selected['环比']
+      }
+    })
     
     // 立即调整大小
     chartInstance.resize()
@@ -430,6 +524,7 @@ watch(
   justify-content: space-between;
   margin-bottom: 20px;
 }
+
 
 .title-section {
   display: flex;
