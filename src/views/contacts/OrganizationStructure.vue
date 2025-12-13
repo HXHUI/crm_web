@@ -11,15 +11,26 @@
             clearable
             class="search-input"
           />
-          <el-dropdown @command="handleAddAction" trigger="click">
-            <el-button type="primary" :icon="Plus" class="add-button"> 添加 </el-button>
-            <template #dropdown>
-              <el-dropdown-menu>
-                <el-dropdown-item command="add-department">添加部门</el-dropdown-item>
-                <el-dropdown-item command="add-member">添加成员</el-dropdown-item>
-              </el-dropdown-menu>
-            </template>
-          </el-dropdown>
+          <div class="action-buttons">
+            <el-dropdown @command="handleAddAction" trigger="click">
+              <el-button type="primary" :icon="Plus" class="add-button"> 添加 </el-button>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item command="add-department">添加部门</el-dropdown-item>
+                  <el-dropdown-item command="add-member">添加成员</el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
+            <el-button
+              :type="showGroupView ? 'primary' : 'default'"
+              :icon="showGroupView ? Grid : OfficeBuilding"
+              @click="toggleGroupView"
+              class="view-toggle-button"
+              title="切换集团视图"
+            >
+              {{ showGroupView ? '集团视图' : '当前租户' }}
+            </el-button>
+          </div>
         </div>
 
         <div class="department-tree">
@@ -460,6 +471,7 @@ import {
   MoreFilled,
   Warning,
   ArrowDown,
+  Grid,
 } from '@element-plus/icons-vue'
 import {
   getDepartmentTree,
@@ -515,6 +527,7 @@ const currentOperationDepartment = ref<Department | null>(null)
 // 部门树数据
 const departmentTree = ref<Department[]>([])
 const selectedTreeNodeId = ref<string>('')
+const showGroupView = ref(false) // 是否显示集团视图
 
 const getTreeNodeKey = (node: any) => {
   if (node.isTenant || node.id === 'root') {
@@ -689,11 +702,17 @@ const departmentTreeOptions = computed(() => {
   return options
 })
 
+// 切换集团视图
+const toggleGroupView = () => {
+  showGroupView.value = !showGroupView.value
+  loadDepartmentTree()
+}
+
 // 加载部门树
 const loadDepartmentTree = async () => {
   try {
     loading.value = true
-    const response = await getDepartmentTree()
+    const response = await getDepartmentTree(showGroupView.value)
     departmentTree.value = response.data || []
     assignTreeIds(departmentTree.value)
 
@@ -732,9 +751,30 @@ const handleDepartmentClick = async (data: any, forceRefresh = false) => {
       memberPagination.page = 1
     }
 
-    // 如果是租户根节点，显示所有成员
-    if (targetNode.isTenant || targetNode.id === 'root') {
-      // 这里可以调用获取所有成员的接口，暂时使用部门成员接口
+    // 如果是租户节点（在集团视图中），显示该租户的所有成员
+    if (targetNode.isTenant && targetNode.tenantId) {
+      // 使用租户ID获取该租户的所有成员
+      const tenantId = targetNode.tenantId || targetNode.id
+      const response = await getDepartmentMembers('root', {
+        page: memberPagination.page,
+        limit: memberPagination.limit,
+      })
+
+      const members = response.data.members || []
+      const total = response.data.total || members.length
+
+      currentDepartment.value = {
+        id: tenantId,
+        name: targetNode.name,
+        managerId: undefined,
+        memberCount: total,
+        unjoinedCount: 0,
+        members: members,
+        isTenant: true,
+      }
+      memberPagination.total = total
+    } else if (targetNode.isTenant || targetNode.id === 'root') {
+      // 当前租户根节点，显示所有成员
       const response = await getDepartmentMembers(targetNode.id, {
         page: memberPagination.page,
         limit: memberPagination.limit,
@@ -747,7 +787,7 @@ const handleDepartmentClick = async (data: any, forceRefresh = false) => {
         id: targetNode.id,
         name: targetNode.name,
         managerId: targetNode.managerId,
-        memberCount: total, // 使用实际返回的成员总数
+        memberCount: total,
         unjoinedCount: 0,
         members: members,
       }
@@ -1515,7 +1555,8 @@ onUnmounted(() => {
 
 <style scoped>
 .organization-structure {
-  height: 100vh;
+  /* height: 100vh; */
+  height: 100%;
   background: #f5f7fa;
 }
 
@@ -1537,6 +1578,7 @@ onUnmounted(() => {
   padding: 16px;
   border-bottom: 1px solid #e6e6e6;
   display: flex;
+  flex-direction: column;
   gap: 12px;
 }
 
@@ -1544,7 +1586,16 @@ onUnmounted(() => {
   flex: 1;
 }
 
+.action-buttons {
+  display: flex;
+  gap: 8px;
+}
+
 .add-button {
+  flex: 1;
+}
+
+.view-toggle-button {
   flex-shrink: 0;
 }
 

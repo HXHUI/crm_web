@@ -54,8 +54,8 @@ export interface UpdateDepartmentDto {
 }
 
 // 获取部门树形结构
-export const getDepartmentTree = (): Promise<{ code: number; message: string; data: Department[] }> => {
-  return request.get('/departments/tree')
+export const getDepartmentTree = (includeGroup?: boolean): Promise<{ code: number; message: string; data: Department[] }> => {
+  return request.get('/departments/tree', { params: includeGroup ? { includeGroup: 'true' } : {} })
 }
 
 // 获取部门列表

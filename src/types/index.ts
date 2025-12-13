@@ -6,6 +6,7 @@ export interface User {
   phone: string
   avatar?: string
   status: 'active' | 'inactive'
+  isSystemAdmin?: boolean  // 是否为系统管理员
   createdAt: string
   updatedAt: string
 }

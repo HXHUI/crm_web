@@ -34,6 +34,7 @@ export interface UpdateUserDto {
   email?: string
   phone?: string
   avatar?: string
+  roleIds?: (string | number)[]
 }
 
 export interface UpdateUserProfileDto {

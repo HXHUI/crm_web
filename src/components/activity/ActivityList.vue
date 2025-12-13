@@ -58,169 +58,170 @@
         class="activity-group"
       >
         <div class="group-header">{{ group.date }}</div>
-        <div class="group-items">
-          <div
+        <el-timeline>
+          <el-timeline-item
             v-for="act in group.items"
             :key="act.id"
-            class="group-item"
+            :timestamp="formatTime(act.actualStartTime || act.plannedStartTime || act.createdAt)"
+            :type="getStatusType(act.status)"
+            :icon="getTypeIcon(act.type)"
+            size="large"
+            placement="top"
             @mouseenter="hoveredActivityId = act.id"
             @mouseleave="hoveredActivityId = ''"
           >
-            <div class="line1">
-              <div class="user-avatar">
-                <img
-                  v-if="getUserAvatar(act.owner)"
-                  :src="getUserAvatar(act.owner)"
-                  :alt="getUserName(act.owner)"
-                  class="avatar-img"
-                />
-                <span v-else class="avatar-text">
-                  {{ getSurname(act.owner) }}
-                </span>
-              </div>
-              <div class="user-info">
-                <span class="user-name">{{
-                  (act as any).ownerDisplay || getUserName((act as any).owner)
-                }}</span>
-                <el-tag
-                  class="activity-type"
-                  size="small"
-                  :type="getTypeColor(act.type)"
-                  effect="dark"
-                >
-                  <el-icon class="type-icon" style="margin-right: 4px">
-                    <component :is="getTypeIcon(act.type)" />
-                  </el-icon>
-                  {{ getTypeName(act.type) }}
-                </el-tag>
-              </div>
-            </div>
-            <div class="line2">
-              {{ formatTime(act.actualStartTime || act.plannedStartTime || act.createdAt) }}
-              <el-tag
-                size="small"
-                class="status-tag"
-                :type="getStatusType(act.status)"
-                style="margin-left: 8px"
-              >{{ getStatusName(act.status) }}</el-tag>
-            </div>
-            <div class="line3 title-line">{{ act.title }}</div>
-            <div v-if="act.description" class="desc-line">{{ act.description }}</div>
-
-            <!-- 活动信息：地点、时长、优先级 -->
-            <div class="activity-info">
-              <div v-if="act.location" class="info-item">
-                <el-icon class="info-icon"><Location /></el-icon>
-                <span class="info-text">{{ act.location }}</span>
-              </div>
-              <div v-if="getActivityDuration(act)" class="info-item">
-                <el-icon class="info-icon"><Clock /></el-icon>
-                <span class="info-text">{{ getActivityDuration(act) }}</span>
-              </div>
-              <div class="info-item">
-                <el-tag
-                  size="small"
-                  :type="getPriorityType(act.priority)"
-                  effect="plain"
-                >
-                  {{ getPriorityName(act.priority) }}
-                </el-tag>
-              </div>
-            </div>
-
-            <!-- 进行中的活动附件上传 -->
-            <template v-if="act.status === 'in_progress' && isOwner(act)">
-              <div class="attachments-section">
-                <div class="attachments-header">
-                  <span class="label">附件：</span>
-                  <el-upload
-                    :action="uploadAction"
-                    :headers="uploadHeaders"
-                    :file-list="getActivityAttachmentList(act.id)"
-                    :on-success="(response: any, file: UploadFile) => handleActivityAttachmentSuccess(act.id, response, file)"
-                    :on-remove="(file: UploadFile) => handleActivityAttachmentRemove(act.id, file)"
-                    :before-upload="beforeUpload"
-                    multiple
-                    list-type="text"
-                    :show-file-list="false"
-                  >
-                    <el-button type="primary" size="small" :icon="Paperclip">上传附件</el-button>
-                  </el-upload>
-                </div>
-                <!-- 附件列表 -->
-                <div v-if="getActivityAttachments(act.id).length > 0" class="attachments-list">
-                  <div
-                    v-for="(attachment, index) in getActivityAttachments(act.id)"
-                    :key="index"
-                    class="attachment-item"
-                  >
-                    <el-link
-                      :href="attachment.url"
-                      target="_blank"
-                      type="primary"
-                      :icon="Download"
-                    >
-                      {{ getAttachmentName(attachment) }}
-                    </el-link>
-                    <el-button
-                      type="danger"
+            <div class="content-card">
+                <div class="line1">
+                  <div class="user-avatar">
+                    <img
+                      v-if="getUserAvatar(act.owner) && !avatarErrorMap[act.id]"
+                      :src="getUserAvatar(act.owner)"
+                      :alt="getUserName(act.owner)"
+                      class="avatar-img"
+                      @error="handleAvatarError(act.id)"
+                    />
+                    <span v-else class="avatar-text">
+                      {{ getSurname(act.owner) }}
+                    </span>
+                  </div>
+                  <div class="user-info">
+                    <span class="user-name">{{
+                      (act as any).ownerDisplay || getUserName((act as any).owner)
+                    }}</span>
+                    <el-tag
+                      class="activity-type"
                       size="small"
-                      text
-                      :icon="Delete"
-                      @click="removeActivityAttachment(act.id, attachment.url)"
-                      style="margin-left: 8px;"
+                      :type="getTypeColor(act.type)"
+                      effect="dark"
                     >
-                      删除
-                    </el-button>
+                      <el-icon class="type-icon" style="margin-right: 4px">
+                        <component :is="getTypeIcon(act.type)" />
+                      </el-icon>
+                      {{ getTypeName(act.type) }}
+                    </el-tag>
+                    <!-- 状态标签 -->
+                    <el-tag
+                      size="small"
+                      class="status-tag"
+                      :type="getStatusType(act.status)"
+                    >{{ getStatusName(act.status) }}</el-tag>
+                    <!-- 地点信息 -->
+                    <div v-if="act.location" class="info-item">
+                      <el-icon class="info-icon"><Location /></el-icon>
+                      <span class="info-text">{{ act.location }}</span>
+                    </div>
+                    <!-- 时长信息 -->
+                    <div v-if="getActivityDuration(act)" class="info-item">
+                      <el-icon class="info-icon"><Clock /></el-icon>
+                      <span class="info-text">{{ getActivityDuration(act) }}</span>
+                    </div>
+                    <!-- 优先级标签 -->
+                    <el-tag
+                      size="small"
+                      :type="getPriorityType(act.priority)"
+                      effect="plain"
+                    >
+                      {{ getPriorityName(act.priority) }}
+                    </el-tag>
                   </div>
                 </div>
-              </div>
-            </template>
+                <div class="line3 title-line">{{ act.title }}</div>
+                <div v-if="act.description" class="desc-line">{{ act.description }}</div>
 
-            <!-- 完成结果和完成笔记（仅已完成的活动显示） -->
-            <template v-if="act.status === 'completed'">
-              <div v-if="act.outcome" class="outcome-line">
-                <span class="label">完成结果：</span>
-                <span class="value">{{ act.outcome }}</span>
-              </div>
-              <div v-if="act.content" class="content-line">
-                <span class="label">完成笔记：</span>
-                <span class="value">{{ act.content }}</span>
-              </div>
-              <!-- 附件列表 -->
-              <div v-if="act.attachments && act.attachments.length > 0" class="attachments-line">
-                <span class="label">附件：</span>
-                <div class="attachments-list">
-                  <el-link
-                    v-for="(attachment, index) in act.attachments"
-                    :key="index"
-                    :href="typeof attachment === 'string' ? attachment : attachment.url"
-                    target="_blank"
-                    type="primary"
-                    :icon="Download"
-                    style="margin-right: 12px; margin-bottom: 4px;"
-                  >
-                    {{ getAttachmentName(typeof attachment === 'string' ? { url: attachment } : attachment) }}
-                  </el-link>
+                <!-- 进行中的活动附件上传 -->
+                <template v-if="act.status === 'in_progress' && isOwner(act)">
+                  <div class="attachments-section">
+                    <div class="attachments-header">
+                      <span class="label">附件：</span>
+                      <el-upload
+                        :action="uploadAction"
+                        :headers="uploadHeaders"
+                        :file-list="getActivityAttachmentList(act.id)"
+                        :on-success="(response: any, file: UploadFile) => handleActivityAttachmentSuccess(act.id, response, file)"
+                        :on-remove="(file: UploadFile) => handleActivityAttachmentRemove(act.id, file)"
+                        :before-upload="beforeUpload"
+                        multiple
+                        list-type="text"
+                        :show-file-list="false"
+                      >
+                        <el-button type="primary" size="small" :icon="Paperclip">上传附件</el-button>
+                      </el-upload>
+                    </div>
+                    <!-- 附件列表 -->
+                    <div v-if="getActivityAttachments(act.id).length > 0" class="attachments-list">
+                      <div
+                        v-for="(attachment, index) in getActivityAttachments(act.id)"
+                        :key="index"
+                        class="attachment-item"
+                      >
+                        <el-link
+                          :href="attachment.url"
+                          target="_blank"
+                          type="primary"
+                          :icon="Download"
+                        >
+                          {{ getAttachmentName(attachment) }}
+                        </el-link>
+                        <el-button
+                          type="danger"
+                          size="small"
+                          text
+                          :icon="Delete"
+                          @click="removeActivityAttachment(act.id, attachment.url)"
+                          style="margin-left: 8px;"
+                        >
+                          删除
+                        </el-button>
+                      </div>
+                    </div>
+                  </div>
+                </template>
+
+                <!-- 完成结果和完成笔记（仅已完成的活动显示） -->
+                <template v-if="act.status === 'completed'">
+                  <div v-if="act.outcome" class="outcome-line">
+                    <span class="label">完成结果：</span>
+                    <span class="value">{{ act.outcome }}</span>
+                  </div>
+                  <div v-if="act.content" class="content-line">
+                    <span class="label">完成笔记：</span>
+                    <span class="value">{{ act.content }}</span>
+                  </div>
+                  <!-- 附件列表 -->
+                  <div v-if="act.attachments && act.attachments.length > 0" class="attachments-line">
+                    <span class="label">附件：</span>
+                    <div class="attachments-list">
+                      <el-link
+                        v-for="(attachment, index) in act.attachments"
+                        :key="index"
+                        :href="typeof attachment === 'string' ? attachment : attachment.url"
+                        target="_blank"
+                        type="primary"
+                        :icon="Download"
+                        style="margin-right: 12px; margin-bottom: 4px;"
+                      >
+                        {{ getAttachmentName(typeof attachment === 'string' ? { url: attachment } : attachment) }}
+                      </el-link>
+                    </div>
+                  </div>
+                </template>
+
+                <div
+                  class="activity-actions"
+                  :class="{ visible: hoveredActivityId === act.id }"
+                >
+                  <template v-if="act.status === 'planned' && isOwner(act)">
+                    <el-button type="primary" size="small" @click="startActivity(act)">开始</el-button>
+                  </template>
+                  <template v-else-if="act.status === 'in_progress' && isOwner(act)">
+                    <el-button type="success" size="small" @click="openCompleteDialog(act)">完成</el-button>
+                  </template>
                 </div>
               </div>
-            </template>
-
-            <div
-              class="activity-actions"
-              :class="{ visible: hoveredActivityId === act.id }"
-            >
-              <template v-if="act.status === 'planned' && isOwner(act)">
-                <el-button type="primary" size="small" @click="startActivity(act)">开始</el-button>
-              </template>
-              <template v-else-if="act.status === 'in_progress' && isOwner(act)">
-                <el-button type="success" size="small" @click="openCompleteDialog(act)">完成</el-button>
-              </template>
-            </div>
-          </div>
+            </el-timeline-item>
+          </el-timeline>
         </div>
       </div>
-    </div>
 
     <!-- 新建活动弹窗 -->
     <el-dialog
@@ -289,7 +290,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, watch, onMounted } from 'vue'
-import { Plus, Search, Refresh, Phone, VideoCamera, Message, EditPen, Document, Location, Clock, Paperclip, Download, Delete } from '@element-plus/icons-vue'
+import { Plus, Search, Refresh, Phone, VideoCamera, Message, EditPen, Document, Location, Clock, Paperclip, Download, Delete, ChatDotRound } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import type { UploadFile, UploadProps } from 'element-plus'
 import activityApi, { type Activity, type CreateActivityDto, type UpdateActivityDto } from '@/api/activity'
@@ -325,6 +326,9 @@ const filters = reactive<{ keyword?: string; status?: string; ownerId?: string }
 
 // 活动附件管理（用于进行中的活动）
 const activityAttachments = ref<Record<string, UploadFile[]>>({})
+
+// 头像加载错误记录
+const avatarErrorMap = ref<Record<string, boolean>>({})
 
 // 附件信息接口
 interface AttachmentInfo {
@@ -404,7 +408,16 @@ const getUserName = (owner: any) => {
 const getUserAvatar = (owner: any) => {
   if (!owner) return null
   if (typeof owner === 'string') return null
-  return owner.avatar || owner.user?.avatar || null
+  // 优先从 user 对象获取，其次从 owner 直接获取
+  const user = owner.user || owner
+  const avatar = user?.avatar || owner.avatar || null
+  // 如果是相对路径，可能需要拼接 baseURL，但先返回原始值
+  return avatar
+}
+
+// 处理头像加载错误
+const handleAvatarError = (activityId: string) => {
+  avatarErrorMap.value[activityId] = true
 }
 
 // 获取姓（名字的第一个字符）
@@ -431,7 +444,12 @@ const groupedActivities = computed(() => {
     .map((date) => ({
       date,
       items: map[date].sort(
-        (x, y) => new Date(y.createdAt).getTime() - new Date(x.createdAt).getTime(),
+        (x, y) => {
+          // 按时间从早到晚排序（时间线从上到下）
+          const xTime = new Date(x.actualStartTime || x.plannedStartTime || x.createdAt).getTime()
+          const yTime = new Date(y.actualStartTime || y.plannedStartTime || y.createdAt).getTime()
+          return xTime - yTime
+        },
       ),
     }))
   return groups
@@ -445,6 +463,7 @@ const getTypeName = (type: string) => {
     email: '邮件',
     task: '任务',
     note: '备注',
+    wechat: '微信',
   }
   return typeMap[type] || type
 }
@@ -456,6 +475,7 @@ const getTypeColor = (type: string) => {
     email: 'info',
     task: 'warning',
     note: 'default',
+    wechat: 'success',
   }
   return colorMap[type] || 'default'
 }
@@ -467,6 +487,7 @@ const getTypeIcon = (type: string) => {
     email: Message,
     task: EditPen,
     note: Document,
+    wechat: ChatDotRound,
   }
   return map[type] || Document
 }
@@ -563,6 +584,8 @@ const loadActivities = async () => {
       ownerId: filters.ownerId || undefined,
     } as any)
     const list = (resp as any).data?.activities || (resp as any).data || []
+    // 重置头像错误记录
+    avatarErrorMap.value = {}
     // 统一owner结构
     activities.value = list.map((a: any) => ({
       ...a,
@@ -577,7 +600,8 @@ const loadActivities = async () => {
               a.ownerUsername ||
               a.ownerName ||
               '-',
-            avatar: a.owner.avatar || a.owner.user?.avatar || null,
+            // 优先从 user 对象获取头像，其次从 owner 直接获取
+            avatar: a.owner.user?.avatar || a.owner.avatar || null,
             user: a.owner.user, // 保留完整的user对象，以便访问avatar
           }
         : a.ownerUsername || a.ownerName
@@ -1096,159 +1120,91 @@ defineExpose({
         border-bottom: 1px solid #e4e7ed;
       }
 
-      .group-items {
-        .group-item {
-          position: relative;
-          padding: 16px;
-          background: #fff;
-          border: 1px solid #e4e7ed;
-          border-radius: 4px;
-          margin-bottom: 12px;
-          transition: all 0.3s;
+      :deep(.el-timeline) {
+        padding-left: 0;
 
-          &:hover {
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        .el-timeline-item {
+          padding-bottom: 20px;
+
+          &:last-child {
+            padding-bottom: 0;
+
+            :deep(.el-timeline-item__tail) {
+              display: none;
+            }
           }
+        }
+      }
 
-          .line1 {
+      .content-card {
+        position: relative;
+        padding: 16px;
+        background: #fff;
+        border: 1px solid #e4e7ed;
+        border-radius: 4px;
+        transition: all 0.3s;
+
+        &:hover {
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .line1 {
+          display: flex;
+          align-items: center;
+          margin-bottom: 8px;
+
+          .user-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: #409eff;
+            color: #fff;
             display: flex;
             align-items: center;
-            margin-bottom: 8px;
+            justify-content: center;
+            font-size: 14px;
+            font-weight: 600;
+            margin-right: 12px;
+            overflow: hidden;
+            flex-shrink: 0;
 
-            .user-avatar {
-              width: 32px;
-              height: 32px;
-              border-radius: 50%;
-              background: #409eff;
-              color: #fff;
+            .avatar-img {
+              width: 100%;
+              height: 100%;
+              object-fit: cover;
+            }
+
+            .avatar-text {
               display: flex;
               align-items: center;
               justify-content: center;
-              font-size: 14px;
-              font-weight: 600;
-              margin-right: 12px;
-              overflow: hidden;
-              flex-shrink: 0;
-
-              .avatar-img {
-                width: 100%;
-                height: 100%;
-                object-fit: cover;
-              }
-
-              .avatar-text {
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                width: 100%;
-                height: 100%;
-              }
-            }
-
-            .user-info {
-              flex: 1;
-              display: flex;
-              align-items: center;
-              gap: 8px;
-
-              .user-name {
-                font-size: 14px;
-                font-weight: 500;
-                color: #303133;
-              }
-
-              .activity-type {
-                .type-icon {
-                  font-size: 12px;
-                }
-              }
+              width: 100%;
+              height: 100%;
             }
           }
 
-          .line2 {
-            font-size: 12px;
-            color: #909399;
-            margin-bottom: 8px;
-
-            .status-tag {
-              margin-left: 8px;
-            }
-          }
-
-          .line3 {
-            font-size: 14px;
-            color: #303133;
-            margin-bottom: 4px;
-
-            &.title-line {
-              font-weight: 500;
-            }
-          }
-
-          .desc-line {
-            font-size: 13px;
-            color: #606266;
-            margin-bottom: 8px;
-            white-space: pre-line;
-            word-wrap: break-word;
-            word-break: break-all;
-          }
-
-          .outcome-line,
-          .content-line,
-          .attachments-line,
-          .attachments-section {
-            font-size: 13px;
-            color: #606266;
-            margin-bottom: 6px;
-            line-height: 1.5;
-
-            .label {
-              color: #909399;
-              font-weight: 500;
-              margin-right: 4px;
-            }
-
-            .value {
-              color: #303133;
-            }
-          }
-
-          .attachments-line,
-          .attachments-section {
-            .attachments-list {
-              display: flex;
-              flex-wrap: wrap;
-              gap: 8px;
-              margin-top: 8px;
-            }
-          }
-
-          .attachments-section {
-            margin-top: 12px;
-            padding-top: 12px;
-            border-top: 1px solid #f0f0f0;
-
-            .attachments-header {
-              display: flex;
-              align-items: center;
-              justify-content: space-between;
-              margin-bottom: 8px;
-            }
-
-            .attachment-item {
-              display: flex;
-              align-items: center;
-              margin-bottom: 4px;
-            }
-          }
-
-          .activity-info {
+          .user-info {
+            flex: 1;
             display: flex;
             align-items: center;
-            gap: 16px;
-            margin-top: 8px;
+            gap: 8px;
             flex-wrap: wrap;
+
+            .user-name {
+              font-size: 14px;
+              font-weight: 500;
+              color: #303133;
+            }
+
+            .activity-type {
+              .type-icon {
+                font-size: 12px;
+              }
+            }
+
+            .status-tag {
+              margin-left: 0;
+            }
 
             .info-item {
               display: flex;
@@ -1267,17 +1223,118 @@ defineExpose({
               }
             }
           }
+        }
 
-          .activity-actions {
-            position: absolute;
-            top: 16px;
-            right: 16px;
-            opacity: 0;
-            transition: opacity 0.3s;
+        .line3 {
+          font-size: 14px;
+          color: #303133;
+          margin-bottom: 4px;
 
-            &.visible {
-              opacity: 1;
+          &.title-line {
+            font-weight: 500;
+          }
+        }
+
+        .desc-line {
+          font-size: 13px;
+          color: #606266;
+          margin-bottom: 8px;
+          white-space: pre-line;
+          word-wrap: break-word;
+          word-break: break-all;
+        }
+
+        .outcome-line,
+        .content-line,
+        .attachments-line,
+        .attachments-section {
+          font-size: 13px;
+          color: #606266;
+          margin-bottom: 6px;
+          line-height: 1.5;
+
+          .label {
+            color: #909399;
+            font-weight: 500;
+            margin-right: 4px;
+          }
+
+          .value {
+            color: #303133;
+          }
+        }
+
+        .content-line {
+          .value {
+            white-space: pre-line;
+            word-wrap: break-word;
+            word-break: break-all;
+          }
+        }
+
+        .attachments-line,
+        .attachments-section {
+          .attachments-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+          }
+        }
+
+        .attachments-section {
+          margin-top: 12px;
+          padding-top: 12px;
+          border-top: 1px solid #f0f0f0;
+
+          .attachments-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 8px;
+          }
+
+          .attachment-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 4px;
+          }
+        }
+
+        .activity-info {
+          display: flex;
+          align-items: center;
+          gap: 16px;
+          margin-top: 8px;
+          flex-wrap: wrap;
+
+          .info-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 12px;
+            color: #909399;
+
+            .info-icon {
+              font-size: 14px;
+              color: #909399;
             }
+
+            .info-text {
+              color: #606266;
+            }
+          }
+        }
+
+        .activity-actions {
+          position: absolute;
+          top: 16px;
+          right: 16px;
+          opacity: 0;
+          transition: opacity 0.3s;
+
+          &.visible {
+            opacity: 1;
           }
         }
       }

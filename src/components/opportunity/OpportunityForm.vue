@@ -144,7 +144,7 @@ const formData = reactive<FormData>({
   status: 'active',
   probability: 10,
   expectedCloseDate: '',
-  customerId: props.defaultCustomerId || '',
+  customerId: props.defaultCustomerId ? String(props.defaultCustomerId) : '',
 })
 
 // 表单验证规则
@@ -185,7 +185,7 @@ const initFormData = () => {
       expectedCloseDate: props.opportunity.expectedCloseDate
         ? props.opportunity.expectedCloseDate.split('T')[0]
         : '',
-      customerId: props.opportunity.customerId || props.defaultCustomerId || '',
+      customerId: props.opportunity.customerId || (props.defaultCustomerId ? String(props.defaultCustomerId) : ''),
     })
   } else {
     // 新建模式
@@ -199,7 +199,7 @@ const initFormData = () => {
       status: 'active',
       probability: 10,
       expectedCloseDate: '',
-      customerId: props.defaultCustomerId || '',
+      customerId: props.defaultCustomerId ? String(props.defaultCustomerId) : '',
     })
   }
 }
@@ -217,10 +217,25 @@ watch(
 // 监听默认客户ID变化
 watch(
   () => props.defaultCustomerId,
-  (newId) => {
+  async (newId) => {
     if (newId && !props.opportunity) {
       // 只在新建模式下设置默认客户
-      formData.customerId = newId
+      formData.customerId = String(newId)
+
+      // 如果客户列表中还没有该客户，需要单独加载
+      if (!customerOptions.value.find(c => c.id === String(newId))) {
+        try {
+          const customerResponse = await customerApi.getDetail(String(newId))
+          if (customerResponse.code === 200 && customerResponse.data) {
+            customerOptions.value.push({
+              id: String(customerResponse.data.id),
+              name: customerResponse.data.name,
+            })
+          }
+        } catch (error) {
+          console.error('加载默认客户信息失败:', error)
+        }
+      }
     }
   },
   { immediate: true },
@@ -236,6 +251,21 @@ const loadCustomers = async () => {
         id: String(customer.id),
         name: customer.name,
       }))
+
+      // 如果有默认客户ID，但客户列表中还没有该客户，需要单独加载
+      if (props.defaultCustomerId && !customerOptions.value.find(c => c.id === String(props.defaultCustomerId))) {
+        try {
+          const customerResponse = await customerApi.getDetail(String(props.defaultCustomerId))
+          if (customerResponse.code === 200 && customerResponse.data) {
+            customerOptions.value.push({
+              id: String(customerResponse.data.id),
+              name: customerResponse.data.name,
+            })
+          }
+        } catch (error) {
+          console.error('加载默认客户信息失败:', error)
+        }
+      }
     }
   } catch (error) {
     console.error('加载客户列表失败:', error)

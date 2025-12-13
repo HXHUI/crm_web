@@ -100,6 +100,10 @@
               <el-icon class="type-icon type-icon-note"><EditPen /></el-icon>
               <span>备注</span>
             </el-checkbox>
+            <el-checkbox label="wechat">
+              <el-icon class="type-icon type-icon-wechat"><ChatDotRound /></el-icon>
+              <span>微信</span>
+            </el-checkbox>
             <el-checkbox label="visit">
               <el-icon class="type-icon type-icon-visit"><Location /></el-icon>
               <span>拜访</span>
@@ -407,6 +411,7 @@ import {
   Plus,
   Document,
   TrendCharts,
+  ChatDotRound,
 } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/stores/modules/auth'
 import activityApi, { type Activity, type CreateActivityDto } from '@/api/activity'
@@ -459,7 +464,7 @@ const activityFormRef = ref<InstanceType<typeof ActivityForm> | null>(null)
 const viewMode = ref<'day' | 'week' | 'month'>('month')
 
 // 活动类型筛选
-const selectedTypes = ref<string[]>(['call', 'meeting', 'email', 'task', 'note', 'visit'])
+const selectedTypes = ref<string[]>(['call', 'meeting', 'email', 'task', 'note', 'wechat', 'visit'])
 
 // 事件提醒筛选
 const selectedReminders = ref<string[]>(['contract-expiry', 'opportunity-close'])
@@ -1084,6 +1089,7 @@ const getEventTypeIcon = (event: CalendarEvent) => {
       email: Message,
       task: List,
       note: EditPen,
+      wechat: ChatDotRound,
     }
     return iconMap[activityType] || List
   }
@@ -1110,6 +1116,7 @@ const getEventTypeIconColor = (event: CalendarEvent): string => {
       email: '#909399', // 灰色
       task: '#e6a23c', // 橙色
       note: '#9c27b0', // 紫色
+      wechat: '#67c23a', // 绿色（与微信品牌色一致）
     }
     return colorMap[activityType] || '#606266'
   }
@@ -1989,6 +1996,12 @@ watch([currentDate, viewMode], () => {
                     border-left-color: #9c27b0;
                   }
 
+                  &.type-wechat {
+                    background-color: #f0f9ff;
+                    color: #52c41a;
+                    border-left-color: #67c23a;
+                  }
+
                   &.type-visit {
                     background-color: #fff1f0;
                     color: #f5222d;
@@ -2165,6 +2178,12 @@ watch([currentDate, viewMode], () => {
                       background-color: #f9f0ff;
                       color: #722ed1;
                       border-left-color: #9c27b0;
+                    }
+
+                    &.type-wechat {
+                      background-color: #f0f9ff;
+                      color: #52c41a;
+                      border-left-color: #67c23a;
                     }
 
                     &.type-visit {

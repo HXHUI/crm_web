@@ -127,7 +127,7 @@
       </div>
     </div>
 
-    <!-- 第二行：目标分析和销售漏斗 -->
+    <!-- 第二行：目标分析 -->
     <div class="second-row-layout">
       <div class="chart-item target-analysis-item">
         <TargetAnalysis
@@ -135,8 +135,24 @@
           :parsed-scope-filter="parsedScopeFilter"
         />
       </div>
-      <div class="chart-item funnel-item">
+    </div>
+
+    <!-- 漏斗分析行：商机转化漏斗、商机阶段分布、客户转化漏斗 -->
+    <div class="funnel-analysis-layout">
+      <div class="chart-item">
         <SalesFunnel
+          :scope-filter="scopeFilter"
+          :parsed-scope-filter="parsedScopeFilter"
+        />
+      </div>
+      <div class="chart-item">
+        <OpportunityStageDistribution
+          :scope-filter="scopeFilter"
+          :parsed-scope-filter="parsedScopeFilter"
+        />
+      </div>
+      <div class="chart-item">
+        <CustomerConversionFunnel
           :scope-filter="scopeFilter"
           :parsed-scope-filter="parsedScopeFilter"
         />
@@ -187,6 +203,8 @@ import CustomerSourceDistribution from '@/components/CustomerSourceDistribution.
 import CustomerMap from '@/components/CustomerMap.vue'
 import RankingList from '@/components/RankingList.vue'
 import TargetAnalysis from '@/components/TargetAnalysis.vue'
+import OpportunityStageDistribution from '@/components/OpportunityStageDistribution.vue'
+import CustomerConversionFunnel from '@/components/CustomerConversionFunnel.vue'
 
 
 const authStore = useAuthStore()
@@ -249,7 +267,7 @@ const loadScopeOptions = async () => {
     const deptResponse = await getMemberDepartments(currentMember.value.id)
     userDepartments.value = deptResponse.data || []
 
-    // 2. 加载下级用户（不包含当前用户，因为当前用户已经可以通过"本人及下属"选项选择）
+    // 2. 加载用户选项（包含当前用户和下级用户）
     const userOptions: Array<{ id: string; label: string; type: 'self' | 'subordinate' }> = []
 
     if (!currentMember.value?.id) {
@@ -259,6 +277,15 @@ const loadScopeOptions = async () => {
 
     const member = currentMember.value as unknown as Member & { nickname?: string; isManager?: boolean }
     const currentMemberId = member.id.toString()
+    const currentUserId = member.userId?.toString() || member.user?.id?.toString() || ''
+
+    // 首先添加当前用户到列表开头
+    const currentUserLabel = member.nickname || (member.user as { realName?: string })?.realName || member.user?.username || '当前用户'
+    userOptions.push({
+      id: currentMemberId,
+      label: currentUserLabel,
+      type: 'self'
+    })
 
     // 如果用户是部门负责人，加载部门成员
     if (userDepartments.value.length > 0) {
@@ -302,16 +329,28 @@ const loadScopeOptions = async () => {
               }
             }
 
-            // 添加部门成员（排除当前用户）
+            // 添加部门成员（排除当前用户，通过 memberId 或 userId 比较）
             allMembers.forEach((memberItem: Member) => {
               const memberItemTyped = memberItem as Member & { nickname?: string }
-              if (memberItem.id !== currentMemberId) {
-                userOptions.push({
-                  id: memberItem.id.toString(),
-                  label: `${memberItemTyped.nickname || (memberItemTyped.user as { realName?: string })?.realName || memberItemTyped.user?.username || '成员'} (${dept.name})`,
-                  type: 'subordinate'
-                })
+              const memberItemId = memberItem.id.toString()
+              const memberItemUserId = memberItem.userId?.toString() || memberItem.user?.id?.toString() || ''
+
+              // 如果 memberId 与当前用户一致，跳过
+              if (memberItemId === currentMemberId) {
+                return
               }
+
+              // 如果 userId 存在且与当前用户一致，跳过（不添加该选项，只保留"当前用户"选项）
+              if (currentUserId && memberItemUserId && memberItemUserId === currentUserId) {
+                return
+              }
+
+              // 否则添加到选项列表
+              userOptions.push({
+                id: memberItemId,
+                label: `${memberItemTyped.nickname || (memberItemTyped.user as { realName?: string })?.realName || memberItemTyped.user?.username || '成员'} (${dept.name})`,
+                type: 'subordinate'
+              })
             })
           } catch (error) {
             console.error(`获取部门 ${dept.name} 成员失败:`, error)
@@ -515,10 +554,18 @@ onMounted(() => {
   font-weight: 500;
 }
 
-/* 第二行布局：销售漏斗和目标分析 */
+/* 第二行布局：目标分析 */
 .second-row-layout {
   display: grid;
-  grid-template-columns: 2fr 1fr;
+  grid-template-columns: 1fr;
+  gap: 20px;
+  margin-bottom: 24px;
+}
+
+/* 漏斗分析行布局：商机转化漏斗、商机阶段分布、客户转化漏斗 */
+.funnel-analysis-layout {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
   gap: 20px;
   margin-bottom: 24px;
 }
@@ -685,6 +732,11 @@ onMounted(() => {
     grid-column: span 1;
   }
 
+  .funnel-analysis-layout {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
   .third-row-layout {
     grid-template-columns: 1fr;
     gap: 16px;
@@ -703,6 +755,11 @@ onMounted(() => {
 
   .maps-content {
     grid-template-columns: 1fr;
+  }
+
+  .funnel-analysis-layout {
+    grid-template-columns: 1fr;
+    gap: 16px;
   }
 }
 
@@ -732,6 +789,11 @@ onMounted(() => {
 
   .target-analysis-item {
     grid-column: span 1;
+  }
+
+  .funnel-analysis-layout {
+    grid-template-columns: 1fr;
+    gap: 12px;
   }
 
   .third-row-layout {

@@ -204,7 +204,7 @@
                   effect="dark"
                 >
                   {{ getTagName(tagId) }}
-                </el-tag>
+              </el-tag>
               </div>
               <span v-else class="text-gray-400">-</span>
             </template>
@@ -631,8 +631,8 @@
           </ul>
         </div>
 
-          <!-- 右侧内容区域 -->
-          <div class="right-content">
+        <!-- 右侧内容区域 -->
+        <div class="right-content">
            <!-- 可滚动内容区域（包含基本信息和各业务模块） -->
            <div class="dynamic-content-section detail-scroll-container" ref="detailContentRef">
             <!-- 统一加载骨架屏 -->
@@ -656,34 +656,34 @@
                 </template>
                 <div class="detail-header">
                   <div class="detail-title">
-                    <h2>{{ selectedCustomer.name }}</h2>
-                    <el-icon class="star-icon"><Star /></el-icon>
-                  </div>
+                <h2>{{ selectedCustomer.name }}</h2>
+                <el-icon class="star-icon"><Star /></el-icon>
+              </div>
                   <div class="detail-meta">
-                    <div class="meta-item">
-                      <span class="meta-label">客户来源:</span>
-                      <span class="meta-value">{{
-                        selectedCustomer.source ? getSourceLabel(selectedCustomer.source) : '-'
-                      }}</span>
-                    </div>
-                    <div class="meta-item">
-                      <span class="meta-label">客户类型:</span>
-                      <span class="meta-value">{{
-                        selectedCustomer.type === 'individual' ? '个人' : '企业'
-                      }}</span>
-                    </div>
-                    <div class="meta-item">
-                      <span class="meta-label">负责人:</span>
-                      <span class="meta-value">{{ getUserName(selectedCustomer.owner) || '-' }}</span>
-                    </div>
-                    <div class="meta-item">
-                      <span class="meta-label">创建时间:</span>
-                      <span class="meta-value">{{ formatDate(selectedCustomer.createdAt) }}</span>
-                    </div>
-                  </div>
+                <div class="meta-item">
+                  <span class="meta-label">客户来源:</span>
+                  <span class="meta-value">{{
+                    selectedCustomer.source ? getSourceLabel(selectedCustomer.source) : '-'
+                  }}</span>
                 </div>
+                <div class="meta-item">
+                  <span class="meta-label">客户类型:</span>
+                  <span class="meta-value">{{
+                    selectedCustomer.type === 'individual' ? '个人' : '企业'
+                  }}</span>
+                </div>
+                <div class="meta-item">
+                  <span class="meta-label">负责人:</span>
+                  <span class="meta-value">{{ getUserName(selectedCustomer.owner) || '-' }}</span>
+                </div>
+                <div class="meta-item">
+                  <span class="meta-label">创建时间:</span>
+                  <span class="meta-value">{{ formatDate(selectedCustomer.createdAt) }}</span>
+                </div>
+              </div>
+            </div>
 
-                <div class="info-grid">
+            <div class="info-grid">
               <div class="info-item">
                 <label>行业：</label>
                 <span>{{
@@ -781,7 +781,7 @@
                   <h2 class="company-name" style="margin: 0; font-size: 24px; font-weight: 600; color: #262626">
                     {{ businessInfo?.companyName || selectedCustomer?.companyName || '未知公司' }}
                   </h2>
-                </div>
+          </div>
 
                 <!-- 公司基本信息 -->
                 <div v-if="businessInfo" class="company-basic-info">
@@ -789,7 +789,7 @@
                     <div class="info-item">
                       <label class="info-label">法定代表人：</label>
                       <span class="info-value">{{ businessInfo.legalRepresentative || '-' }}</span>
-                    </div>
+                </div>
                     <div class="info-item">
                       <label class="info-label">统一社会信用代码：</label>
                       <span class="info-value">{{ businessInfo.unifiedSocialCreditCode || '-' }}</span>
@@ -988,16 +988,31 @@
                         <div v-else-if="businessInfo" class="business-info-content">
                   <el-table :data="businessInfo.investments || []" border style="width: 100%">
                     <el-table-column type="index" label="序号" width="60" />
-                    <el-table-column prop="investedCompany" label="被投资企业" min-width="250" />
-                    <el-table-column prop="shareholderType" label="股东类型" width="150" />
-                    <el-table-column prop="shareholdingRatio" label="持股比例" width="120" align="right">
+                    <el-table-column prop="investedCompany" label="被投资企业" min-width="200" show-overflow-tooltip />
+                    <el-table-column prop="regStatus" label="企业状态" width="100" />
+                    <el-table-column prop="legalPersonName" label="法人" width="120" />
+                    <el-table-column prop="orgType" label="公司类型" width="180" show-overflow-tooltip />
+                    <el-table-column prop="establishmentDate" label="开业时间" width="120" align="center">
+                      <template #default="{ row }">
+                        {{ row.establishmentDate ? formatDateOnly(row.establishmentDate) : '-' }}
+                      </template>
+                    </el-table-column>
+                    <el-table-column prop="category" label="行业" width="150" show-overflow-tooltip />
+                    <el-table-column prop="regCapital" label="注册资金" width="150" />
+                    <el-table-column prop="subscriptionDate" label="认缴出资时间" width="120" align="center">
+                      <template #default="{ row }">
+                        {{ row.subscriptionDate ? formatDateOnly(row.subscriptionDate) : '-' }}
+                      </template>
+                    </el-table-column>
+                    <el-table-column prop="shareholderType" label="股东类型" width="100" />
+                    <el-table-column prop="shareholdingRatio" label="持股比例" width="100" align="right">
                       <template #default="{ row }">
                         {{ row.shareholdingRatio != null ? Number(row.shareholdingRatio).toFixed(2) + '%' : '-' }}
                       </template>
                     </el-table-column>
                     <el-table-column prop="investmentAmount" label="投资金额(万元)" width="150" align="right">
                       <template #default="{ row }">
-                        {{ row.investmentAmount ? formatCurrency(row.investmentAmount, false) : '-' }}
+                        {{ row.investmentAmount ? formatCurrency(row.investmentAmount / 10000, false) + '万元' : '-' }}
                       </template>
                     </el-table-column>
                   </el-table>
@@ -1020,12 +1035,20 @@
                     <el-table-column type="index" label="序号" width="60" />
                     <el-table-column prop="changeDate" label="变更日期" width="120">
                       <template #default="{ row }">
-                        {{ row.changeDate ? formatDateOnly(row.changeDate) : '-' }}
+                        {{ formatDateOnly(row.changeDate) }}
                       </template>
                     </el-table-column>
                     <el-table-column prop="changeItem" label="变更事项" min-width="150" />
-                    <el-table-column prop="beforeChange" label="变更前" min-width="200" show-overflow-tooltip />
-                    <el-table-column prop="afterChange" label="变更后" min-width="200" show-overflow-tooltip />
+                    <el-table-column prop="beforeChange" label="变更前" min-width="200" show-overflow-tooltip>
+                      <template #default="{ row }">
+                        {{ formatDatesInText(row.beforeChange) }}
+                      </template>
+                    </el-table-column>
+                    <el-table-column prop="afterChange" label="变更后" min-width="200" show-overflow-tooltip>
+                      <template #default="{ row }">
+                        {{ formatDatesInText(row.afterChange) }}
+                      </template>
+                    </el-table-column>
                   </el-table>
                           <div v-if="!businessInfo.changeRecords || businessInfo.changeRecords.length === 0" class="empty-state">
                             <el-empty description="暂无变更记录" />
@@ -1149,12 +1172,12 @@
                         </el-button>
                       </template>
                     </div>
-                  </div>
+                </div>
                 </template>
               <div class="list-padding">
                 <div v-if="cooperationLoading" style="text-align: center; padding: 40px 0">
                   <el-icon class="is-loading" style="font-size: 24px"><Loading /></el-icon>
-                </div>
+              </div>
 
                 <div v-else class="cooperation-content">
                   <!-- 合作习惯区域 -->
@@ -1176,7 +1199,7 @@
                             <el-option label="普票" value="normal_invoice" />
                             <el-option label="不开票" value="no_invoice" />
                           </el-select>
-                          <el-input
+                <el-input
                             v-model="cooperationForm.invoiceRemark"
                             placeholder="开票说明（可选）"
                             maxlength="500"
@@ -1199,7 +1222,7 @@
                           </el-tag>
                           <span v-if="!customerProfile?.shippingMethods || customerProfile.shippingMethods.length === 0">-</span>
                         </span>
-                        <el-select
+                <el-select
                           v-else
                           v-model="cooperationForm.shippingMethods"
                           multiple
@@ -1210,7 +1233,7 @@
                           <el-option label="物流" value="logistics" />
                           <el-option label="自提" value="self_pickup" />
                           <el-option label="快递" value="courier" />
-                        </el-select>
+                </el-select>
                       </div>
                       <div class="info-item">
                         <label>主要采购品类：</label>
@@ -1225,23 +1248,23 @@
                           </el-tag>
                           <span v-if="!customerProfile?.mainCategoryIds || customerProfile.mainCategoryIds.length === 0">-</span>
                         </span>
-                        <el-select
+                <el-select
                           v-else
                           v-model="cooperationForm.mainCategoryIds"
                           multiple
-                          filterable
+                  filterable
                           placeholder="请选择主要采购品类"
                           style="width: 100%"
                           :loading="categoryOptionsLoading"
                         >
-                          <el-option
+                  <el-option
                             v-for="category in categoryOptions"
                             :key="category.id"
                             :label="category.label"
                             :value="category.id"
-                          />
-                        </el-select>
-                      </div>
+                  />
+                </el-select>
+              </div>
                       <div class="info-item">
                         <label>意向竞品：</label>
                         <span v-if="!cooperationEditMode">
@@ -1265,8 +1288,8 @@
                           placeholder="请输入或选择竞品品牌"
                           style="width: 100%"
                         />
+                        </div>
                       </div>
-                    </div>
                   </div>
 
                   <!-- 信用评定区域 -->
@@ -1275,7 +1298,7 @@
                       信用评定
                       <el-button
                         type="text"
-                        size="small"
+                          size="small"
                         style="margin-left: 12px"
                         @click="showCreditHistoryDialog = true"
                       >
@@ -1297,7 +1320,7 @@
                             style="width: 200px"
                           />
                           <span style="color: #909399">元</span>
-                        </div>
+                      </div>
                       </div>
                       <div class="info-item">
                         <label>额度档位：</label>
@@ -1353,8 +1376,8 @@
                       <h3 class="section-title" style="margin: 0">客户需求</h3>
                       <el-button type="primary" size="small" @click="openCreateRequirement"
                         >新增需求</el-button
-                      >
-                    </div>
+                  >
+                </div>
                   </template>
                 <div class="list-padding">
                 <el-table :data="customerRequirements" border style="width: 100%">
@@ -1397,7 +1420,7 @@
                     </template>
                   </el-table-column>
                 </el-table>
-                </div>
+              </div>
               </el-card>
             <!-- 拜访记录内容 -->
               <el-card shadow="never" id="customer-section-visits" class="tab-content detail-section section-card">
@@ -1413,18 +1436,24 @@
               </div>
               </el-card>
 
-              <!-- 商机内容（列表显示） -->
+            <!-- 商机内容（列表显示） -->
               <el-card shadow="never" id="customer-section-opportunities" class="tab-content detail-section section-card">
                   <template #header>
                     <div style="display: flex; justify-content: space-between; align-items: center">
                       <h3 class="section-title" style="margin: 0">商机</h3>
-                      <el-button type="primary" size="small" @click="openCreateOpportunity"
-                        >新增商机</el-button
-                      >
-                    </div>
+                  <el-button type="primary" size="small" @click="openCreateOpportunity"
+                    >新增商机</el-button
+                  >
+                </div>
                   </template>
                 <div class="list-padding">
-                <el-table :data="customerOpportunities" border style="width: 100%">
+                <el-table
+                  :data="customerOpportunities"
+                  border
+                  style="width: 100%"
+                  :summary-method="getOpportunitySummaries"
+                  show-summary
+                >
                   <el-table-column prop="title" label="商机名称" min-width="180" />
                   <el-table-column prop="stage" label="阶段" width="120">
                     <template #default="{ row }">
@@ -1439,8 +1468,8 @@
                   <el-table-column prop="probability" label="概率" width="100" align="center">
                     <template #default="{ row }">{{ row.probability }}%</template>
                   </el-table-column>
-                  <el-table-column prop="expectedCloseDate" label="预计成交" width="160">
-                    <template #default="{ row }">{{ formatDate(row.expectedCloseDate) }}</template>
+                  <el-table-column prop="expectedCloseDate" label="预计成交日期" width="160">
+                    <template #default="{ row }">{{ formatDateOnly(row.expectedCloseDate) }}</template>
                   </el-table-column>
                   <el-table-column label="负责人" width="120">
                     <template #default="{ row }">{{ getUserName(row.owner) }}</template>
@@ -1840,12 +1869,12 @@
                   :label-class-name="customerOrgLabelClass"
                   :tool-bar="{ expand: true, scale: true, zoom: true, restore: true, fullscreen: false }"
                 />
-              </div>
+            </div>
               </el-card>
             </template>
 
           </div>
-      </div>
+        </div>
       </div>
     </el-drawer>
 
@@ -1946,142 +1975,34 @@
   </el-dialog>
 
   <!-- 新增/编辑合同对话框 -->
-  <el-dialog
+  <ContractFormDialog
     v-model="contractDialogVisible"
     :title="contractDialogTitle"
-    width="1200px"
-    :close-on-click-modal="false"
-  >
-    <ContractForm
-      ref="contractFormRef"
-      :default-customer-id="selectedCustomer?.id"
-      :contract="currentContract"
-      @submit="handleContractSubmit"
-      @cancel="contractDialogVisible = false"
-    />
-    <template #footer>
-      <el-button @click="contractDialogVisible = false">取消</el-button>
-      <el-button type="primary" :loading="savingContract" @click="handleContractFormSubmit">
-        保存
-      </el-button>
-    </template>
-  </el-dialog>
+    :default-customer-id="selectedCustomer?.id"
+    :contract="currentContract"
+    @success="handleContractSuccess"
+    @cancel="contractDialogVisible = false"
+  />
 
   <!-- 新增/编辑订单对话框 -->
-  <el-dialog
+  <OrderFormDialog
     v-model="orderDialogVisible"
     :title="orderDialogTitle"
-    width="1200px"
-    :close-on-click-modal="false"
-  >
-    <OrderForm
-      ref="orderFormRef"
-      :default-customer-id="selectedCustomer?.id ? Number(selectedCustomer.id) : undefined"
-      :order="currentOrder"
-      @submit="handleOrderSubmit"
-      @cancel="orderDialogVisible = false"
-    />
-    <template #footer>
-      <el-button @click="orderDialogVisible = false">取消</el-button>
-      <el-button type="primary" :loading="savingOrder" @click="handleOrderFormSubmit">
-        保存
-      </el-button>
-    </template>
-  </el-dialog>
+    :default-customer-id="selectedCustomer?.id ? Number(selectedCustomer.id) : undefined as number | undefined"
+    :order="currentOrder"
+    @success="handleOrderSuccess"
+    @cancel="orderDialogVisible = false"
+  />
 
   <!-- 新增/编辑商机对话框 -->
-  <el-dialog v-model="opportunityDialog.visible" :title="opportunityDialog.title" width="600px">
-    <el-form
-      ref="opportunityFormRef"
-      :model="opportunityForm"
-      :rules="opportunityRules"
-      label-width="100px"
-    >
-      <el-form-item label="商机标题" prop="title">
-        <el-input
-          v-model="opportunityForm.title"
-          placeholder="请输入商机标题"
-          maxlength="100"
-          show-word-limit
-        />
-      </el-form-item>
-      <el-form-item label="关联客户" prop="customerId">
-        <el-input
-          :model-value="selectedCustomer ? selectedCustomer.name : ''"
-          disabled
-          placeholder="关联客户"
-        />
-      </el-form-item>
-      <el-form-item label="商机价值" prop="value">
-        <el-input-number
-          v-model="opportunityForm.value"
-          placeholder="请输入商机价值"
-          :min="0"
-          :precision="2"
-          style="width: 100%"
-        />
-      </el-form-item>
-      <el-form-item label="商机阶段" prop="stage">
-        <el-select v-model="opportunityForm.stage" placeholder="请选择商机阶段" style="width: 100%">
-          <el-option label="初步接触" value="initial_contact" />
-          <el-option label="需求分析" value="needs_analysis" />
-          <el-option label="方案/报价" value="proposal_quote" />
-          <el-option label="谈判审核" value="negotiation_review" />
-          <el-option label="赢单" value="closed_won" />
-          <el-option label="输单" value="closed_lost" />
-        </el-select>
-      </el-form-item>
-      <el-form-item label="商机状态" prop="status">
-        <el-select
-          v-model="opportunityForm.status"
-          placeholder="请选择商机状态"
-          style="width: 100%"
-        >
-          <el-option label="积极跟进" value="active" />
-          <el-option label="等待客户" value="waiting_client" />
-          <el-option label="已搁置" value="on_hold" />
-          <el-option label="面临风险" value="at_risk" />
-          <el-option label="已结束" value="closed" />
-        </el-select>
-      </el-form-item>
-      <el-form-item label="成交概率" prop="probability">
-        <el-input-number
-          v-model="opportunityForm.probability"
-          placeholder="请输入成交概率"
-          :min="0"
-          :max="100"
-          style="width: 100%"
-        />
-        <div class="text-sm text-gray-500 mt-1">请输入0-100之间的数字</div>
-      </el-form-item>
-      <el-form-item label="预计成交日期" prop="expectedCloseDate">
-        <el-date-picker
-          v-model="opportunityForm.expectedCloseDate"
-          type="date"
-          placeholder="请选择预计成交日期"
-          style="width: 100%"
-          format="YYYY-MM-DD"
-          value-format="YYYY-MM-DD"
-        />
-      </el-form-item>
-      <el-form-item label="商机描述" prop="description">
-        <el-input
-          v-model="opportunityForm.description"
-          type="textarea"
-          placeholder="请输入商机描述"
-          :rows="3"
-          maxlength="500"
-          show-word-limit
-        />
-      </el-form-item>
-    </el-form>
-    <template #footer>
-      <el-button @click="opportunityDialog.visible = false">取消</el-button>
-      <el-button type="primary" :loading="opportunityDialog.saving" @click="submitOpportunity"
-        >确定</el-button
-      >
-    </template>
-  </el-dialog>
+  <OpportunityFormDialog
+    v-model="opportunityDialogVisible"
+    :title="opportunityDialogTitle"
+    :default-customer-id="selectedCustomer?.id"
+    :opportunity="currentOpportunity"
+    @success="handleOpportunitySuccess"
+    @cancel="opportunityDialogVisible = false"
+  />
 
   <!-- 新增/编辑需求对话框 -->
   <el-dialog v-model="requirementDialog.visible" :title="requirementDialog.title" width="800px">
@@ -2344,7 +2265,7 @@ import {
   DocumentCopy,
   Files,
     ShoppingCart,
-    Location,
+  Location,
     List,
     Share,
     Wallet,
@@ -2354,7 +2275,7 @@ import {
     Expand,
     Loading,
     Printer,
-  } from '@element-plus/icons-vue'
+} from '@element-plus/icons-vue'
 import { Close } from '@element-plus/icons-vue'
 import * as echarts from 'echarts'
 // 组织架构/思维导图：vue3-tree-org
@@ -2372,7 +2293,7 @@ import customerApi, {
   type CreateCustomerProfileDto,
   type UpdateCreditInfoDto,
 } from '@/api/customer'
-import opportunityApi from '@/api/opportunity'
+import opportunityApi, { type Opportunity } from '@/api/opportunity'
 import activityApi, { type CreateActivityDto, type UpdateActivityDto } from '@/api/activity'
 import contactApi from '@/api/contact'
 import leadApi from '@/api/lead'
@@ -2396,8 +2317,9 @@ import ContactVisitList from '@/components/visit/ContactVisitList.vue'
 import QuoteFormDialog from '@/components/quote/QuoteFormDialog.vue'
 import QuoteDetailDialog from '@/components/quote/QuoteDetailDialog.vue'
 import QuotePrint from '@/components/quote/QuotePrint.vue'
-import ContractForm from '@/components/contract/ContractForm.vue'
-import OrderForm from '@/components/order/OrderForm.vue'
+import ContractFormDialog from '@/components/contract/ContractFormDialog.vue'
+import OrderFormDialog from '@/components/order/OrderFormDialog.vue'
+import OpportunityFormDialog from '@/components/opportunity/OpportunityFormDialog.vue'
 import businessInfoApi, {
   type BusinessInfo,
   type BusinessPersonnel,
@@ -2904,12 +2826,93 @@ const getUserName = (user?: any) => {
   if (!user) return '-'
   return user?.username || user?.nickname || user?.name || '-'
 }
-const formatDateOnly = (dateString: string) => {
+const formatDateOnly = (dateString: string | null | undefined) => {
+  if (!dateString) return '-'
+  try {
   const d = new Date(dateString)
+    // 检查日期是否有效（不是无效日期，且不是1970-01-01这种默认值）
+    if (isNaN(d.getTime()) || d.getFullYear() < 1900) {
+      return '-'
+    }
   const y = d.getFullYear()
   const m = String(d.getMonth() + 1).padStart(2, '0')
   const day = String(d.getDate()).padStart(2, '0')
   return `${y}-${m}-${day}`
+  } catch (e) {
+    return '-'
+  }
+}
+
+// 格式化文本中的日期字符串（用于变更前/变更后字段）
+const formatDatesInText = (text: string | null | undefined): string => {
+  if (!text) return '-'
+
+  // 匹配各种日期格式：
+  // 1. "MM DD YYYY HH:MMAM/PM" 格式（如 "09 8 2004 12:00AM" 或 "05 24 2007 12:00AM"）
+  // 2. "MM/DD/YYYY" 格式
+  // 3. "YYYY-MM-DD" 格式
+  // 4. ISO 日期格式
+
+  let result = text
+
+  // 匹配 "MM DD YYYY HH:MMAM/PM" 格式（如 "09 8 2004 12:00AM"）
+  // 注意：月份和日期可能是1-2位数字
+  const datePattern1 = /(\d{1,2})\s+(\d{1,2})\s+(\d{4})\s+(\d{1,2}):(\d{2})(AM|PM)/gi
+  result = result.replace(datePattern1, (match, month, day, year) => {
+    try {
+      const monthPadded = String(month).padStart(2, '0')
+      const dayPadded = String(day).padStart(2, '0')
+      const dateStr = `${year}-${monthPadded}-${dayPadded}`
+      const date = new Date(dateStr)
+      if (!isNaN(date.getTime()) && date.getFullYear() >= 1900 && date.getFullYear() <= 2100) {
+        return formatDateOnly(dateStr)
+      }
+    } catch {
+      // 如果解析失败，返回原文本
+    }
+    return match
+  })
+
+  // 匹配 "MM/DD/YYYY" 格式
+  const datePattern2 = /(\d{1,2})\/(\d{1,2})\/(\d{4})/g
+  result = result.replace(datePattern2, (match, month, day, year) => {
+    try {
+      const monthPadded = String(month).padStart(2, '0')
+      const dayPadded = String(day).padStart(2, '0')
+      const dateStr = `${year}-${monthPadded}-${dayPadded}`
+      const date = new Date(dateStr)
+      if (!isNaN(date.getTime()) && date.getFullYear() >= 1900 && date.getFullYear() <= 2100) {
+        return formatDateOnly(dateStr)
+      }
+    } catch {
+      // 如果解析失败，返回原文本
+    }
+    return match
+  })
+
+  // 匹配 "YYYY-MM-DD" 格式（但需要验证不是无效日期）
+  const datePattern3 = /(\d{4})-(\d{1,2})-(\d{1,2})(?!\d)/g
+  result = result.replace(datePattern3, (match, year, month, day) => {
+    try {
+      const monthPadded = String(month).padStart(2, '0')
+      const dayPadded = String(day).padStart(2, '0')
+      const dateStr = `${year}-${monthPadded}-${dayPadded}`
+      const date = new Date(dateStr)
+      // 检查日期是否有效且不是默认值（1970-01-01）
+      if (!isNaN(date.getTime()) && date.getFullYear() >= 1900 && date.getFullYear() <= 2100) {
+        const formatted = formatDateOnly(dateStr)
+        // 如果格式化后不是 '-'，说明日期有效
+        if (formatted !== '-') {
+          return formatted
+        }
+      }
+    } catch {
+      // 如果解析失败，返回原文本
+    }
+    return match
+  })
+
+  return result
 }
 const formatTime = (dateString?: string) => {
   if (!dateString) return ''
@@ -2948,11 +2951,11 @@ const formatCurrency = (value: number | string | null | undefined, showSymbol = 
   if (isNaN(numValue)) return '-'
 
   if (showSymbol) {
-    return new Intl.NumberFormat('zh-CN', {
-      style: 'currency',
-      currency: 'CNY',
+  return new Intl.NumberFormat('zh-CN', {
+    style: 'currency',
+    currency: 'CNY',
       minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
+    maximumFractionDigits: 2,
     }).format(numValue)
   } else {
     return new Intl.NumberFormat('zh-CN', {
@@ -2986,6 +2989,34 @@ const getSummaries = (param: { columns: Array<{ property?: string }>; data: Cust
     if (column.property === 'estimatedValue') {
       // 预计价值列计算总和
       const values = data.map((item: Customer) => Number(item.estimatedValue) || 0)
+      const sum = values.reduce((prev: number, curr: number) => {
+        return prev + curr
+      }, 0)
+      sums[index] = formatCurrency(sum)
+    } else {
+      // 其他列显示空
+      sums[index] = ''
+    }
+  })
+
+  return sums
+}
+
+// 计算商机合计行
+const getOpportunitySummaries = (param: { columns: Array<{ property?: string; label?: string }>; data: any[] }) => {
+  const { columns, data } = param
+  const sums: string[] = []
+
+  columns.forEach((column, index: number) => {
+    // 第一列或没有 property 的列（如操作列）显示"合计"
+    if (index === 0 || !column.property) {
+      sums[index] = index === 0 ? '合计' : ''
+      return
+    }
+
+    if (column.property === 'value') {
+      // 金额列计算总和
+      const values = data.map((item: any) => Number(item.value) || 0)
       const sum = values.reduce((prev: number, curr: number) => {
         return prev + curr
       }, 0)
@@ -3666,6 +3697,7 @@ const getTypeName = (type: string) => {
     email: '邮件',
     task: '任务',
     note: '备注',
+    wechat: '微信',
   }
   return typeMap[type] || type
 }
@@ -3678,6 +3710,7 @@ const getTypeColor = (type: string) => {
     email: 'info',
     task: 'warning',
     note: 'default',
+    wechat: 'success',
   }
   return colorMap[type] || 'default'
 }
@@ -4281,15 +4314,11 @@ const quotePrintRef = ref<InstanceType<typeof QuotePrint>>()
 // 合同对话框相关
 const contractDialogVisible = ref(false)
 const contractDialogTitle = ref('新增合同')
-const contractFormRef = ref<InstanceType<typeof ContractForm>>()
-const savingContract = ref(false)
 const currentContract = ref<Contract | null>(null)
 
 // 订单对话框相关
 const orderDialogVisible = ref(false)
 const orderDialogTitle = ref('新增订单')
-const orderFormRef = ref<InstanceType<typeof OrderForm>>()
-const savingOrder = ref(false)
 const currentOrder = ref<Order | null>(null)
 
 // 打开新建活动弹窗
@@ -5176,7 +5205,7 @@ const loadContacts = async () => {
     console.error('加载联系人失败:', e)
     // 降级到普通列表接口
     try {
-      const resp = await request.get(`/contacts/customer/${selectedCustomer.value.id}`)
+    const resp = await request.get(`/contacts/customer/${selectedCustomer.value.id}`)
       const contacts = (resp as any).data?.contacts || (resp as any).data || []
       customerContacts.value = contacts
       contactTreeData.value = buildContactTree(contacts)
@@ -5272,32 +5301,40 @@ const loadOpportunities = async () => {
   }
 }
 
+// 商机对话框相关
+const opportunityDialogVisible = ref(false)
+const opportunityDialogTitle = ref('新增商机')
+const currentOpportunity = ref<Opportunity | null>(null)
+
 // 新增商机
 const openCreateOpportunity = () => {
-  opportunityDialog.visible = true
-  opportunityDialog.title = '新增商机'
-  Object.assign(opportunityForm, {
-    id: '',
-    title: '',
-    stage: 'initial_contact',
-    value: 0,
-    probability: 0,
-    expectedCloseDate: '',
-  })
+  opportunityDialogTitle.value = '新增商机'
+  currentOpportunity.value = null
+  opportunityDialogVisible.value = true
 }
 
 // 编辑商机
-const openEditOpportunity = (opportunity: any) => {
-  opportunityDialog.visible = true
-  opportunityDialog.title = '编辑商机'
-  Object.assign(opportunityForm, {
-    id: opportunity.id,
-    title: opportunity.title,
-    stage: opportunity.stage,
-    value: opportunity.value,
-    probability: opportunity.probability,
-    expectedCloseDate: opportunity.expectedCloseDate,
-  })
+const openEditOpportunity = async (opportunity: Opportunity) => {
+  try {
+    const response = await opportunityApi.getDetail(opportunity.id) as unknown as {
+      code: number
+      data?: Opportunity
+    }
+    if (response.code === 200 && response.data) {
+      opportunityDialogTitle.value = '编辑商机'
+      currentOpportunity.value = response.data
+      opportunityDialogVisible.value = true
+    }
+  } catch (error) {
+    console.error('获取商机详情失败:', error)
+    ElMessage.error('获取商机详情失败')
+  }
+}
+
+// 处理商机提交成功
+const handleOpportunitySuccess = async () => {
+  // 重新加载商机列表
+  await loadOpportunities()
 }
 
 // 删除商机
@@ -5320,61 +5357,6 @@ const deleteOpportunity = async (opportunity: any) => {
   }
 }
 
-// 提交商机
-const submitOpportunity = async () => {
-  if (!opportunityFormRef.value) return
-
-  try {
-    await opportunityFormRef.value.validate()
-    opportunityDialog.saving = true
-
-    const payload = {
-      ...opportunityForm,
-      customerId: selectedCustomer.value?.id,
-    }
-
-    if (opportunityForm.id) {
-      // 编辑商机
-      const { id, ...updateData } = payload as any
-      await opportunityApi.update(id, updateData)
-      ElMessage.success('更新商机成功')
-    } else {
-      // 新建商机（默认当前客户）
-      await opportunityApi.create(payload)
-      ElMessage.success('创建商机成功')
-    }
-
-    opportunityDialog.visible = false
-    loadOpportunities()
-  } catch (error) {
-    console.error('提交商机失败:', error)
-    ElMessage.error('操作失败，请稍后重试')
-  } finally {
-    opportunityDialog.saving = false
-  }
-}
-
-const opportunityFormRef = ref()
-const opportunityForm = reactive({
-  id: '',
-  title: '',
-  stage: 'initial_contact',
-  value: 0,
-  probability: 0,
-  expectedCloseDate: '',
-})
-const opportunityRules = {
-  title: [
-    { required: true, message: '请输入商机名称', trigger: 'blur' },
-    { min: 2, max: 100, message: '商机名称长度在 2 到 100 个字符', trigger: 'blur' },
-  ],
-  stage: [{ required: true, message: '请选择商机阶段', trigger: 'change' }],
-  value: [{ required: true, message: '请输入金额', trigger: 'blur' }],
-  probability: [{ required: true, message: '请输入概率', trigger: 'blur' }],
-  expectedCloseDate: [{ required: true, message: '请选择预计成交日期', trigger: 'change' }],
-}
-
-const opportunityDialog = reactive({ visible: false, title: '', saving: false })
 
 // 报价相关
 const loadQuotes = async () => {
@@ -5605,8 +5587,6 @@ const openCreateContract = async () => {
   contractDialogTitle.value = '新增合同'
   currentContract.value = null
   contractDialogVisible.value = true
-  await nextTick()
-  contractFormRef.value?.resetForm()
 }
 
 // 编辑合同
@@ -5624,49 +5604,10 @@ const openEditContract = async (contract: Contract) => {
   }
 }
 
-// 处理合同表单提交
-const handleContractFormSubmit = async () => {
-  if (!contractFormRef.value) {
-    ElMessage.warning('表单未初始化')
-    return
-  }
-  try {
-    const success = await contractFormRef.value.submit()
-    if (!success) {
-      // 表单验证失败，submit 方法已经显示了错误消息
-      return
-    }
-    // submit 事件会在 handleContractSubmit 中处理
-  } catch (error) {
-    console.error('提交表单失败:', error)
-    ElMessage.error('提交表单失败，请检查表单内容')
-  }
-}
-
-// 处理合同提交
-const handleContractSubmit = async (data: CreateContractDto | UpdateContractDto) => {
-  try {
-    savingContract.value = true
-
-    if (currentContract.value) {
-      // 编辑模式
-      await contractApi.update(currentContract.value.id, data as UpdateContractDto)
-      ElMessage.success('更新成功')
-    } else {
-      // 创建模式
-      await contractApi.create(data as Omit<CreateContractDto, 'contractNumber'>)
-      ElMessage.success('创建成功')
-    }
-
-    contractDialogVisible.value = false
-    // 重新加载合同列表
-    await loadContracts()
-  } catch (error: any) {
-    console.error('提交合同失败:', error)
-    ElMessage.error(error?.response?.data?.message || error?.message || '提交合同失败')
-  } finally {
-    savingContract.value = false
-  }
+// 处理合同提交成功
+const handleContractSuccess = async () => {
+  // 重新加载合同列表
+  await loadContracts()
 }
 
 // 删除合同
@@ -5749,8 +5690,6 @@ const openCreateOrder = async () => {
   orderDialogTitle.value = '新增订单'
   currentOrder.value = null
   orderDialogVisible.value = true
-  await nextTick()
-  orderFormRef.value?.resetForm()
 }
 
 // 编辑订单
@@ -5768,49 +5707,10 @@ const openEditOrder = async (order: Order) => {
   }
 }
 
-// 处理订单表单提交
-const handleOrderFormSubmit = async () => {
-  if (!orderFormRef.value) {
-    ElMessage.warning('表单未初始化')
-    return
-  }
-  try {
-    const success = await orderFormRef.value.submit()
-    if (!success) {
-      // 表单验证失败，submit 方法已经显示了错误消息
-      return
-    }
-    // submit 事件会在 handleOrderSubmit 中处理
-  } catch (error) {
-    console.error('提交表单失败:', error)
-    ElMessage.error('提交表单失败，请检查表单内容')
-  }
-}
-
-// 处理订单提交
-const handleOrderSubmit = async (data: CreateOrderDto | UpdateOrderDto) => {
-  try {
-    savingOrder.value = true
-
-    if (currentOrder.value) {
-      // 编辑模式
-      await orderApi.update(currentOrder.value.id, data as UpdateOrderDto)
-      ElMessage.success('更新成功')
-    } else {
-      // 创建模式
-      await orderApi.create(data as Omit<CreateOrderDto, 'orderNumber'>)
-      ElMessage.success('创建成功')
-    }
-
-    orderDialogVisible.value = false
-    // 重新加载订单列表
-    await loadOrders()
-  } catch (error: any) {
-    console.error('提交订单失败:', error)
-    ElMessage.error(error?.response?.data?.message || error?.message || '提交订单失败')
-  } finally {
-    savingOrder.value = false
-  }
+// 处理订单提交成功
+const handleOrderSuccess = async () => {
+  // 重新加载订单列表
+  await loadOrders()
 }
 
 // 删除订单
@@ -6581,10 +6481,10 @@ const submitContact = async () => {
         }
       }
 
-      .section-title {
-        font-size: 16px;
-        font-weight: 600;
-        color: #303133;
+    .section-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #303133;
       }
     }
   }
@@ -6938,7 +6838,7 @@ const submitContact = async () => {
       padding: 20px;
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
       // 移除所有 margin，使用 gap 控制间距
-      margin: 0;
+        margin: 0;
 
       .chart-header {
         display: flex;
@@ -6955,14 +6855,14 @@ const submitContact = async () => {
         color: #303133;
         margin-bottom: 16px;
       }
+      }
     }
-  }
 
   // 对账内容样式
   .statement-content {
     padding: 0;
     background: #fff;
-    display: flex;
+      display: flex;
     flex-direction: column;
     height: 100%;
     overflow: hidden;
@@ -6987,7 +6887,7 @@ const submitContact = async () => {
         gap: 8px;
 
         .toolbar-label {
-          font-size: 14px;
+      font-size: 14px;
           color: #606266;
           font-weight: 500;
         }
@@ -7005,7 +6905,7 @@ const submitContact = async () => {
           .toolbar-label {
             font-size: 14px;
             color: #606266;
-            font-weight: 500;
+        font-weight: 500;
           }
         }
       }
@@ -7090,10 +6990,10 @@ const submitContact = async () => {
           display: flex;
           align-items: center;
           color: #409eff;
-          cursor: pointer;
+    cursor: pointer;
           text-decoration: none;
 
-          &:hover {
+    &:hover {
             text-decoration: underline;
           }
         }
@@ -7124,8 +7024,8 @@ const submitContact = async () => {
 .kanban-section {
   padding: 0 20px;
   flex: 1;
-  display: flex;
-  flex-direction: column;
+    display: flex;
+    flex-direction: column;
   overflow: hidden;
 }
 
@@ -7209,7 +7109,7 @@ const submitContact = async () => {
   background: #fff;
   border-radius: 6px;
   padding: 12px;
-  margin-bottom: 12px;
+      margin-bottom: 12px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   cursor: move;
   transition: all 0.3s ease;
@@ -7249,7 +7149,7 @@ const submitContact = async () => {
 }
 
 :deep(.tree-org-node__inner.org-node-opportunity-category .tree-org-node__text) {
-  font-weight: 600;
+      font-weight: 600;
   color: #389e0d;
 }
 
@@ -7329,7 +7229,7 @@ const submitContact = async () => {
 
     .card-value {
       color: #606266;
-      flex: 1;
+    flex: 1;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
@@ -7341,12 +7241,12 @@ const submitContact = async () => {
 .graph-content {
   padding: 0;
   background: #fff;
-  display: flex;
-  flex-direction: column;
+    display: flex;
+    flex-direction: column;
   height: 100%;
   overflow: hidden;
   flex: 1;
-  min-height: 0;
+    min-height: 0;
   margin-bottom: 0; // 移除底部间距
 
   .customer-graph-container {
@@ -7541,7 +7441,7 @@ const submitContact = async () => {
     }
 
     .header-actions {
-      flex-shrink: 0;
+              flex-shrink: 0;
     }
   }
 
@@ -7551,7 +7451,7 @@ const submitContact = async () => {
     padding: 20px 24px;
     margin: 0 16px 20px 16px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-    border: 1px solid #f0f0f0;
+                border: 1px solid #f0f0f0;
 
     .info-grid {
       display: grid;
@@ -7564,13 +7464,13 @@ const submitContact = async () => {
       }
 
       .info-item {
-        display: flex;
+              display: flex;
         align-items: flex-start;
         min-height: 36px;
         line-height: 1.6;
 
         .info-label {
-          font-size: 14px;
+              font-size: 14px;
           font-weight: 500;
           color: #606266;
           min-width: 140px;
@@ -7607,7 +7507,7 @@ const submitContact = async () => {
   }
 
   :deep(.el-tab-pane) {
-    padding: 0;
+              padding: 0;
   }
 }
 
@@ -7618,8 +7518,8 @@ const submitContact = async () => {
     padding-bottom: 24px;
     border-bottom: 1px solid #e4e7ed;
 
-    &:last-child {
-      border-bottom: none;
+                &:last-child {
+                  border-bottom: none;
       margin-bottom: 0;
       padding-bottom: 0;
     }
@@ -7629,8 +7529,8 @@ const submitContact = async () => {
       font-weight: 600;
       color: #303133;
       margin-bottom: 16px;
-      display: flex;
-      align-items: center;
+                  display: flex;
+                  align-items: center;
     }
   }
 
@@ -7640,11 +7540,11 @@ const submitContact = async () => {
     gap: 16px;
 
     .info-item {
-      display: flex;
+                    display: flex;
       align-items: flex-start;
 
       label {
-        font-weight: 500;
+                      font-weight: 500;
         color: #606266;
         min-width: 120px;
         margin-right: 8px;

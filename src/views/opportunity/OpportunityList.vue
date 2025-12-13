@@ -212,7 +212,7 @@
                     <span class="card-value">{{ opportunity.probability }}%</span>
                   </div>
                   <div class="card-item">
-                    <span class="card-label">预计成交：</span>
+                    <span class="card-label">预计成交日期：</span>
                     <span class="card-value">{{ formatDateOnly(opportunity.expectedCloseDate) }}</span>
                   </div>
                   <div class="card-item">
@@ -656,10 +656,21 @@ const formatDate = (dateString: string) => {
   return new Date(dateString).toLocaleString('zh-CN')
 }
 
-// 格式化日期（仅日期部分）
-const formatDateOnly = (dateString: string) => {
+// 格式化日期（仅日期部分，格式：YYYY-MM-DD）
+const formatDateOnly = (dateString: string | null | undefined) => {
   if (!dateString) return '-'
-  return new Date(dateString).toLocaleDateString('zh-CN')
+  try {
+    const d = new Date(dateString)
+    if (isNaN(d.getTime()) || d.getFullYear() < 1900) {
+      return '-'
+    }
+    const y = d.getFullYear()
+    const m = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+    return `${y}-${m}-${day}`
+  } catch (e) {
+    return '-'
+  }
 }
 
 // 格式化货币
@@ -844,14 +855,14 @@ const getOrderStatusType = (status: string) => {
 }
 
 // 计算合计行
-const getSummaries = (param: { columns: Array<{ property?: string }>; data: Opportunity[] }) => {
+const getSummaries = (param: { columns: Array<{ property?: string; label?: string }>; data: Opportunity[] }) => {
   const { columns, data } = param
   const sums: string[] = []
 
   columns.forEach((column, index: number) => {
-    if (index === 0) {
-      // 第一列显示"合计"
-      sums[index] = '合计'
+    // 第一列（选择框列）或没有 property 的列（如操作列）显示"合计"
+    if (index === 0 || !column.property) {
+      sums[index] = index === 0 ? '合计' : ''
       return
     }
 

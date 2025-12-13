@@ -18,6 +18,7 @@
         <el-option label="邮件" value="email" />
         <el-option label="任务" value="task" />
         <el-option label="备注" value="note" />
+        <el-option label="微信" value="wechat" />
       </el-select>
     </el-form-item>
     <el-form-item label="活动状态" prop="status">

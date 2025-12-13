@@ -101,6 +101,58 @@ export interface SalesFunnelData {
   }
 }
 
+export interface OpportunityStageDistributionData {
+  initialContact: {
+    count: number
+    amount: number
+  }
+  needsAnalysis: {
+    count: number
+    amount: number
+  }
+  proposalQuote: {
+    count: number
+    amount: number
+  }
+  negotiationReview: {
+    count: number
+    amount: number
+  }
+  closedWon: {
+    count: number
+    amount: number
+  }
+  closedLost: {
+    count: number
+    amount: number
+  }
+}
+
+export interface CustomerConversionFunnelData {
+  leads: {
+    count: number
+  }
+  converted: {
+    count: number
+  }
+  qualified: {
+    count: number
+    amount: number
+  }
+  proposal: {
+    count: number
+    amount: number
+  }
+  negotiation: {
+    count: number
+    amount: number
+  }
+  closedWon: {
+    count: number
+    amount: number
+  }
+}
+
 export interface CustomerSourceDistributionData {
   source: string
   count: number
@@ -202,6 +254,34 @@ export const statisticsApi = {
     if (departmentId) params.departmentId = departmentId
     if (memberId) params.memberId = memberId
     return request.get<SalesFunnelData>('/statistics/sales-funnel', { params })
+  },
+  // 获取商机阶段分布
+  getOpportunityStageDistribution: (
+    scope: 'me' | 'all' = 'me',
+    viewType?: 'tenant' | 'group',
+    scopeType?: 'me_and_subordinates' | 'all' | 'department' | 'member',
+    departmentId?: number,
+    memberId?: number,
+  ) => {
+    const params: any = { scope, viewType }
+    if (scopeType) params.scopeType = scopeType
+    if (departmentId) params.departmentId = departmentId
+    if (memberId) params.memberId = memberId
+    return request.get<OpportunityStageDistributionData>('/statistics/opportunity-stage-distribution', { params })
+  },
+  // 获取客户转化漏斗
+  getCustomerConversionFunnel: (
+    scope: 'me' | 'all' = 'me',
+    viewType?: 'tenant' | 'group',
+    scopeType?: 'me_and_subordinates' | 'all' | 'department' | 'member',
+    departmentId?: number,
+    memberId?: number,
+  ) => {
+    const params: any = { scope, viewType }
+    if (scopeType) params.scopeType = scopeType
+    if (departmentId) params.departmentId = departmentId
+    if (memberId) params.memberId = memberId
+    return request.get<CustomerConversionFunnelData>('/statistics/customer-conversion-funnel', { params })
   },
   // 获取客户来源分布
   getCustomerSourceDistribution: (

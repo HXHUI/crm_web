@@ -58,6 +58,10 @@
               <el-icon><List /></el-icon>
               <span style="margin-left: 4px">列表</span>
             </el-radio-button>
+            <el-radio-button value="kanban">
+              <el-icon><Grid /></el-icon>
+              <span style="margin-left: 4px">看板</span>
+            </el-radio-button>
             <el-radio-button value="statistics">
               <el-icon><DataBoard /></el-icon>
               <span style="margin-left: 4px">数据分析</span>
@@ -306,6 +310,71 @@
               </div>
             </div>
           </el-card>
+        </div>
+      </div>
+
+      <!-- 看板视图 -->
+      <div v-else-if="viewMode === 'kanban'" class="kanban-section" v-loading="loading">
+        <div class="kanban-board">
+          <div
+            v-for="status in statusColumns"
+            :key="status.value"
+            class="kanban-column"
+            :ref="(el) => setColumnRef(el, status.value)"
+          >
+            <div class="kanban-column-header">
+              <span class="status-name">{{ status.label }}</span>
+              <el-tag :type="getStatusType(status.value)" size="small">
+                {{ getLeadsByStatus(status.value).length }}
+              </el-tag>
+            </div>
+            <div
+              class="kanban-column-body"
+              :data-status="status.value"
+            >
+              <div
+                v-for="lead in getLeadsByStatus(status.value)"
+                :key="lead.id"
+                class="kanban-card"
+                :data-id="lead.id"
+                @click="openDetail(lead)"
+              >
+                <div class="kanban-card-header">
+                  <span class="card-title" :title="lead.name || lead.company || '未命名'">
+                    {{ lead.name || lead.company || '未命名' }}
+                  </span>
+                </div>
+                <div class="kanban-card-body">
+                  <div class="card-item" v-if="lead.company && lead.name">
+                    <span class="card-label">公司：</span>
+                    <span class="card-value" :title="lead.company">{{ lead.company }}</span>
+                  </div>
+                  <div class="card-item" v-if="lead.phone">
+                    <span class="card-label">电话：</span>
+                    <span class="card-value">{{ lead.phone }}</span>
+                  </div>
+                  <div class="card-item" v-if="lead.email">
+                    <span class="card-label">邮箱：</span>
+                    <span class="card-value" :title="lead.email">{{ lead.email }}</span>
+                  </div>
+                  <div class="card-item">
+                    <span class="card-label">负责人：</span>
+                    <span class="card-value">{{ lead.owner?.username || '-' }}</span>
+                  </div>
+                  <div class="card-item">
+                    <span class="card-label">评分：</span>
+                    <el-tag :type="getRatingType(lead.rating)" size="small">
+                      {{ getRatingName(lead.rating) }}
+                    </el-tag>
+                  </div>
+                  <div class="card-item" v-if="lead.createdAt">
+                    <span class="card-label">创建时间：</span>
+                    <span class="card-value">{{ formatDateOnly((lead as any).createdAt) }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -618,6 +687,54 @@
         </template>
       </el-dialog>
 
+      <!-- 拖拽到不合格状态时的对话框 -->
+      <el-dialog
+        v-model="unqualifiedDialogVisible"
+        title="标记为不合格"
+        width="500px"
+        :close-on-click-modal="false"
+      >
+        <el-form :model="unqualifiedForm" label-width="100px" ref="unqualifiedFormRef">
+          <el-form-item label="不合格原因" prop="unqualifiedReason" required>
+            <el-select
+              v-model="unqualifiedForm.unqualifiedReason"
+              style="width: 100%"
+              placeholder="请选择不合格原因"
+            >
+              <el-option
+                v-for="reason in unqualifiedReasonOptions"
+                :key="reason.key"
+                :label="reason.label"
+                :value="reason.key"
+              />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="流失阶段">
+            <el-select v-model="unqualifiedForm.lostStage" style="width: 100%" placeholder="请选择流失阶段">
+              <el-option label="新建阶段" value="new" />
+              <el-option label="已联系阶段" value="contacted" />
+              <el-option label="合格阶段" value="qualified" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="流失类型" prop="lostType" required>
+            <el-select v-model="unqualifiedForm.lostType" style="width: 100%" placeholder="请选择流失类型">
+              <el-option
+                v-for="type in lostTypeOptions"
+                :key="type.key"
+                :label="type.label"
+                :value="type.key"
+              />
+            </el-select>
+          </el-form-item>
+        </el-form>
+        <template #footer>
+          <el-button @click="unqualifiedDialogVisible = false">取消</el-button>
+          <el-button type="primary" @click="submitUnqualified" :loading="unqualifiedSubmitLoading">
+            确定
+          </el-button>
+        </template>
+      </el-dialog>
+
       <el-dialog
         v-model="convertVisible"
         title="线索转化"
@@ -692,7 +809,7 @@
               />
             </el-form-item>
           </template>
-          
+
           <!-- 下一步计划活动 -->
           <el-form-item>
             <el-checkbox v-model="convertForm.planNextActivity">下一步计划活动</el-checkbox>
@@ -714,6 +831,7 @@
                 <el-option label="邮件" value="email" />
                 <el-option label="任务" value="task" />
                 <el-option label="备注" value="note" />
+                <el-option label="微信" value="wechat" />
               </el-select>
             </el-form-item>
             <el-form-item label="计划开始时间" required>
@@ -804,7 +922,7 @@
               />
             </el-form-item>
           </template>
-          
+
           <!-- 下一步计划拜访 -->
           <el-form-item>
             <el-checkbox v-model="convertForm.planNextVisit">下一步计划拜访</el-checkbox>
@@ -1157,7 +1275,7 @@
                       <div class="info-item">
                         <label class="info-label">注册资本：</label>
                         <span class="info-value">
-                          {{ businessInfo.registeredCapital ? formatCurrency(businessInfo.registeredCapital, false) + '万元' : '-' }}
+                          {{ businessInfo.registeredCapital ? formatCurrency(convertToWanYuan(businessInfo.registeredCapital), false) + '万元' : '-' }}
                         </span>
                       </div>
                       <div class="info-item">
@@ -1207,10 +1325,10 @@
                         </el-tag>
                       </el-descriptions-item>
                       <el-descriptions-item label="注册资本">
-                        {{ businessInfo.registeredCapital ? formatCurrency(businessInfo.registeredCapital, false) + '万元' : '-' }}
+                        {{ businessInfo.registeredCapital ? formatCurrency(convertToWanYuan(businessInfo.registeredCapital), false) + '万元' : '-' }}
                       </el-descriptions-item>
                       <el-descriptions-item label="实缴资本">
-                        {{ businessInfo.paidInCapital ? formatCurrency(businessInfo.paidInCapital, false) + '万元' : '-' }}
+                        {{ businessInfo.paidInCapital ? formatCurrency(convertToWanYuan(businessInfo.paidInCapital), false) + '万元' : '-' }}
                       </el-descriptions-item>
                       <el-descriptions-item label="工商注册号">
                         {{ businessInfo.businessRegistrationNumber || '-' }}
@@ -1295,7 +1413,7 @@
                       <el-table-column prop="shareholderType" label="股东类型" width="150" />
                       <el-table-column prop="investmentAmount" label="投资金额(万元)" width="150" align="right">
                         <template #default="{ row }">
-                          {{ row.investmentAmount ? formatCurrency(row.investmentAmount, false) : '-' }}
+                          {{ row.investmentAmount ? formatCurrency(convertToWanYuan(row.investmentAmount), false) : '-' }}
                         </template>
                       </el-table-column>
                     </el-table>
@@ -1348,16 +1466,31 @@
                           <div v-else-if="businessInfo" class="business-info-content">
                     <el-table :data="businessInfo.investments || []" border style="width: 100%">
                       <el-table-column type="index" label="序号" width="60" />
-                      <el-table-column prop="investedCompany" label="被投资企业" min-width="250" />
-                      <el-table-column prop="shareholderType" label="股东类型" width="150" />
-                      <el-table-column prop="shareholdingRatio" label="持股比例" width="120" align="right">
+                      <el-table-column prop="investedCompany" label="被投资企业" min-width="200" show-overflow-tooltip />
+                      <el-table-column prop="regStatus" label="企业状态" width="100" />
+                      <el-table-column prop="legalPersonName" label="法人" width="120" />
+                      <el-table-column prop="orgType" label="公司类型" width="180" show-overflow-tooltip />
+                      <el-table-column prop="establishmentDate" label="开业时间" width="120" align="center">
+                        <template #default="{ row }">
+                          {{ row.establishmentDate ? formatDateOnly(row.establishmentDate) : '-' }}
+                        </template>
+                      </el-table-column>
+                      <el-table-column prop="category" label="行业" width="150" show-overflow-tooltip />
+                      <el-table-column prop="regCapital" label="注册资金" width="150" />
+                      <el-table-column prop="subscriptionDate" label="认缴出资时间" width="120" align="center">
+                        <template #default="{ row }">
+                          {{ row.subscriptionDate ? formatDateOnly(row.subscriptionDate) : '-' }}
+                        </template>
+                      </el-table-column>
+                      <el-table-column prop="shareholderType" label="股东类型" width="100" />
+                      <el-table-column prop="shareholdingRatio" label="持股比例" width="100" align="right">
                         <template #default="{ row }">
                           {{ row.shareholdingRatio != null ? Number(row.shareholdingRatio).toFixed(2) + '%' : '-' }}
                         </template>
                       </el-table-column>
                       <el-table-column prop="investmentAmount" label="投资金额(万元)" width="150" align="right">
                         <template #default="{ row }">
-                          {{ row.investmentAmount ? formatCurrency(row.investmentAmount, false) : '-' }}
+                          {{ row.investmentAmount ? formatCurrency(convertToWanYuan(row.investmentAmount), false) : '-' }}
                         </template>
                       </el-table-column>
                     </el-table>
@@ -1380,12 +1513,20 @@
                       <el-table-column type="index" label="序号" width="60" />
                       <el-table-column prop="changeDate" label="变更日期" width="120">
                         <template #default="{ row }">
-                          {{ row.changeDate ? formatDateOnly(row.changeDate) : '-' }}
+                          {{ formatDateOnly(row.changeDate) }}
                         </template>
                       </el-table-column>
                       <el-table-column prop="changeItem" label="变更事项" min-width="150" />
-                      <el-table-column prop="beforeChange" label="变更前" min-width="200" show-overflow-tooltip />
-                      <el-table-column prop="afterChange" label="变更后" min-width="200" show-overflow-tooltip />
+                      <el-table-column prop="beforeChange" label="变更前" min-width="200" show-overflow-tooltip>
+                        <template #default="{ row }">
+                          {{ formatDatesInText(row.beforeChange) }}
+                        </template>
+                      </el-table-column>
+                      <el-table-column prop="afterChange" label="变更后" min-width="200" show-overflow-tooltip>
+                        <template #default="{ row }">
+                          {{ formatDatesInText(row.afterChange) }}
+                        </template>
+                      </el-table-column>
                     </el-table>
                             <div v-if="!businessInfo.changeRecords || businessInfo.changeRecords.length === 0" class="empty-state">
                               <el-empty description="暂无变更记录" />
@@ -1409,8 +1550,9 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted, onBeforeUnmount, watch, computed, nextTick } from 'vue'
+import Sortable from 'sortablejs'
 import { useRoute, useRouter } from 'vue-router'
-import { Plus, Search, Refresh, Switch, Delete, Clock, Document, Lightning, TrendCharts, User, Check, Trophy, DataAnalysis, List, DataBoard, Box, Download, Fold, Expand, Edit } from '@element-plus/icons-vue'
+import { Plus, Search, Refresh, Switch, Delete, Clock, Document, Lightning, TrendCharts, User, Check, Trophy, DataAnalysis, List, DataBoard, Box, Download, Fold, Expand, Edit, Grid } from '@element-plus/icons-vue'
 import * as echarts from 'echarts'
 import leadApi, { type Lead, type QueryLeadDto } from '@/api/lead'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -1428,8 +1570,36 @@ const router = useRouter()
 const loading = ref(false)
 const list = ref<Lead[]>([])
 const selectedRows = ref<Lead[]>([])
-const viewMode = ref<'list' | 'statistics'>('list')
+const viewMode = ref<'list' | 'kanban' | 'statistics'>('list')
 const statisticsLoading = ref(false)
+
+// 看板相关
+const columnRefs = ref<Record<string, HTMLElement | null>>({})
+const sortableInstances = ref<any[]>([])
+
+// 线索状态列配置
+const statusColumns = [
+  { label: '新建', value: 'new' },
+  { label: '已联系', value: 'contacted' },
+  { label: '合格', value: 'qualified' },
+  { label: '不合格', value: 'unqualified' },
+  { label: '已转化', value: 'converted' },
+]
+
+// 设置列引用
+const setColumnRef = (el: any, status: string) => {
+  if (el && el instanceof HTMLElement) {
+    columnRefs.value[status] = el
+  } else {
+    // 元素被卸载时清除引用
+    delete columnRefs.value[status]
+  }
+}
+
+// 按状态获取线索
+const getLeadsByStatus = (status: string) => {
+  return list.value.filter((lead) => lead.status === status)
+}
 
 // 根据路由判断是否为线索池
 const isLeadPool = computed(() => route.path === '/leads/pool')
@@ -1653,6 +1823,18 @@ const convertLoading = ref(false)
 
 // 转移相关
 const transferVisible = ref(false)
+
+// 不合格对话框相关
+const unqualifiedDialogVisible = ref(false)
+const unqualifiedSubmitLoading = ref(false)
+const unqualifiedFormRef = ref()
+const unqualifiedForm = reactive({
+  leadId: '',
+  fromStatus: '',
+  unqualifiedReason: '',
+  lostStage: '',
+  lostType: '',
+})
 const transferMode = ref<'single' | 'batch'>('single')
 const currentTransferLead = ref<Lead | null>(null)
 const transferForm = reactive<{ newOwnerId?: string }>({
@@ -1848,11 +2030,94 @@ const refreshBusinessInfo = async () => {
 }
 
 // 格式化日期（仅日期部分）
-const formatDateOnly = (dateStr?: string | Date) => {
+const formatDateOnly = (dateStr?: string | Date | null) => {
   if (!dateStr) return '-'
-  const date = typeof dateStr === 'string' ? new Date(dateStr) : dateStr
-  if (isNaN(date.getTime())) return '-'
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+  try {
+    const date = typeof dateStr === 'string' ? new Date(dateStr) : dateStr
+    if (isNaN(date.getTime())) return '-'
+    // 检查日期是否有效（不是无效日期，且不是1970-01-01这种默认值）
+    if (date.getFullYear() < 1900) return '-'
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+  } catch (e) {
+    return '-'
+  }
+}
+
+// 格式化文本中的日期字符串（用于变更前/变更后字段）
+const formatDatesInText = (text: string | null | undefined): string => {
+  if (!text) return '-'
+
+  // 匹配各种日期格式：
+  // 1. "MM DD YYYY HH:MMAM/PM" 格式（如 "09 8 2004 12:00AM"）
+  // 2. "MM/DD/YYYY" 格式
+  // 3. "YYYY-MM-DD" 格式
+
+  let result = text
+
+  // 匹配 "MM DD YYYY HH:MMAM/PM" 格式（如 "09 8 2004 12:00AM"）
+  // 注意：月份和日期可能是1-2位数字
+  const datePattern1 = /(\d{1,2})\s+(\d{1,2})\s+(\d{4})\s+(\d{1,2}):(\d{2})(AM|PM)/gi
+  result = result.replace(datePattern1, (match, month, day, year) => {
+    try {
+      const monthPadded = String(month).padStart(2, '0')
+      const dayPadded = String(day).padStart(2, '0')
+      const dateStr = `${year}-${monthPadded}-${dayPadded}`
+      const date = new Date(dateStr)
+      if (!isNaN(date.getTime()) && date.getFullYear() >= 1900 && date.getFullYear() <= 2100) {
+        return formatDateOnly(dateStr)
+      }
+    } catch {
+      // 如果解析失败，返回原文本
+    }
+    return match
+  })
+
+  // 匹配 "MM/DD/YYYY" 格式
+  const datePattern2 = /(\d{1,2})\/(\d{1,2})\/(\d{4})/g
+  result = result.replace(datePattern2, (match, month, day, year) => {
+    try {
+      const monthPadded = String(month).padStart(2, '0')
+      const dayPadded = String(day).padStart(2, '0')
+      const dateStr = `${year}-${monthPadded}-${dayPadded}`
+      const date = new Date(dateStr)
+      if (!isNaN(date.getTime()) && date.getFullYear() >= 1900 && date.getFullYear() <= 2100) {
+        return formatDateOnly(dateStr)
+      }
+    } catch {
+      // 如果解析失败，返回原文本
+    }
+    return match
+  })
+
+  // 匹配 "YYYY-MM-DD" 格式（但需要验证不是无效日期）
+  const datePattern3 = /(\d{4})-(\d{1,2})-(\d{1,2})(?!\d)/g
+  result = result.replace(datePattern3, (match, year, month, day) => {
+    try {
+      const monthPadded = String(month).padStart(2, '0')
+      const dayPadded = String(day).padStart(2, '0')
+      const dateStr = `${year}-${monthPadded}-${dayPadded}`
+      const date = new Date(dateStr)
+      // 检查日期是否有效且不是默认值（1970-01-01）
+      if (!isNaN(date.getTime()) && date.getFullYear() >= 1900 && date.getFullYear() <= 2100) {
+        const formatted = formatDateOnly(dateStr)
+        // 如果格式化后不是 '-'，说明日期有效
+        if (formatted !== '-') {
+          return formatted
+        }
+      }
+    } catch {
+      // 如果解析失败，返回原文本
+    }
+    return match
+  })
+
+  return result
+}
+
+// 将元转换为万元
+const convertToWanYuan = (amount?: number | null): number | null => {
+  if (amount === undefined || amount === null) return null
+  return amount / 10000
 }
 
 // 格式化货币
@@ -1997,8 +2262,9 @@ const loadData = async () => {
     loading.value = true
     // 构建查询参数，只包含有值的过滤条件
     const params: QueryLeadDto = {
-      page: pagination.page,
-      limit: pagination.limit,
+      // 看板视图加载所有数据，列表视图使用分页
+      page: viewMode.value === 'kanban' ? 1 : pagination.page,
+      limit: viewMode.value === 'kanban' ? 10000 : pagination.limit,
     }
     if (filters.search?.trim()) {
       params.search = filters.search.trim()
@@ -2031,6 +2297,12 @@ const loadData = async () => {
     }
     list.value = payload.leads
     pagination.total = payload.total
+
+    // 如果是看板视图，重新初始化拖拽
+    if (viewMode.value === 'kanban') {
+      await nextTick()
+      initKanbanSortable()
+    }
   } catch {
     ElMessage.error('加载线索失败')
   } finally {
@@ -2069,6 +2341,230 @@ const handleCurrentChange = (p: number) => {
 }
 const handleSelectionChange = (rows: Lead[]) => {
   selectedRows.value = rows
+}
+
+// 初始化看板拖拽
+const initKanbanSortable = () => {
+  nextTick(() => {
+    // 清理之前的实例
+    sortableInstances.value.forEach((instance: any) => instance.destroy())
+    sortableInstances.value = []
+
+    // 为每个状态列创建 Sortable 实例
+    statusColumns.forEach((status) => {
+      const columnEl = columnRefs.value[status.value]
+      if (!columnEl) return
+
+      const columnBody = columnEl.querySelector('.kanban-column-body') as HTMLElement
+      if (!columnBody) return
+
+      const sortable = Sortable.create(columnBody, {
+        group: 'kanban',
+        animation: 200,
+        ghostClass: 'kanban-card-ghost',
+        dragClass: 'kanban-card-drag',
+        forceFallback: false,
+        fallbackOnBody: true,
+        swapThreshold: 0.65,
+        onEnd: async (evt: any) => {
+          const { from, to, item, oldIndex, newIndex } = evt
+
+          // 确保 from 和 to 是有效的元素
+          if (!from || !to || !item) {
+            console.warn('拖拽事件缺少必要元素:', { from, to, item })
+            return
+          }
+
+          // 获取状态信息的辅助函数
+          const getStatusFromElement = (element: HTMLElement): string | null => {
+            // 首先尝试从元素本身获取
+            let status = element.getAttribute('data-status')
+            if (status) return status
+
+            // 如果元素有 class 'kanban-column-body'，尝试从父元素获取
+            if (element.classList.contains('kanban-column-body')) {
+              const parent = element.parentElement
+              if (parent) {
+                // 查找父元素中的状态信息
+                const statusColumn = parent.querySelector('[data-status]')
+                if (statusColumn) {
+                  return statusColumn.getAttribute('data-status')
+                }
+              }
+            }
+
+            // 尝试从最近的包含 data-status 的父元素获取
+            let current: HTMLElement | null = element
+            while (current && current !== document.body) {
+              status = current.getAttribute('data-status')
+              if (status) return status
+              current = current.parentElement
+            }
+
+            return null
+          }
+
+          // 获取状态信息
+          const fromStatus = getStatusFromElement(from as HTMLElement)
+          const toStatus = getStatusFromElement(to as HTMLElement)
+          const leadId = item.getAttribute('data-id')
+
+          console.log('拖拽事件触发:', {
+            fromStatus,
+            toStatus,
+            leadId,
+            oldIndex,
+            newIndex,
+          })
+
+          // 检查必要的数据
+          if (!leadId) {
+            console.warn('缺少线索ID，卡片元素:', item)
+            return
+          }
+
+          if (!toStatus) {
+            console.warn('缺少目标状态，目标元素:', to)
+            return
+          }
+
+          if (fromStatus === toStatus) {
+            console.log('拖拽到同一列，不需要处理')
+            return
+          }
+
+          // 找到对应的线索
+          const lead = list.value.find((l) => {
+            return String(l.id) === String(leadId) || l.id === leadId
+          })
+
+          if (!lead) {
+            console.warn('未找到对应的线索，leadId:', leadId)
+            // 恢复原位置
+            if (fromStatus && oldIndex !== null) {
+              const fromColumn = from
+              const items = Array.from(fromColumn.children)
+              if (items[oldIndex] && item.parentNode === to) {
+                fromColumn.insertBefore(item, items[oldIndex])
+              }
+            }
+            return
+          }
+
+          // 保存原始状态，用于错误恢复
+          const originalStatus = lead.status
+
+          // 如果拖拽到不合格状态，弹出对话框
+          if (toStatus === 'unqualified') {
+            // 设置对话框数据
+            unqualifiedForm.leadId = String(leadId)
+            unqualifiedForm.fromStatus = fromStatus || originalStatus
+            unqualifiedForm.unqualifiedReason = ''
+            unqualifiedForm.lostStage = fromStatus || originalStatus // 流失阶段默认为拖动前的状态
+            unqualifiedForm.lostType = ''
+
+            // 恢复原位置（等待用户填写对话框）
+            if (fromStatus && oldIndex !== null) {
+              const fromColumn = from
+              const items = Array.from(fromColumn.children)
+              if (items[oldIndex] && item.parentNode === to) {
+                fromColumn.insertBefore(item, items[oldIndex])
+              }
+            }
+
+            // 显示对话框
+            unqualifiedDialogVisible.value = true
+            return
+          }
+
+          try {
+            // 更新线索状态
+            console.log('调用 API 更新状态:', leadId, toStatus)
+            const response = await leadApi.update(String(leadId), { status: toStatus as any })
+            console.log('API 响应:', response)
+
+            if (response && (response as any).code === 200) {
+              ElMessage.success('线索状态已更新')
+              // 更新本地数据
+              lead.status = toStatus as any
+              console.log('更新成功，新状态:', toStatus)
+            } else {
+              console.error('API 返回错误:', response)
+              throw new Error((response as any)?.message || '更新失败')
+            }
+          } catch (error: any) {
+            console.error('更新线索状态失败:', error)
+
+            // 恢复原位置
+            if (fromStatus && oldIndex !== null && fromStatus !== toStatus) {
+              const fromColumn = from
+              const items = Array.from(fromColumn.children)
+              if (item.parentNode === to) {
+                fromColumn.insertBefore(item, items[oldIndex] || null)
+              }
+            }
+
+            // 恢复本地数据
+            lead.status = originalStatus
+
+            // 显示错误消息
+            const errorMessage = error?.response?.data?.message || error?.message || '更新线索状态失败'
+            ElMessage.error(errorMessage)
+          }
+        },
+      })
+
+      sortableInstances.value.push(sortable)
+    })
+  })
+}
+
+// 提交不合格表单
+const submitUnqualified = async () => {
+  // 验证必填字段
+  if (!unqualifiedForm.unqualifiedReason) {
+    ElMessage.warning('请选择不合格原因')
+    return
+  }
+  if (!unqualifiedForm.lostType) {
+    ElMessage.warning('请选择流失类型')
+    return
+  }
+
+  try {
+    unqualifiedSubmitLoading.value = true
+
+    // 更新线索状态和相关字段
+    const updateData: any = {
+      status: 'unqualified',
+      unqualifiedReason: unqualifiedForm.unqualifiedReason,
+      lostStage: unqualifiedForm.lostStage,
+      lostType: unqualifiedForm.lostType,
+    }
+
+    const response = await leadApi.update(unqualifiedForm.leadId, updateData)
+
+    if (response && (response as any).code === 200) {
+      ElMessage.success('线索已标记为不合格')
+      unqualifiedDialogVisible.value = false
+      // 重置表单
+      unqualifiedForm.leadId = ''
+      unqualifiedForm.fromStatus = ''
+      unqualifiedForm.unqualifiedReason = ''
+      unqualifiedForm.lostStage = ''
+      unqualifiedForm.lostType = ''
+      // 重新加载数据
+      await loadData()
+    } else {
+      throw new Error((response as any)?.message || '更新失败')
+    }
+  } catch (error: any) {
+    console.error('更新线索状态失败:', error)
+    const errorMessage = error?.response?.data?.message || error?.message || '更新线索状态失败'
+    ElMessage.error(errorMessage)
+  } finally {
+    unqualifiedSubmitLoading.value = false
+  }
 }
 
 const ensureDefaultOwner = () => {
@@ -2255,7 +2751,7 @@ const submitCreate = async () => {
     } else {
       submitData.ownerId = null
     }
-    
+
     if (editMode.value && currentEditLead.value) {
       // 编辑模式
       await leadApi.update(currentEditLead.value.id, submitData)
@@ -2354,7 +2850,7 @@ const openConvert = (row: Lead) => {
   const defaultDuration = 30
   const activityEndTime = calculateEndTime(currentDate, currentTime, defaultDuration)
   const visitEndTime = calculateEndTime(currentDate, currentTime, defaultDuration)
-  
+
   convertForm.convertToCustomer = true
   convertForm.convertToOpportunity = false
   convertForm.opportunityName = undefined
@@ -2416,7 +2912,7 @@ const submitConvert = async () => {
       return
     }
   }
-  
+
   // 如果勾选了下一步计划活动，验证必填字段
   if (convertForm.planNextActivity) {
     if (!convertForm.activityTitle || !convertForm.activityTitle.trim()) {
@@ -2442,7 +2938,7 @@ const submitConvert = async () => {
       }
     }
   }
-  
+
   // 如果勾选了下一步计划拜访，验证必填字段
   if (convertForm.planNextVisit) {
     if (!convertForm.visitDescription || !convertForm.visitDescription.trim()) {
@@ -2471,10 +2967,10 @@ const submitConvert = async () => {
 
   try {
     convertLoading.value = true
-    
+
     // 准备提交数据，合并日期和时间
     const submitData: any = { ...convertForm }
-    
+
     // 处理活动时间
     if (convertForm.planNextActivity && convertForm.activityStartDate && convertForm.activityStartTime) {
       submitData.activityStartTime = `${convertForm.activityStartDate} ${convertForm.activityStartTime}`
@@ -2488,7 +2984,7 @@ const submitConvert = async () => {
       delete submitData.activityEndDate
       delete submitData.activityDuration
     }
-    
+
     // 处理拜访时间
     if (convertForm.planNextVisit && convertForm.visitStartDate && convertForm.visitStartTime) {
       submitData.visitStartTime = `${convertForm.visitStartDate} ${convertForm.visitStartTime}`
@@ -2506,7 +3002,7 @@ const submitConvert = async () => {
       delete submitData.visitEndDate
       delete submitData.visitDuration
     }
-    
+
     await leadApi.convert(currentLead.value.id, submitData)
     ElMessage.success('转化成功')
     convertVisible.value = false
@@ -3768,7 +4264,11 @@ const backToProvinceMap = async () => {
 }
 
 // 监听viewMode变化
-watch(viewMode, (newMode) => {
+watch(viewMode, async (newMode) => {
+  if (newMode === 'kanban') {
+    await nextTick()
+    initKanbanSortable()
+  }
   if (newMode === 'statistics') {
     // 切换到数据分析视图时加载数据
     loadStatistics()
@@ -3887,6 +4387,12 @@ onMounted(async () => {
     // 忽略错误
   }
   await loadData()
+
+  // 如果初始是看板视图，初始化拖拽
+  if (viewMode.value === 'kanban') {
+    await nextTick()
+    initKanbanSortable()
+  }
 })
 
 // 监听抽屉显示状态，添加滚动监听
@@ -3910,6 +4416,9 @@ onBeforeUnmount(() => {
   if (detailContentRef.value) {
     detailContentRef.value.removeEventListener('scroll', handleDetailScroll)
   }
+  // 清理看板拖拽实例
+  sortableInstances.value.forEach((instance: any) => instance.destroy())
+  sortableInstances.value = []
   if (statusPieChartInstance) {
     statusPieChartInstance.dispose()
     statusPieChartInstance = null
@@ -4408,6 +4917,164 @@ onBeforeUnmount(() => {
       }
     }
 
+  }
+}
+
+// 看板视图样式
+.kanban-section {
+  padding: 0 20px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.kanban-board {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  flex: 1;
+  padding-bottom: 16px;
+
+  &::-webkit-scrollbar {
+    height: 8px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 4px;
+
+    &:hover {
+      background: #a8a8a8;
+    }
+  }
+}
+
+.kanban-column {
+  flex: 0 0 260px;
+  background: #f5f7fa;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.kanban-column-header {
+  padding: 16px;
+  background: #fff;
+  border-radius: 8px 8px 0 0;
+  border-bottom: 2px solid #e4e7ed;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 600;
+  font-size: 14px;
+
+  .status-name {
+    color: #303133;
+  }
+}
+
+.kanban-column-body {
+  flex: 1;
+  padding: 12px;
+  overflow-y: auto;
+  min-height: 200px;
+
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 3px;
+
+    &:hover {
+      background: #a8a8a8;
+    }
+  }
+}
+
+.kanban-card {
+  background: #fff;
+  border-radius: 6px;
+  padding: 12px;
+  margin-bottom: 12px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  cursor: move;
+  transition: all 0.3s ease;
+
+  &:hover {
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+    transform: translateY(-2px);
+  }
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+.kanban-card-ghost {
+  opacity: 0.5;
+  background: #e4e7ed;
+}
+
+.kanban-card-drag {
+  opacity: 0.8;
+  transform: rotate(2deg);
+}
+
+.kanban-card-header {
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e4e7ed;
+
+  .card-title {
+    font-weight: 600;
+    font-size: 14px;
+    color: #303133;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: block;
+    cursor: pointer;
+  }
+}
+
+.kanban-card-body {
+  .card-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: 8px;
+    font-size: 13px;
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+
+    .card-label {
+      color: #909399;
+      margin-right: 8px;
+      white-space: nowrap;
+    }
+
+    .card-value {
+      color: #606266;
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
   }
 }
 </style>

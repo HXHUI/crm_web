@@ -5,7 +5,7 @@ export interface Activity {
   id: string
   title: string
   description?: string
-  type: 'call' | 'meeting' | 'email' | 'task' | 'note'
+  type: 'call' | 'meeting' | 'email' | 'task' | 'note' | 'wechat'
   status: 'planned' | 'in_progress' | 'completed' | 'cancelled'
   plannedStartTime: string
   plannedEndTime?: string
@@ -47,7 +47,7 @@ export interface Activity {
 export interface CreateActivityDto {
   title: string
   description?: string
-  type: 'call' | 'meeting' | 'email' | 'task' | 'note'
+  type: 'call' | 'meeting' | 'email' | 'task' | 'note' | 'wechat'
   status?: 'planned' | 'in_progress' | 'completed' | 'cancelled'
   plannedStartTime?: string
   plannedEndTime?: string

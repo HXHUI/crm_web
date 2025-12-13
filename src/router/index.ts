@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/modules/auth'
+import { ElMessage } from 'element-plus'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -138,6 +139,12 @@ const router = createRouter({
           meta: { title: '组织架构' },
         },
         {
+          path: 'contacts/members',
+          name: 'MemberManagement',
+          component: () => import('@/views/contacts/MemberManagement.vue'),
+          meta: { title: '成员管理' },
+        },
+        {
           path: 'contacts/roles',
           name: 'ContactRoles',
           component: () => import('@/views/contacts/RoleManagement.vue'),
@@ -174,6 +181,12 @@ const router = createRouter({
           name: 'TenantList',
           component: () => import('@/views/tenant/TenantList.vue'),
           meta: { title: '租户管理' },
+        },
+        {
+          path: 'system/admins',
+          name: 'SystemAdmins',
+          component: () => import('@/views/system/SystemAdminList.vue'),
+          meta: { title: '系统管理员管理', requiresSystemAdmin: true },
         },
         {
           path: 'notifications/settings',
@@ -238,6 +251,14 @@ router.beforeEach(async (to, from, next) => {
   // 如果已登录且访问登录/注册页面，重定向到仪表盘
   if ((to.path === '/login' || to.path === '/register') && authStore.isAuthenticated) {
     console.log('已登录但访问登录/注册页面，重定向到仪表盘')
+    next('/dashboard')
+    return
+  }
+
+  // 检查系统管理员权限
+  if (to.meta.requiresSystemAdmin && !authStore.isSystemAdmin) {
+    console.log('需要系统管理员权限但当前用户不是系统管理员')
+    ElMessage.warning('需要系统管理员权限')
     next('/dashboard')
     return
   }

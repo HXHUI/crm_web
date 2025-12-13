@@ -1,11 +1,11 @@
 <template>
-  <div class="sales-funnel">
+  <div class="customer-conversion-funnel">
     <!-- 标题区域 -->
     <div class="funnel-header">
       <div class="title-section">
         <div class="title-with-icon">
           <el-icon class="title-icon"><TrendCharts /></el-icon>
-          <h3 class="funnel-title">商机转化漏斗</h3>
+          <h3 class="funnel-title">客户转化漏斗</h3>
           <el-icon class="help-icon"><QuestionFilled /></el-icon>
         </div>
         <div class="filter-display">{{ scopeFilterText }} | 全部</div>
@@ -21,19 +21,19 @@
       <!-- 转化率统计 -->
       <div class="conversion-stats">
         <div class="stat-item">
-          <div class="stat-label">初步接触转化率</div>
+          <div class="stat-label">线索转化率</div>
           <div class="stat-value">{{ getConversionRate('leads') }}%</div>
         </div>
         <div class="stat-item">
-          <div class="stat-label">需求分析转化率</div>
+          <div class="stat-label">合格转化率</div>
           <div class="stat-value">{{ getConversionRate('qualified') }}%</div>
         </div>
         <div class="stat-item">
-          <div class="stat-label">方案/报价转化率</div>
+          <div class="stat-label">提案转化率</div>
           <div class="stat-value">{{ getConversionRate('proposal') }}%</div>
         </div>
         <div class="stat-item">
-          <div class="stat-label">谈判审核转化率</div>
+          <div class="stat-label">谈判转化率</div>
           <div class="stat-value">{{ getConversionRate('negotiation') }}%</div>
         </div>
       </div>
@@ -55,17 +55,18 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
-import { statisticsApi, type SalesFunnelData } from '@/api/statistics'
+import { statisticsApi, type CustomerConversionFunnelData } from '@/api/statistics'
 import { TrendCharts, QuestionFilled, Loading, Warning } from '@element-plus/icons-vue'
 import * as echarts from 'echarts'
 
 // Props
 const props = defineProps<{
   scopeFilter?: string
+  parsedScopeFilter?: { type: 'me_and_subordinates' | 'all' | 'department' | 'member'; departmentId?: number; memberId?: number }
 }>()
 
 // 响应式数据
-const funnelData = ref<SalesFunnelData | null>(null)
+const funnelData = ref<CustomerConversionFunnelData | null>(null)
 const loading = ref(false)
 const error = ref(false)
 const funnelChartRef = ref<HTMLElement>()
@@ -76,6 +77,8 @@ const scopeFilterText = computed(() => {
   const map: Record<string, string> = {
     me_and_subordinates: '本人及下属',
     all: '全部',
+    department: '部门',
+    member: '用户',
   }
   return map[props.scopeFilter || 'me_and_subordinates'] || '本人及下属'
 })
@@ -87,47 +90,62 @@ const funnelStages = computed(() => {
   return [
     {
       key: 'leads',
-      name: '初步接触',
+      name: '线索总数',
       count: funnelData.value.leads.count,
-      amount: funnelData.value.leads.amount,
+    },
+    {
+      key: 'converted',
+      name: '已转化客户',
+      count: funnelData.value.converted.count,
     },
     {
       key: 'qualified',
-      name: '需求分析',
+      name: '合格客户',
       count: funnelData.value.qualified.count,
       amount: funnelData.value.qualified.amount,
     },
     {
       key: 'proposal',
-      name: '方案/报价',
+      name: '提案客户',
       count: funnelData.value.proposal.count,
       amount: funnelData.value.proposal.amount,
     },
     {
       key: 'negotiation',
-      name: '谈判审核',
+      name: '谈判客户',
       count: funnelData.value.negotiation.count,
       amount: funnelData.value.negotiation.amount,
     },
     {
-      key: 'closed',
-      name: '赢单',
-      count: funnelData.value.closed.count,
-      amount: funnelData.value.closed.amount,
+      key: 'closedWon',
+      name: '成交客户',
+      count: funnelData.value.closedWon.count,
+      amount: funnelData.value.closedWon.amount,
     },
   ]
 })
 
 // 方法
-const loadSalesFunnel = async () => {
+const loadCustomerConversionFunnel = async () => {
   try {
     loading.value = true
     error.value = false
-    const scope = props.scopeFilter === 'all' ? 'all' : 'me'
-    const response = await statisticsApi.getSalesFunnel(scope)
+    
+    const scopeType = props.parsedScopeFilter?.type || 'me_and_subordinates'
+    const departmentId = props.parsedScopeFilter?.departmentId
+    const memberId = props.parsedScopeFilter?.memberId
+    const scope = scopeType === 'all' ? 'all' : 'me'
+    
+    const response = await statisticsApi.getCustomerConversionFunnel(
+      scope,
+      'tenant',
+      scopeType,
+      departmentId,
+      memberId,
+    )
     funnelData.value = response.data
   } catch (err) {
-    console.error('加载销售漏斗失败:', err)
+    console.error('加载客户转化漏斗失败:', err)
     error.value = true
   } finally {
     loading.value = false
@@ -138,39 +156,53 @@ const loadSalesFunnel = async () => {
 const getStageColor = (index: number): string => {
   const colors = [
     '#4ecdc4', // 青色 - 线索
-    '#45b7d1', // 蓝色 - 合格
-    '#feca57', // 黄色 - 提案
-    '#ff6b6b', // 红色 - 谈判
-    '#8b5cf6', // 紫色 - 成交
+    '#45b7d1', // 蓝色 - 已转化
+    '#feca57', // 黄色 - 合格
+    '#ff6b6b', // 红色 - 提案
+    '#8b5cf6', // 紫色 - 谈判
+    '#51cf66', // 绿色 - 成交
   ]
   return colors[index % colors.length]
 }
 
 // 计算转化率
-const getConversionRate = (stage: keyof SalesFunnelData): string => {
+const getConversionRate = (stage: keyof CustomerConversionFunnelData | 'leads'): string => {
   if (!funnelData.value) return '0.0'
 
   let previousCount = 0
+  let currentCount = 0
+
   switch (stage) {
     case 'leads':
-      return '100.0' // 线索是起点
-    case 'qualified':
+      // 线索转化率 = 已转化客户数 / 线索总数 * 100
       previousCount = funnelData.value.leads.count
+      currentCount = funnelData.value.converted.count
+      break
+    case 'converted':
+      // 已转化客户转化率 = 合格客户数 / 已转化客户数 * 100
+      previousCount = funnelData.value.converted.count
+      currentCount = funnelData.value.qualified.count
+      break
+    case 'qualified':
+      // 合格转化率 = 提案客户数 / 合格客户数 * 100
+      previousCount = funnelData.value.qualified.count
+      currentCount = funnelData.value.proposal.count
       break
     case 'proposal':
-      previousCount = funnelData.value.qualified.count
+      // 提案转化率 = 谈判客户数 / 提案客户数 * 100
+      previousCount = funnelData.value.proposal.count
+      currentCount = funnelData.value.negotiation.count
       break
     case 'negotiation':
-      previousCount = funnelData.value.proposal.count
-      break
-    case 'closed':
+      // 谈判转化率 = 成交客户数 / 谈判客户数 * 100
       previousCount = funnelData.value.negotiation.count
+      currentCount = funnelData.value.closedWon.count
       break
   }
 
   if (previousCount === 0) return '0.0'
 
-  const rate = (funnelData.value[stage].count / previousCount) * 100
+  const rate = (currentCount / previousCount) * 100
   return rate.toFixed(1)
 }
 
@@ -184,7 +216,12 @@ const initFunnelChart = () => {
     tooltip: {
       trigger: 'item',
       formatter: function (params: any) {
-        return `${params.name}<br/>客户数量: ${params.value}个<br/>商机金额: ¥${funnelStages.value[params.dataIndex]?.amount.toLocaleString() || 0}`
+        const stage = funnelStages.value[params.dataIndex]
+        let result = `${params.name}<br/>客户数量: ${params.value}个`
+        if (stage && stage.amount !== undefined) {
+          result += `<br/>预计价值: ¥${stage.amount.toLocaleString()}`
+        }
+        return result
       },
     },
     legend: {
@@ -192,7 +229,7 @@ const initFunnelChart = () => {
     },
     series: [
       {
-        name: '销售漏斗',
+        name: '客户转化漏斗',
         type: 'funnel',
         left: '10%',
         top: 60,
@@ -285,14 +322,15 @@ watch(
 
 // 监听过滤条件变化
 watch(
-  () => props.scopeFilter,
+  () => [props.scopeFilter, props.parsedScopeFilter],
   () => {
-    loadSalesFunnel()
+    loadCustomerConversionFunnel()
   },
+  { deep: true },
 )
 
 onMounted(() => {
-  loadSalesFunnel()
+  loadCustomerConversionFunnel()
 })
 
 // 组件卸载时销毁图表
@@ -305,7 +343,7 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.sales-funnel {
+.customer-conversion-funnel {
   background: white;
   border-radius: 8px;
   padding: 20px;
@@ -353,25 +391,6 @@ onUnmounted(() => {
 .filter-display {
   font-size: 12px;
   color: #909399;
-}
-
-.illustration {
-  display: flex;
-  align-items: center;
-}
-
-.funnel-illustration {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.funnel-icon {
-  font-size: 24px;
-}
-
-.chart-icon {
-  font-size: 20px;
 }
 
 .funnel-content {
@@ -437,10 +456,6 @@ onUnmounted(() => {
     gap: 12px;
   }
 
-  .illustration {
-    align-self: flex-end;
-  }
-
   .funnel-chart-container {
     min-height: 350px;
   }
@@ -466,3 +481,4 @@ onUnmounted(() => {
   }
 }
 </style>
+

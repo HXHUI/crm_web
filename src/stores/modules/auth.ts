@@ -25,6 +25,11 @@ export const useAuthStore = defineStore('auth', () => {
     return user.value && tenant.value && user.value.id === tenant.value.ownerId
   })
 
+  // 判断当前用户是否为系统管理员
+  const isSystemAdmin = computed(() => {
+    return user.value?.isSystemAdmin === true
+  })
+
   // 登录
   const loginUser = async (loginData: LoginRequest) => {
     try {
@@ -325,6 +330,7 @@ export const useAuthStore = defineStore('auth', () => {
     currentMember,
     currentTenant,
     isTenantOwner,
+    isSystemAdmin,
 
     // 方法
     loginUser,

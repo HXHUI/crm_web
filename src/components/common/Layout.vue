@@ -160,18 +160,28 @@
               >通讯录</router-link
             >
             <router-link
-              v-if="isAdmin"
+              v-if="isSystemAdmin"
               :to="'/tenant'"
               class="top-item"
               :class="{ active: topPath === '/tenant' }"
               >租户</router-link
+            >
+            <router-link
+              v-if="isSystemAdmin"
+              :to="'/system/admins'"
+              class="top-item"
+              :class="{ active: topPath === '/system/admins' }"
+              >系统管理员</router-link
             >
           </nav>
           <div class="top-actions">
           <NotificationBell v-if="isAuthenticated" />
           <el-dropdown trigger="click" @command="handleCommand">
           <div class="user-mini">
-            <div class="avatar">{{ userInitial }}</div>
+            <div class="avatar">
+              <img v-if="currentUser?.avatar" :src="currentUser.avatar" :alt="currentUser.username" class="avatar-img" />
+              <span v-else>{{ userInitial }}</span>
+            </div>
             <div class="user-meta">
               <div class="user-name">{{ currentUser?.username || 'User' }}</div>
               <div v-if="isTenantOwner" class="user-tag">负责人</div>
@@ -297,7 +307,7 @@ const tenantStore = useTenantStore()
 
 const currentUser = computed(() => authStore.currentUser)
 const isTenantOwner = computed(() => authStore.isTenantOwner)
-const isAdmin = computed(() => true)
+const isSystemAdmin = computed(() => authStore.isSystemAdmin)
 const isAuthenticated = computed(() => authStore.isAuthenticated)
 
 const userInitial = computed(() => (currentUser.value?.username?.[0] || 'U').toUpperCase())
@@ -441,6 +451,7 @@ const subMenus = computed<SubMenuItem[]>(() => {
     case '/contacts':
       return [
         { index: '/contacts/organization', title: '组织架构', icon: OfficeBuilding },
+        { index: '/contacts/members', title: '成员管理', icon: UserFilled },
         { index: '/contacts/roles', title: '角色管理', icon: User },
       ]
     case '/targets':
@@ -668,7 +679,7 @@ const titleTip = computed(() => (route.meta?.subtitle as string) || '')
   border-radius: 6px;
   cursor: pointer;
   color: rgba(255, 255, 255, 0.9);
-  font-size: 13px;
+  font-size: 14px;
   transition: background 0.2s;
 }
 .tenant-selector:hover {
@@ -682,12 +693,12 @@ const titleTip = computed(() => (route.meta?.subtitle as string) || '')
   background: transparent;
 }
 .tenant-name {
-  max-width: 140px;
+  max-width: 260px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-weight: 600;
-  font-size: 14px;
+  font-weight: 500;
+  font-size: 16px;
 }
 .tenant-item {
   display: flex;
@@ -796,6 +807,14 @@ const titleTip = computed(() => (route.meta?.subtitle as string) || '')
   align-items: center;
   justify-content: center;
   font-weight: 600;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 .user-meta {
   display: flex;
