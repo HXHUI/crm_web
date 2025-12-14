@@ -10,7 +10,7 @@
                 v-model="searchForm.search"
                 placeholder="搜索产品名称/编码"
                 clearable
-                @keyup.enter="handleSearch"
+                @input="handleSearchDebounced"
                 style="width: 200px"
               >
                 <template #prefix>
@@ -29,6 +29,7 @@
                   :placeholder="field.fieldName"
                   clearable
                   style="width: 160px"
+                  @change="handleSearch"
                 >
                   <el-option label="全部" :value="undefined" />
                   <el-option
@@ -47,6 +48,7 @@
                 placeholder="产品分类"
                 clearable
                 style="width: 160px"
+                @change="handleSearch"
               >
                 <el-option label="全部" :value="undefined" />
                 <el-option
@@ -63,15 +65,12 @@
                 placeholder="状态"
                 clearable
                 style="width: 120px"
+                @change="handleSearch"
               >
                 <el-option label="全部" :value="undefined" />
                 <el-option label="启用" value="active" />
                 <el-option label="停用" value="inactive" />
               </el-select>
-            </el-form-item>
-            <el-form-item>
-              <el-button type="primary" :icon="Search" @click="handleSearch"> 搜索 </el-button>
-              <el-button :icon="Refresh" @click="handleReset"> 重置 </el-button>
             </el-form-item>
           </el-form>
         </div>
@@ -490,7 +489,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, nextTick, watch } from 'vue'
 import { ElMessage, ElMessageBox, ElImageViewer } from 'element-plus'
-import { Plus, Search, Refresh, Edit, Delete } from '@element-plus/icons-vue'
+import { Plus, Search, Edit, Delete } from '@element-plus/icons-vue'
 import type { UploadProps, UploadFile } from 'element-plus'
 import Sortable from 'sortablejs'
 import productApi, {
@@ -1062,8 +1061,26 @@ const loadProducts = async () => {
   }
 }
 
-// 搜索
+// 防抖定时器
+let searchTimer: ReturnType<typeof setTimeout> | null = null
+
+// 搜索（带防抖，用于输入框）
+const handleSearchDebounced = () => {
+  if (searchTimer) {
+    clearTimeout(searchTimer)
+  }
+  searchTimer = setTimeout(() => {
+    pagination.page = 1
+    loadProducts()
+  }, 500) // 500ms 防抖延迟
+}
+
+// 搜索（立即执行，用于下拉选择）
 const handleSearch = () => {
+  if (searchTimer) {
+    clearTimeout(searchTimer)
+    searchTimer = null
+  }
   pagination.page = 1
   loadProducts()
 }

@@ -61,6 +61,12 @@ const router = createRouter({
           meta: { title: '线索池' },
         },
         {
+          path: 'leads/statistics',
+          name: 'LeadStatistics',
+          component: () => import('@/views/lead/LeadStatistics.vue'),
+          meta: { title: '线索数据分析' },
+        },
+        {
           path: 'customers',
           name: 'Customers',
           component: () => import('@/views/customer/CustomerList.vue'),
@@ -211,6 +217,24 @@ const router = createRouter({
           name: 'TenantSettings',
           component: () => import('@/views/auth/TenantSettings.vue'),
           meta: { title: '企业信息' },
+        },
+        {
+          path: 'custom-field-config',
+          name: 'CustomFieldConfigList',
+          component: () => import('@/views/custom-field-config/CustomFieldConfigList.vue'),
+          meta: { title: '扩展字段管理' },
+        },
+        {
+          path: 'custom-field-config/create',
+          name: 'CustomFieldConfigCreate',
+          component: () => import('@/views/custom-field-config/CustomFieldConfigForm.vue'),
+          meta: { title: '新建字段配置' },
+        },
+        {
+          path: 'custom-field-config/edit/:id',
+          name: 'CustomFieldConfigEdit',
+          component: () => import('@/views/custom-field-config/CustomFieldConfigForm.vue'),
+          meta: { title: '编辑字段配置' },
         },
       ],
     },

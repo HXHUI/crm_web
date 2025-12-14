@@ -10,7 +10,8 @@
                 v-model="searchForm.search"
                 placeholder="搜索合同编号/客户名称"
                 clearable
-                @keyup.enter="handleSearch"
+                @input="handleSearchDebounced"
+                @clear="handleSearch"
                 style="width: 200px"
               >
                 <template #prefix>
@@ -23,6 +24,7 @@
                 v-model="searchForm.type"
                 placeholder="合同类型"
                 clearable
+                @change="handleSearch"
                 style="width: 120px"
               >
                 <el-option label="全部" :value="undefined" />
@@ -37,6 +39,7 @@
                 v-model="searchForm.status"
                 placeholder="合同状态"
                 clearable
+                @change="handleSearch"
                 style="width: 120px"
               >
                 <el-option label="全部" :value="undefined" />
@@ -50,10 +53,6 @@
                 <el-option label="已到期" value="expired" />
                 <el-option label="已终止" value="terminated" />
               </el-select>
-            </el-form-item>
-            <el-form-item>
-              <el-button type="primary" :icon="Search" @click="handleSearch"> 搜索 </el-button>
-              <el-button :icon="Refresh" @click="handleReset"> 重置 </el-button>
             </el-form-item>
           </el-form>
         </div>
@@ -263,7 +262,7 @@
 import { ref, reactive, computed, onMounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Search, Refresh, Edit, Delete, Printer } from '@element-plus/icons-vue'
+import { Plus, Search, Edit, Delete, Printer } from '@element-plus/icons-vue'
 import type { UploadFile, UploadProps } from 'element-plus'
 import contractApi, {
   type Contract,
@@ -285,6 +284,9 @@ const searchForm = reactive({
   type: undefined as string | undefined,
   status: undefined as string | undefined,
 })
+
+// 防抖定时器
+let searchTimer: ReturnType<typeof setTimeout> | null = null
 
 // 合同列表
 const contracts = ref<Contract[]>([])
@@ -449,8 +451,22 @@ const loadContracts = async () => {
   }
 }
 
-// 搜索
+// 搜索（带防抖，用于输入框）
+const handleSearchDebounced = () => {
+  if (searchTimer) {
+    clearTimeout(searchTimer)
+  }
+  searchTimer = setTimeout(() => {
+    pagination.page = 1
+    loadContracts()
+  }, 300)
+}
+
+// 搜索（立即执行，用于下拉选择）
 const handleSearch = () => {
+  if (searchTimer) {
+    clearTimeout(searchTimer)
+  }
   pagination.page = 1
   loadContracts()
 }

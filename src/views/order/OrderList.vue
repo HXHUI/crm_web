@@ -10,7 +10,7 @@
                 v-model="searchForm.search"
                 placeholder="搜索订单编号/客户名称"
                 clearable
-                @keyup.enter="handleSearch"
+                @input="handleSearch"
                 style="width: 200px"
               >
                 <template #prefix>
@@ -23,6 +23,7 @@
                 v-model="searchForm.status"
                 placeholder="订单状态"
                 clearable
+                @change="handleSearch"
                 style="width: 120px"
               >
                 <el-option label="全部" :value="undefined" />
@@ -34,10 +35,6 @@
                 <el-option label="已完成" value="completed" />
                 <el-option label="已取消" value="cancelled" />
               </el-select>
-            </el-form-item>
-            <el-form-item>
-              <el-button type="primary" :icon="Search" @click="handleSearch"> 搜索 </el-button>
-              <el-button :icon="Refresh" @click="handleReset"> 重置 </el-button>
             </el-form-item>
           </el-form>
         </div>
@@ -230,7 +227,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Search, Refresh, Edit, Delete, Printer } from '@element-plus/icons-vue'
+import { Plus, Search, Edit, Delete, Printer } from '@element-plus/icons-vue'
 import orderApi, {
   type Order,
   type CreateOrderDto,
@@ -395,13 +392,6 @@ const loadOrders = async () => {
 const handleSearch = () => {
   pagination.page = 1
   loadOrders()
-}
-
-// 重置
-const handleReset = () => {
-  searchForm.search = ''
-  searchForm.status = undefined
-  handleSearch()
 }
 
 // 分页大小变化

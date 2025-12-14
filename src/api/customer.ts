@@ -24,6 +24,7 @@ export interface Customer {
   city?: string
   district?: string
   addressDetail?: string
+  customFields?: Record<string, any>
   createdAt: string
   updatedAt: string
 }
@@ -63,6 +64,7 @@ export interface CreateCustomerDto {
   district?: string
   addressDetail?: string
   ownerId?: number
+  customFields?: Record<string, any>
 }
 
 export interface UpdateCustomerDto {
@@ -83,6 +85,7 @@ export interface UpdateCustomerDto {
   district?: string
   addressDetail?: string
   ownerId?: number
+  customFields?: Record<string, any>
 }
 
 export interface QueryCustomerDto {

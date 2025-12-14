@@ -12,6 +12,7 @@
                 placeholder="拜访类型"
                 clearable
                 style="width: 140px"
+                @change="handleSearch"
               >
                 <el-option label="全部" :value="undefined" />
                 <el-option label="首次拜访" value="first_visit" />
@@ -29,6 +30,7 @@
                 placeholder="拜访状态"
                 clearable
                 style="width: 120px"
+                @change="handleSearch"
               >
                 <el-option label="全部" :value="undefined" />
                 <el-option label="计划中" value="planned" />
@@ -49,10 +51,6 @@
                 style="width: 240px"
                 @change="handleDateRangeChange"
               />
-            </el-form-item>
-            <el-form-item>
-              <el-button type="primary" :icon="Search" @click="handleSearch">搜索</el-button>
-              <el-button :icon="Refresh" @click="handleReset">重置</el-button>
             </el-form-item>
           </el-form>
       </div>
@@ -246,7 +244,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Search, Refresh, Delete } from '@element-plus/icons-vue'
+import { Plus, Delete } from '@element-plus/icons-vue'
 import visitApi, { type Visit, type QueryVisitDto } from '@/api/visit'
 import VisitForm from '@/components/visit/VisitForm.vue'
 import VisitCheckIn from './components/VisitCheckIn.vue'
@@ -307,19 +305,6 @@ const handleSearch = () => {
   loadVisits()
 }
 
-// 重置
-const handleReset = () => {
-  Object.assign(searchForm, {
-    title: '',
-    type: undefined,
-    status: undefined,
-    startDate: undefined,
-    endDate: undefined,
-  })
-  dateRange.value = null
-  pagination.page = 1
-  loadVisits()
-}
 
 // 日期范围变化
 const handleDateRangeChange = (dates: [string, string] | null) => {
@@ -330,6 +315,7 @@ const handleDateRangeChange = (dates: [string, string] | null) => {
     searchForm.startDate = undefined
     searchForm.endDate = undefined
   }
+  handleSearch()
 }
 
 // 分页

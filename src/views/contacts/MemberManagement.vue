@@ -1101,24 +1101,6 @@ const handleImportSubmit = async () => {
 
     for (const item of importPreview.value) {
       try {
-        // 1. 处理部门
-        let departmentId: string | null = null
-        if (item.department) {
-          departmentId = await getOrCreateDepartment(item.department)
-        }
-
-        // 2. 处理角色
-        const roleIds: string[] = []
-        if (item.role) {
-          const roleNames = item.role.split('、').map(r => r.trim()).filter(r => r)
-          for (const roleName of roleNames) {
-            const roleId = await getOrCreateRole(roleName)
-            if (roleId) {
-              roleIds.push(roleId)
-            }
-          }
-        }
-
         // 1. 处理租户（如果指定了公司/租户）
         let targetTenantId: string | number = authStore.currentTenant?.id || ''
         if (item.company && item.company.trim()) {
@@ -1137,7 +1119,19 @@ const handleImportSubmit = async () => {
           departmentId = await getOrCreateDepartment(item.department, targetTenantId)
         }
 
-        // 3. 创建用户和成员（不指定部门，稍后通过addDepartmentMember添加）
+        // 3. 处理角色
+        const roleIds: string[] = []
+        if (item.role) {
+          const roleNames = item.role.split('、').map(r => r.trim()).filter(r => r)
+          for (const roleName of roleNames) {
+            const roleId = await getOrCreateRole(roleName)
+            if (roleId) {
+              roleIds.push(roleId)
+            }
+          }
+        }
+
+        // 4. 创建用户和成员（不指定部门，稍后通过addDepartmentMember添加）
         const createUserData: CreateUserDto = {
           username: item.username,
           phone: item.phone,
@@ -1150,7 +1144,7 @@ const handleImportSubmit = async () => {
 
         const createUserResponse = await userApi.create(createUserData)
         
-        // 4. 如果指定了部门，通过addDepartmentMember接口添加，并设置isManager
+        // 5. 如果指定了部门，通过addDepartmentMember接口添加，并设置isManager
         if (departmentId && createUserResponse.data?.member?.id) {
           // 解析是否部门负责人字段
           const isManagerValue = item.isManager?.trim() || ''

@@ -881,22 +881,28 @@
             </el-dialog>
           </div>
 
+          <!-- 扩展字段管理 -->
+          <div v-if="activeTab === 'customFields' && isTenantOwner" class="content-section">
+            <h2 class="content-title">扩展字段管理</h2>
+            <CustomFieldConfigList :embedded="true" />
+          </div>
+
           <!-- 审批流配置 -->
           <div v-if="activeTab === 'workflow' && isTenantOwner" class="content-section">
             <WorkflowTemplateList :embedded="true" />
           </div>
 
-          <!-- 子租户管理 -->
+          <!-- 子公司管理 -->
           <div v-if="activeTab === 'subsidiaries' && isTenantOwner" class="content-section">
             <div class="section-header">
-              <h2 class="content-title">子租户管理</h2>
+              <h2 class="content-title">子公司管理</h2>
               <el-button type="primary" size="small" @click="handleCreateSubsidiary">
                 <el-icon><Plus /></el-icon>
-                创建子租户
+                新增子公司
               </el-button>
             </div>
             <el-table :data="subsidiaries" v-loading="subsidiariesLoading" style="width: 100%">
-              <el-table-column prop="name" label="租户名称" min-width="150" />
+              <el-table-column prop="name" label="公司名称" min-width="150" />
               <el-table-column prop="description" label="描述" min-width="200" show-overflow-tooltip />
               <el-table-column prop="status" label="状态" width="100">
                 <template #default="{ row }">
@@ -922,10 +928,10 @@
       </div>
     </div>
 
-    <!-- 创建/编辑子租户对话框 -->
+    <!-- 创建/编辑子公司对话框 -->
     <el-dialog
       v-model="subsidiaryDialogVisible"
-      :title="subsidiaryForm.id ? '编辑子租户' : '创建子租户'"
+      :title="subsidiaryForm.id ? '编辑子公司' : '创建子公司'"
       width="600px"
     >
       <el-form
@@ -934,15 +940,15 @@
         :rules="subsidiaryRules"
         label-width="100px"
       >
-        <el-form-item label="租户名称" prop="name">
-          <el-input v-model="subsidiaryForm.name" placeholder="请输入租户名称" />
+        <el-form-item label="公司名称" prop="name">
+          <el-input v-model="subsidiaryForm.name" placeholder="请输入公司名称" />
         </el-form-item>
-        <el-form-item label="租户描述">
+        <el-form-item label="公司描述">
           <el-input
             v-model="subsidiaryForm.description"
             type="textarea"
             :rows="3"
-            placeholder="请输入租户描述"
+            placeholder="请输入公司描述"
           />
         </el-form-item>
         <el-form-item label="状态" prop="status">
@@ -966,7 +972,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, watch, nextTick } from 'vue'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
-import { Picture, Plus, OfficeBuilding, Setting, Connection, Money, Delete, Goods, List, Rank, DocumentChecked } from '@element-plus/icons-vue'
+import { Picture, Plus, OfficeBuilding, Setting, Connection, Money, Delete, Goods, List, Rank, DocumentChecked, Edit } from '@element-plus/icons-vue'
 import Sortable from 'sortablejs'
 import { useAuthStore } from '@/stores/modules/auth'
 import {
@@ -989,6 +995,7 @@ import dictionaryApi, {
 } from '@/api/dictionary'
 import { pinyin } from 'pinyin-pro'
 import WorkflowTemplateList from '@/views/workflow/WorkflowTemplateList.vue'
+import CustomFieldConfigList from '@/views/custom-field-config/CustomFieldConfigList.vue'
 
 const authStore = useAuthStore()
 
@@ -1012,8 +1019,9 @@ const menuItems = computed(() => {
       { key: 'pricing', label: '价格配置', icon: Money },
       { key: 'productConfig', label: '产品配置', icon: Goods },
       { key: 'dictionary', label: '字典管理', icon: List },
+      { key: 'customFields', label: '扩展字段管理', icon: Edit },
       { key: 'workflow', label: '审批流配置', icon: DocumentChecked },
-      { key: 'subsidiaries', label: '子租户管理', icon: Connection }
+      { key: 'subsidiaries', label: '子公司管理', icon: Connection }
     )
   }
 
@@ -1999,11 +2007,11 @@ const subsidiaryForm = reactive({
 })
 const subsidiaryLoading = ref(false)
 
-// 子租户表单验证规则
+// 子公司表单验证规则
 const subsidiaryRules: FormRules = {
   name: [
-    { required: true, message: '请输入租户名称', trigger: 'blur' },
-    { min: 2, max: 50, message: '租户名称长度在 2 到 50 个字符', trigger: 'blur' }
+    { required: true, message: '请输入公司名称', trigger: 'blur' },
+    { min: 2, max: 50, message: '公司名称长度在 2 到 50 个字符', trigger: 'blur' }
   ],
   status: [
     { required: true, message: '请选择状态', trigger: 'change' }
@@ -2264,7 +2272,7 @@ const loadSubsidiaries = async () => {
   }
 }
 
-// 创建子租户
+// 创建子公司
 const handleCreateSubsidiary = () => {
   Object.assign(subsidiaryForm, {
     id: '',
@@ -2275,7 +2283,7 @@ const handleCreateSubsidiary = () => {
   subsidiaryDialogVisible.value = true
 }
 
-// 编辑子租户
+// 编辑子公司
 const handleEditSubsidiary = (row: Tenant) => {
   Object.assign(subsidiaryForm, {
     id: row.id,
@@ -2303,7 +2311,7 @@ const handleSaveSubsidiary = async () => {
         description: subsidiaryForm.description,
         status: subsidiaryForm.status
       })
-      ElMessage.success('子租户更新成功')
+      ElMessage.success('子公司更新成功')
     } else {
       // 创建
       if (!tenantInfo.value?.id) return
@@ -2313,7 +2321,7 @@ const handleSaveSubsidiary = async () => {
         parentId: tenantInfo.value.id,
         status: subsidiaryForm.status
       })
-      ElMessage.success('子租户创建成功')
+      ElMessage.success('子公司创建成功')
     }
 
     subsidiaryDialogVisible.value = false
@@ -2327,11 +2335,11 @@ const handleSaveSubsidiary = async () => {
   }
 }
 
-// 删除子租户
+// 删除子公司
 const handleDeleteSubsidiary = async (row: Tenant) => {
   try {
     await ElMessageBox.confirm(
-      `确定要删除子租户"${row.name}"吗？此操作不可恢复。`,
+      `确定要删除子公司"${row.name}"吗？此操作不可恢复。`,
       '确认删除',
       {
         confirmButtonText: '确定',
@@ -2341,7 +2349,7 @@ const handleDeleteSubsidiary = async (row: Tenant) => {
     )
 
     await tenantApi.delete(row.id)
-    ElMessage.success('子租户删除成功')
+    ElMessage.success('子公司删除成功')
     await loadSubsidiaries()
     await authStore.fetchCurrentUser()
   } catch (error) {

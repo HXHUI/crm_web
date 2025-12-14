@@ -296,6 +296,7 @@ import {
   Location,
   UserFilled,
   Bell,
+  DataBoard,
 } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import NotificationBell from '../NotificationBell.vue'
@@ -472,6 +473,7 @@ const subMenus = computed<SubMenuItem[]>(() => {
       return [
         { index: '/leads', title: '线索管理', icon: UserFilled },
         { index: '/leads/pool', title: '线索池', icon: Connection },
+        { index: '/leads/statistics', title: '数据分析', icon: DataBoard },
       ]
     case '/workflow/my-approvals':
       return [

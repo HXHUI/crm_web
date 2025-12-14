@@ -66,10 +66,6 @@
                 </el-option-group>
               </el-select>
             </el-form-item>
-            <el-form-item>
-              <el-button type="primary" :icon="Search" @click="loadTable">查询</el-button>
-              <el-button :icon="Refresh" @click="handleReset">重置</el-button>
-            </el-form-item>
           </el-form>
         </div>
         <div class="toolbar-right">
@@ -328,7 +324,6 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted, watch } from 'vue'
-import { Search, Refresh } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import targetApi from '@/api/target'
 import { useAuthStore } from '@/stores/modules/auth'
@@ -519,12 +514,27 @@ const loadTable = async () => {
   tableData.value = resp.data || []
 }
 
-const handleReset = () => {
-  query.year = new Date().getFullYear()
-  query.ownerType = []
-  query.targetTypes = []
-  loadTable()
-}
+// 监听查询条件变化，自动加载数据
+watch(
+  () => query.year,
+  () => {
+    loadTable()
+  }
+)
+watch(
+  () => query.ownerType,
+  () => {
+    loadTable()
+  },
+  { deep: true }
+)
+watch(
+  () => query.targetTypes,
+  () => {
+    loadTable()
+  },
+  { deep: true }
+)
 
 const averageDistribute = () => {
   const base = Math.floor((form.yearTarget * 100) / 12) / 100

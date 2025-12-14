@@ -1,5 +1,11 @@
 <template>
-  <el-form ref="formRef" :model="formData" :rules="formRules" label-width="100px" class="activity-form">
+  <el-form
+    ref="formRef"
+    :model="formData"
+    :rules="formRules"
+    label-width="100px"
+    class="activity-form"
+  >
     <el-form-item label="活动标题" prop="title">
       <el-input v-model="formData.title" placeholder="请输入活动标题" />
     </el-form-item>
@@ -43,11 +49,7 @@
           format="YYYY-MM-DD"
           value-format="YYYY-MM-DD"
         />
-        <el-select
-          v-model="formData.plannedStartTime"
-          placeholder="选择时间"
-          style="width: 120px"
-        >
+        <el-select v-model="formData.plannedStartTime" placeholder="选择时间" style="width: 120px">
           <el-option
             v-for="time in timeOptions"
             :key="time.value"
@@ -71,11 +73,7 @@
           format="YYYY-MM-DD"
           value-format="YYYY-MM-DD"
         />
-        <el-select
-          v-model="formData.actualStartTime"
-          placeholder="选择时间"
-          style="width: 120px"
-        >
+        <el-select v-model="formData.actualStartTime" placeholder="选择时间" style="width: 120px">
           <el-option
             v-for="time in timeOptions"
             :key="time.value"
@@ -85,11 +83,7 @@
         </el-select>
       </div>
     </el-form-item>
-    <el-form-item
-      v-if="formData.status === 'completed'"
-      label="时长"
-      prop="actualDuration"
-    >
+    <el-form-item v-if="formData.status === 'completed'" label="时长" prop="actualDuration">
       <el-select
         v-model="formData.actualDuration"
         placeholder="选择时长"
@@ -104,11 +98,7 @@
         <el-option label="3小时" value="180" />
       </el-select>
     </el-form-item>
-    <el-form-item
-      v-if="formData.status !== 'completed'"
-      label="时长"
-      prop="duration"
-    >
+    <el-form-item v-if="formData.status !== 'completed'" label="时长" prop="duration">
       <el-select
         v-model="formData.duration"
         placeholder="选择时长"
@@ -138,11 +128,7 @@
           format="YYYY-MM-DD"
           value-format="YYYY-MM-DD"
         />
-        <el-select
-          v-model="formData.plannedEndTime"
-          placeholder="选择时间"
-          style="width: 120px"
-        >
+        <el-select v-model="formData.plannedEndTime" placeholder="选择时间" style="width: 120px">
           <el-option
             v-for="time in timeOptions"
             :key="time.value"
@@ -201,13 +187,11 @@
         <el-option label="紧急" value="urgent" />
       </el-select>
     </el-form-item>
-    <el-form-item label="执行笔记" prop="content">
-      <el-input
-        v-model="formData.content"
-        type="textarea"
-        :rows="3"
-        placeholder="可记录执行细节/完成笔记"
-      />
+    <el-form-item v-if="formData.status === 'completed'" label="完成结果" prop="outcome">
+      <el-input v-model="formData.outcome" type="textarea" :rows="3" placeholder="请输入完成结果" />
+    </el-form-item>
+    <el-form-item v-if="formData.status === 'completed'" label="完成笔记" prop="content">
+      <el-input v-model="formData.content" type="textarea" :rows="3" placeholder="可记录完成细节" />
     </el-form-item>
     <el-form-item label="负责人" prop="ownerId">
       <el-select
@@ -236,7 +220,12 @@ import { ref, reactive, watch, computed, onMounted, nextTick } from 'vue'
 import type { FormInstance, FormRules } from 'element-plus'
 import { ElMessage } from 'element-plus'
 import { useAuthStore } from '@/stores/modules/auth'
-import { getDepartmentMembers, getDepartmentTree, type Department, type Member } from '@/api/department'
+import {
+  getDepartmentMembers,
+  getDepartmentTree,
+  type Department,
+  type Member,
+} from '@/api/department'
 import { customerApi } from '@/api/customer'
 import { contactApi } from '@/api/contact'
 import { opportunityApi } from '@/api/opportunity'
@@ -323,10 +312,13 @@ const handleDurationChange = (value: string) => {
   if (value === 'custom') {
     // 如果选择自定义，使用当前计算的结束时间作为默认值
     if (formData.plannedStartDate && formData.plannedStartTime) {
-      const currentDuration = formData.duration && formData.duration !== 'custom'
-        ? parseInt(formData.duration)
-        : 30
-      const endTime = calculateEndTime(formData.plannedStartDate, formData.plannedStartTime, currentDuration)
+      const currentDuration =
+        formData.duration && formData.duration !== 'custom' ? parseInt(formData.duration) : 30
+      const endTime = calculateEndTime(
+        formData.plannedStartDate,
+        formData.plannedStartTime,
+        currentDuration,
+      )
       formData.plannedEndDate = endTime.date
       formData.plannedEndTime = endTime.time
     }
@@ -334,7 +326,11 @@ const handleDurationChange = (value: string) => {
     // 根据时长自动计算结束时间
     if (formData.plannedStartDate && formData.plannedStartTime) {
       const durationMinutes = parseInt(value)
-      const endTime = calculateEndTime(formData.plannedStartDate, formData.plannedStartTime, durationMinutes)
+      const endTime = calculateEndTime(
+        formData.plannedStartDate,
+        formData.plannedStartTime,
+        durationMinutes,
+      )
       formData.plannedEndDate = endTime.date
       formData.plannedEndTime = endTime.time
     }
@@ -345,7 +341,11 @@ const handleDurationChange = (value: string) => {
 const handleActualDurationChange = (value: string) => {
   if (formData.actualStartDate && formData.actualStartTime) {
     const durationMinutes = parseInt(value)
-    const endTime = calculateEndTime(formData.actualStartDate, formData.actualStartTime, durationMinutes)
+    const endTime = calculateEndTime(
+      formData.actualStartDate,
+      formData.actualStartTime,
+      durationMinutes,
+    )
     formData.actualEndDate = endTime.date
     formData.actualEndTime = endTime.time
   }
@@ -372,6 +372,7 @@ interface FormData {
   relatedToType?: string
   relatedToId?: string
   priority?: string
+  outcome?: string
   content?: string
   ownerId: string | string[]
 }
@@ -395,6 +396,7 @@ const formData = reactive<FormData>({
   relatedToType: props.defaultRelatedToType || 'customer',
   relatedToId: props.defaultRelatedToId || '',
   priority: 'medium',
+  outcome: '',
   content: '',
   ownerId: props.activity ? '' : ([] as string[]),
 })
@@ -421,8 +423,8 @@ const formRules: FormRules = {
         } else {
           callback()
         }
-      }
-    }
+      },
+    },
   ],
   duration: [
     {
@@ -441,8 +443,8 @@ const formRules: FormRules = {
         } else {
           callback()
         }
-      }
-    }
+      },
+    },
   ],
   actualStartTime: [
     {
@@ -461,8 +463,8 @@ const formRules: FormRules = {
         } else {
           callback()
         }
-      }
-    }
+      },
+    },
   ],
   actualDuration: [
     {
@@ -481,8 +483,48 @@ const formRules: FormRules = {
         } else {
           callback()
         }
-      }
-    }
+      },
+    },
+  ],
+  outcome: [
+    {
+      required: false, // 动态控制，通过 validator 判断
+      message: '请输入完成结果',
+      trigger: 'blur',
+      validator: (_rule: unknown, value: unknown, callback: (error?: Error) => void) => {
+        // 如果状态不是已完成，则不需要验证
+        if (formData.status !== 'completed') {
+          callback()
+          return
+        }
+        // 如果状态是已完成，则需要验证
+        if (!value || (typeof value === 'string' && !value.trim())) {
+          callback(new Error('请输入完成结果'))
+        } else {
+          callback()
+        }
+      },
+    },
+  ],
+  content: [
+    {
+      required: false, // 动态控制，通过 validator 判断
+      message: '请输入完成笔记',
+      trigger: 'blur',
+      validator: (_rule: unknown, value: unknown, callback: (error?: Error) => void) => {
+        // 如果状态不是已完成，则不需要验证
+        if (formData.status !== 'completed') {
+          callback()
+          return
+        }
+        // 如果状态是已完成，则需要验证
+        if (!value || (typeof value === 'string' && !value.trim())) {
+          callback(new Error('请输入完成笔记'))
+        } else {
+          callback()
+        }
+      },
+    },
   ],
 }
 
@@ -569,7 +611,14 @@ watch(
   () => {
     // 当状态改变时，清除相关字段的验证
     nextTick(() => {
-      formRef.value?.clearValidate(['plannedStartTime', 'duration', 'actualStartTime', 'actualDuration'])
+      formRef.value?.clearValidate([
+        'plannedStartTime',
+        'duration',
+        'actualStartTime',
+        'actualDuration',
+        'outcome',
+        'content',
+      ])
     })
   },
 )
@@ -605,7 +654,12 @@ const splitDateTime = (dateTimeStr: string) => {
 }
 
 // 根据开始时间和结束时间计算时长（分钟）
-const calculateDuration = (startDate: string, startTime: string, endDate: string, endTime: string) => {
+const calculateDuration = (
+  startDate: string,
+  startTime: string,
+  endDate: string,
+  endTime: string,
+) => {
   if (!startDate || !startTime || !endDate || !endTime) return '30'
 
   const start = new Date(`${startDate}T${startTime}`)
@@ -629,14 +683,16 @@ const initFormData = () => {
   if (props.activity) {
     // 编辑模式
     const startDateTime = splitDateTime(props.activity.plannedStartTime)
-    const endDateTime = props.activity.plannedEndTime ? splitDateTime(props.activity.plannedEndTime) : { date: '', time: getCurrentTimeSlot() }
+    const endDateTime = props.activity.plannedEndTime
+      ? splitDateTime(props.activity.plannedEndTime)
+      : { date: '', time: getCurrentTimeSlot() }
 
     // 计算计划时长
     const duration = calculateDuration(
       startDateTime.date,
       startDateTime.time,
       endDateTime.date,
-      endDateTime.time
+      endDateTime.time,
     )
 
     // 处理实际开始时间和结束时间
@@ -653,7 +709,7 @@ const initFormData = () => {
           actualStartDateTime.date,
           actualStartDateTime.time,
           actualEndDateTime.date,
-          actualEndDateTime.time
+          actualEndDateTime.time,
         )
         // 如果计算出的时长是自定义，使用默认值
         if (actualDuration === 'custom') {
@@ -682,6 +738,7 @@ const initFormData = () => {
       relatedToType: props.activity.relatedToType || props.defaultRelatedToType || 'customer',
       relatedToId: props.activity.relatedToId || props.defaultRelatedToId || '',
       priority: props.activity.priority || 'medium',
+      outcome: props.activity.outcome || '',
       content: props.activity.content || '',
       ownerId: props.activity.ownerId || '',
     })
@@ -718,6 +775,7 @@ const initFormData = () => {
       relatedToType: props.defaultRelatedToType || 'customer',
       relatedToId: props.defaultRelatedToId || '',
       priority: 'medium',
+      outcome: '',
       content: '',
       ownerId: '',
     })
@@ -844,8 +902,7 @@ const loadOwnerOptions = async () => {
     const collectDepartmentMembers = async (dept: Department) => {
       try {
         const membersRes = await getDepartmentMembers(dept.id, { page: 1, limit: 1000 })
-        const members =
-          membersRes.data?.members || membersRes.data?.items || membersRes.data || []
+        const members = membersRes.data?.members || membersRes.data?.items || membersRes.data || []
         members.forEach((m: Member) => {
           const id = String(m.id)
           if (!memberMap.has(id)) {
@@ -872,22 +929,22 @@ const loadOwnerOptions = async () => {
       memberMap.set(currentUserOption.id, currentUserOption)
     }
 
-      ownerOptions.value = Array.from(memberMap.values())
+    ownerOptions.value = Array.from(memberMap.values())
+    ensureDefaultOwner()
+  } catch (error) {
+    console.error('加载负责人列表失败:', error)
+    const memberId = currentMemberId.value
+    if (memberId) {
+      const currentUserOption = { id: String(memberId), name: getCurrentUserName() }
+      ownerOptions.value = [currentUserOption]
       ensureDefaultOwner()
-    } catch (error) {
-      console.error('加载负责人列表失败:', error)
-      const memberId = currentMemberId.value
-      if (memberId) {
-        const currentUserOption = { id: String(memberId), name: getCurrentUserName() }
-        ownerOptions.value = [currentUserOption]
-        ensureDefaultOwner()
-      } else {
-        ownerOptions.value = []
-      }
-    } finally {
-      ownerLoading.value = false
+    } else {
+      ownerOptions.value = []
     }
+  } finally {
+    ownerLoading.value = false
   }
+}
 
 // 重置表单
 const resetForm = () => {
@@ -935,46 +992,41 @@ const submit = async () => {
     }
 
     // 合并日期和时间（仅在状态不是已完成时）
-    const plannedStartTime = formData.status !== 'completed' && formData.plannedStartDate && formData.plannedStartTime
-      ? `${formData.plannedStartDate} ${formData.plannedStartTime}`
-      : ''
-    const plannedEndTime = formData.status !== 'completed' && formData.plannedEndDate && formData.plannedEndTime
-      ? `${formData.plannedEndDate} ${formData.plannedEndTime}`
-      : undefined
+    const plannedStartTime =
+      formData.status !== 'completed' && formData.plannedStartDate && formData.plannedStartTime
+        ? `${formData.plannedStartDate} ${formData.plannedStartTime}`
+        : ''
+    const plannedEndTime =
+      formData.status !== 'completed' && formData.plannedEndDate && formData.plannedEndTime
+        ? `${formData.plannedEndDate} ${formData.plannedEndTime}`
+        : undefined
 
     // 合并实际开始时间和结束时间（仅在状态是已完成时）
-    const actualStartTime = formData.status === 'completed' && formData.actualStartDate && formData.actualStartTime
-      ? `${formData.actualStartDate} ${formData.actualStartTime}`
-      : ''
-    const actualEndTime = formData.status === 'completed' && formData.actualEndDate && formData.actualEndTime
-      ? `${formData.actualEndDate} ${formData.actualEndTime}`
-      : undefined
+    const actualStartTime =
+      formData.status === 'completed' && formData.actualStartDate && formData.actualStartTime
+        ? `${formData.actualStartDate} ${formData.actualStartTime}`
+        : ''
+    const actualEndTime =
+      formData.status === 'completed' && formData.actualEndDate && formData.actualEndTime
+        ? `${formData.actualEndDate} ${formData.actualEndTime}`
+        : undefined
 
     // 基础数据
-    const baseData: Omit<CreateActivityDto, 'ownerId'> = {
+    const baseData: Omit<CreateActivityDto, 'ownerId'> & { outcome?: string } = {
       title: formData.title,
       description: formData.description,
       type: formData.type as CreateActivityDto['type'],
       status: formData.status as CreateActivityDto['status'],
-      plannedStartTime: plannedStartTime
-        ? new Date(plannedStartTime).toISOString()
-        : undefined,
-      plannedEndTime: plannedEndTime
-        ? new Date(plannedEndTime).toISOString()
-        : undefined,
-      actualStartTime: actualStartTime
-        ? new Date(actualStartTime).toISOString()
-        : undefined,
-      actualEndTime: actualEndTime
-        ? new Date(actualEndTime).toISOString()
-        : undefined,
+      plannedStartTime: plannedStartTime ? new Date(plannedStartTime).toISOString() : undefined,
+      plannedEndTime: plannedEndTime ? new Date(plannedEndTime).toISOString() : undefined,
+      actualStartTime: actualStartTime ? new Date(actualStartTime).toISOString() : undefined,
+      actualEndTime: actualEndTime ? new Date(actualEndTime).toISOString() : undefined,
       location: formData.location,
       relatedToType: formData.relatedToType as CreateActivityDto['relatedToType'],
-      relatedToId: (formData.relatedToId
-        ? String(formData.relatedToId).trim()
-        : '') as string,
+      relatedToId: (formData.relatedToId ? String(formData.relatedToId).trim() : '') as string,
       priority: formData.priority as CreateActivityDto['priority'],
       content: formData.content,
+      outcome: formData.outcome,
     }
 
     if (props.activity) {
@@ -987,7 +1039,7 @@ const submit = async () => {
     } else {
       // 新建模式：可能多条记录
       const ownerIds: string[] = Array.isArray(formData.ownerId)
-        ? formData.ownerId.map(id => String(id))
+        ? formData.ownerId.map((id) => String(id))
         : [String(formData.ownerId)]
 
       if (ownerIds.length === 0) {
@@ -995,10 +1047,13 @@ const submit = async () => {
         return false
       }
 
-      const submitDataList: CreateActivityDto[] = ownerIds.map(ownerId => ({
-        ...baseData,
-        ownerId: ownerId,
-      } as CreateActivityDto))
+      const submitDataList: CreateActivityDto[] = ownerIds.map(
+        (ownerId) =>
+          ({
+            ...baseData,
+            ownerId: ownerId,
+          }) as CreateActivityDto,
+      )
       emit('submit', submitDataList)
     }
 
@@ -1051,4 +1106,3 @@ onMounted(async () => {
   }
 }
 </style>
-

@@ -10,7 +10,7 @@
                 v-model="searchForm.search"
                 placeholder="搜索报价单号/客户名称"
                 clearable
-                @keyup.enter="handleSearch"
+                @input="handleSearch"
                 style="width: 200px"
               >
                 <template #prefix>
@@ -23,6 +23,7 @@
                 v-model="searchForm.status"
                 placeholder="报价状态"
                 clearable
+                @change="handleSearch"
                 style="width: 120px"
               >
                 <el-option label="全部" :value="undefined" />
@@ -34,10 +35,6 @@
                 <el-option label="已拒绝" value="rejected" />
                 <el-option label="已过期" value="expired" />
               </el-select>
-            </el-form-item>
-            <el-form-item>
-              <el-button type="primary" :icon="Search" @click="handleSearch"> 搜索 </el-button>
-              <el-button :icon="Refresh" @click="handleReset"> 重置 </el-button>
             </el-form-item>
           </el-form>
         </div>

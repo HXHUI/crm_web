@@ -11,7 +11,7 @@
                 v-model="searchForm.search"
                 placeholder="搜索商机标题"
                 clearable
-                @keyup.enter="handleSearch"
+                @input="handleSearchInput"
                 style="width: 200px"
               >
                 <template #prefix>
@@ -24,6 +24,7 @@
                 v-model="searchForm.stage"
                 placeholder="商机阶段"
                 clearable
+                @change="handleSearch"
                 style="width: 120px"
               >
                 <el-option label="全部" :value="undefined" />
@@ -40,6 +41,7 @@
                 v-model="searchForm.status"
                 placeholder="商机状态"
                 clearable
+                @change="handleSearch"
                 style="width: 120px"
               >
                 <el-option label="全部" :value="undefined" />
@@ -49,10 +51,6 @@
                 <el-option label="面临风险" value="at_risk" />
                 <el-option label="已结束" value="closed" />
               </el-select>
-            </el-form-item>
-            <el-form-item>
-              <el-button type="primary" :icon="Search" @click="handleSearch">搜索</el-button>
-              <el-button :icon="Refresh" @click="handleReset">重置</el-button>
             </el-form-item>
           </el-form>
         </div>
@@ -517,7 +515,7 @@
 import { ref, reactive, onMounted, nextTick, onBeforeUnmount, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Search, Refresh, Edit, Delete, View, List, Grid, Clock, Location, Files, ShoppingCart, User, Fold, Expand } from '@element-plus/icons-vue'
+import { Plus, Search, Edit, Delete, View, List, Grid, Clock, Location, Files, ShoppingCart, User, Fold, Expand } from '@element-plus/icons-vue'
 import Sortable from 'sortablejs'
 import opportunityApi, {
   type Opportunity,
@@ -541,6 +539,9 @@ const searchForm = reactive({
   stage: undefined as string | undefined,
   status: undefined as string | undefined,
 })
+
+// 搜索输入防抖定时器
+let searchInputTimer: ReturnType<typeof setTimeout> | null = null
 
 // 商机列表
 const opportunities = ref<Opportunity[]>([])
@@ -925,6 +926,18 @@ const loadOpportunities = async () => {
   }
 }
 
+
+// 搜索输入处理（带防抖）
+const handleSearchInput = () => {
+  // 清除之前的定时器
+  if (searchInputTimer) {
+    clearTimeout(searchInputTimer)
+  }
+  // 设置新的定时器，500ms 后执行搜索
+  searchInputTimer = setTimeout(() => {
+    handleSearch()
+  }, 500)
+}
 
 // 搜索
 const handleSearch = () => {
@@ -1320,6 +1333,11 @@ onBeforeUnmount(() => {
   // 移除滚动监听
   if (detailContentRef.value) {
     detailContentRef.value.removeEventListener('scroll', handleDetailScroll)
+  }
+  // 清理搜索输入防抖定时器
+  if (searchInputTimer) {
+    clearTimeout(searchInputTimer)
+    searchInputTimer = null
   }
 })
 </script>

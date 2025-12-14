@@ -11,7 +11,7 @@
                 v-model="searchForm.search"
                 placeholder="搜索客户名称"
                 clearable
-                @keyup.enter="handleSearch"
+                @input="handleSearchInput"
                 style="width: 200px"
               >
                 <template #prefix>
@@ -24,6 +24,7 @@
                 v-model="searchForm.status"
                 placeholder="客户状态"
                 clearable
+                @change="handleSearch"
                 style="width: 120px"
               >
                 <el-option label="全部" :value="undefined" />
@@ -40,6 +41,7 @@
                 v-model="searchForm.source"
                 placeholder="客户来源"
                 clearable
+                @change="handleSearch"
                 style="width: 160px"
               >
                 <el-option
@@ -55,6 +57,7 @@
                 v-model="searchForm.industry"
                 placeholder="行业"
                 clearable
+                @change="handleSearch"
                 style="width: 180px"
               >
                 <el-option
@@ -71,13 +74,10 @@
                 :options="regionOptions"
                 placeholder="所在地区"
                 clearable
+                @change="handleSearch"
                 style="width: 200px"
                 :props="{ expandTrigger: 'hover' }"
               />
-            </el-form-item>
-            <el-form-item>
-              <el-button type="primary" :icon="Search" @click="handleSearch"> 搜索 </el-button>
-              <el-button :icon="Refresh" @click="handleReset"> 重置 </el-button>
             </el-form-item>
           </el-form>
         </div>
@@ -146,7 +146,14 @@
           </el-table-column>
           <el-table-column prop="industry" label="行业" width="160" show-overflow-tooltip>
             <template #default="{ row }">
-              <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block;">
+              <span
+                style="
+                  white-space: nowrap;
+                  overflow: hidden;
+                  text-overflow: ellipsis;
+                  display: block;
+                "
+              >
                 {{ getIndustryLabel(row.industry) || '-' }}
               </span>
             </template>
@@ -195,7 +202,10 @@
           </el-table-column>
           <el-table-column label="标签" width="200" show-overflow-tooltip>
             <template #default="{ row }">
-              <div v-if="row.tags && row.tags.length > 0" style="display: flex; flex-wrap: wrap; gap: 4px">
+              <div
+                v-if="row.tags && row.tags.length > 0"
+                style="display: flex; flex-wrap: wrap; gap: 4px"
+              >
                 <el-tag
                   v-for="tagId in row.tags"
                   :key="tagId"
@@ -204,7 +214,7 @@
                   effect="dark"
                 >
                   {{ getTagName(tagId) }}
-              </el-tag>
+                </el-tag>
               </div>
               <span v-else class="text-gray-400">-</span>
             </template>
@@ -272,10 +282,7 @@
                 {{ getCustomersByStatus(status.value).length }}
               </el-tag>
             </div>
-            <div
-              class="kanban-column-body"
-              :data-status="status.value"
-            >
+            <div class="kanban-column-body" :data-status="status.value">
               <div
                 v-for="customer in getCustomersByStatus(status.value)"
                 :key="customer.id"
@@ -289,7 +296,10 @@
                 <div class="kanban-card-body">
                   <div class="card-item">
                     <span class="card-label">类型：</span>
-                    <el-tag :type="customer.type === 'company' ? 'primary' : 'success'" size="small">
+                    <el-tag
+                      :type="customer.type === 'company' ? 'primary' : 'success'"
+                      size="small"
+                    >
                       {{ customer.type === 'company' ? '企业' : '个人' }}
                     </el-tag>
                   </div>
@@ -445,14 +455,13 @@
             placeholder="请选择标签（可多选）"
             style="width: 100%"
             :loading="tagLoading"
-            @visible-change="(visible: boolean) => { if (visible && tagOptions.length === 0) loadTagOptions() }"
+            @visible-change="
+              (visible: boolean) => {
+                if (visible && tagOptions.length === 0) loadTagOptions()
+              }
+            "
           >
-            <el-option
-              v-for="tag in tagOptions"
-              :key="tag.id"
-              :label="tag.name"
-              :value="tag.id"
-            >
+            <el-option v-for="tag in tagOptions" :key="tag.id" :label="tag.name" :value="tag.id">
               <div style="display: flex; align-items: center; gap: 8px">
                 <span
                   v-if="tag.color"
@@ -469,6 +478,12 @@
             </el-option>
           </el-select>
         </el-form-item>
+        <!-- 扩展字段 -->
+        <el-divider content-position="left">扩展字段</el-divider>
+        <DynamicForm
+          entity-type="customer"
+          v-model="formData.customFields"
+        />
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
@@ -627,14 +642,13 @@
                 <span v-show="!menuCollapsed" class="item-text">客户图谱</span>
               </span>
             </li>
-
           </ul>
         </div>
 
         <!-- 右侧内容区域 -->
         <div class="right-content">
-           <!-- 可滚动内容区域（包含基本信息和各业务模块） -->
-           <div class="dynamic-content-section detail-scroll-container" ref="detailContentRef">
+          <!-- 可滚动内容区域（包含基本信息和各业务模块） -->
+          <div class="dynamic-content-section detail-scroll-container" ref="detailContentRef">
             <!-- 统一加载骨架屏 -->
             <div v-if="loadingAllDetails" class="detail-loading-skeleton">
               <el-skeleton :rows="8" animated />
@@ -643,8 +657,12 @@
             </div>
             <!-- 实际内容 -->
             <template v-else>
-            <!-- 基本信息 -->
-              <el-card id="customer-section-basic" shadow="never" class="section-card basic-info-section detail-section">
+              <!-- 基本信息 -->
+              <el-card
+                id="customer-section-basic"
+                shadow="never"
+                class="section-card basic-info-section detail-section"
+              >
                 <template #header>
                   <div style="display: flex; justify-content: space-between; align-items: center">
                     <h3 class="section-title" style="margin: 0">基本信息</h3>
@@ -656,108 +674,120 @@
                 </template>
                 <div class="detail-header">
                   <div class="detail-title">
-                <h2>{{ selectedCustomer.name }}</h2>
-                <el-icon class="star-icon"><Star /></el-icon>
-              </div>
+                    <h2>{{ selectedCustomer.name }}</h2>
+                    <el-icon class="star-icon"><Star /></el-icon>
+                  </div>
                   <div class="detail-meta">
-                <div class="meta-item">
-                  <span class="meta-label">客户来源:</span>
-                  <span class="meta-value">{{
-                    selectedCustomer.source ? getSourceLabel(selectedCustomer.source) : '-'
-                  }}</span>
+                    <div class="meta-item">
+                      <span class="meta-label">客户来源:</span>
+                      <span class="meta-value">{{
+                        selectedCustomer.source ? getSourceLabel(selectedCustomer.source) : '-'
+                      }}</span>
+                    </div>
+                    <div class="meta-item">
+                      <span class="meta-label">客户类型:</span>
+                      <span class="meta-value">{{
+                        selectedCustomer.type === 'individual' ? '个人' : '企业'
+                      }}</span>
+                    </div>
+                    <div class="meta-item">
+                      <span class="meta-label">负责人:</span>
+                      <span class="meta-value">{{
+                        getUserName(selectedCustomer.owner) || '-'
+                      }}</span>
+                    </div>
+                    <div class="meta-item">
+                      <span class="meta-label">创建时间:</span>
+                      <span class="meta-value">{{ formatDate(selectedCustomer.createdAt) }}</span>
+                    </div>
+                  </div>
                 </div>
-                <div class="meta-item">
-                  <span class="meta-label">客户类型:</span>
-                  <span class="meta-value">{{
-                    selectedCustomer.type === 'individual' ? '个人' : '企业'
-                  }}</span>
-                </div>
-                <div class="meta-item">
-                  <span class="meta-label">负责人:</span>
-                  <span class="meta-value">{{ getUserName(selectedCustomer.owner) || '-' }}</span>
-                </div>
-                <div class="meta-item">
-                  <span class="meta-label">创建时间:</span>
-                  <span class="meta-value">{{ formatDate(selectedCustomer.createdAt) }}</span>
-                </div>
-              </div>
-            </div>
 
-            <div class="info-grid">
-              <div class="info-item">
-                <label>行业：</label>
-                <span>{{
-                  selectedCustomer.industry ? getIndustryLabel(selectedCustomer.industry) : '-'
-                }}</span>
-              </div>
-              <div class="info-item">
-                <label>客户池类型：</label>
-                <span>
-                  <el-tag
-                    :type="selectedCustomer.ownerId ? 'success' : 'info'"
-                    size="small"
-                  >
-                    {{ selectedCustomer.ownerId ? '私海' : '公海' }}
-                  </el-tag>
-                </span>
-              </div>
-              <div class="info-item">
-                <label>客户规模：</label>
-                <span>{{ selectedCustomer.size ? getSizeName(selectedCustomer.size) : '-' }}</span>
-              </div>
-              <div class="info-item">
-                <label>所在地区：</label>
-                <span>{{
-                  [selectedCustomer.province, selectedCustomer.city, selectedCustomer.district]
-                    .filter(Boolean)
-                    .join(' / ') || '-'
-                }}</span>
-              </div>
-              <div class="info-item">
-                <label>详细地址：</label>
-                <span>{{ selectedCustomer.addressDetail || '-' }}</span>
-              </div>
-              <div class="info-item">
-                <label>客户来源：</label>
-                <span>{{
-                  selectedCustomer.source ? getSourceLabel(selectedCustomer.source) : '-'
-                }}</span>
-              </div>
-              <div class="info-item">
-                <label>客户等级：</label>
-                <span>
-                  <el-tag
-                    v-if="selectedCustomer.level"
-                    :type="getLevelType(selectedCustomer.level)"
-                    size="small"
-                  >
-                    {{ selectedCustomer.level }}级
-                  </el-tag>
-                  <span v-else>-</span>
-                </span>
-              </div>
-              <div class="info-item">
-                <label>预计价值：</label>
-                <span class="estimated-value">{{
-                  selectedCustomer.estimatedValue
-                    ? formatCurrency(selectedCustomer.estimatedValue)
-                    : '-'
-                }}</span>
-              </div>
-              <div class="info-item full-width" v-if="selectedCustomer.description">
-                <label>客户描述：</label>
-                <div class="description">{{ selectedCustomer.description }}</div>
-              </div>
-            </div>
+                <div class="info-grid">
+                  <div class="info-item">
+                    <label>行业：</label>
+                    <span>{{
+                      selectedCustomer.industry ? getIndustryLabel(selectedCustomer.industry) : '-'
+                    }}</span>
+                  </div>
+                  <div class="info-item">
+                    <label>客户池类型：</label>
+                    <span>
+                      <el-tag :type="selectedCustomer.ownerId ? 'success' : 'info'" size="small">
+                        {{ selectedCustomer.ownerId ? '私海' : '公海' }}
+                      </el-tag>
+                    </span>
+                  </div>
+                  <div class="info-item">
+                    <label>客户规模：</label>
+                    <span>{{
+                      selectedCustomer.size ? getSizeName(selectedCustomer.size) : '-'
+                    }}</span>
+                  </div>
+                  <div class="info-item">
+                    <label>所在地区：</label>
+                    <span>{{
+                      [selectedCustomer.province, selectedCustomer.city, selectedCustomer.district]
+                        .filter(Boolean)
+                        .join(' / ') || '-'
+                    }}</span>
+                  </div>
+                  <div class="info-item">
+                    <label>详细地址：</label>
+                    <span>{{ selectedCustomer.addressDetail || '-' }}</span>
+                  </div>
+                  <div class="info-item">
+                    <label>客户来源：</label>
+                    <span>{{
+                      selectedCustomer.source ? getSourceLabel(selectedCustomer.source) : '-'
+                    }}</span>
+                  </div>
+                  <div class="info-item">
+                    <label>客户等级：</label>
+                    <span>
+                      <el-tag
+                        v-if="selectedCustomer.level"
+                        :type="getLevelType(selectedCustomer.level)"
+                        size="small"
+                      >
+                        {{ selectedCustomer.level }}级
+                      </el-tag>
+                      <span v-else>-</span>
+                    </span>
+                  </div>
+                  <div class="info-item">
+                    <label>预计价值：</label>
+                    <span class="estimated-value">{{
+                      selectedCustomer.estimatedValue
+                        ? formatCurrency(selectedCustomer.estimatedValue)
+                        : '-'
+                    }}</span>
+                  </div>
+                  <div class="info-item full-width" v-if="selectedCustomer.description">
+                    <label>客户描述：</label>
+                    <div class="description">{{ selectedCustomer.description }}</div>
+                  </div>
+                </div>
               </el-card>
 
               <!-- 工商信息内容 -->
-              <el-card shadow="never" id="customer-section-business" class="tab-content detail-section section-card">
+              <el-card
+                shadow="never"
+                id="customer-section-business"
+                class="tab-content detail-section section-card"
+              >
                 <template #header>
                   <div style="display: flex; justify-content: space-between; align-items: center">
                     <h3 class="section-title" style="margin: 0">工商信息</h3>
-                    <div class="header-actions" style="display: flex; align-items: center; gap: 12px">
-                      <span v-if="businessInfo?.lastSyncTime" class="last-sync-time" style="font-size: 12px; color: #909399">
+                    <div
+                      class="header-actions"
+                      style="display: flex; align-items: center; gap: 12px"
+                    >
+                      <span
+                        v-if="businessInfo?.lastSyncTime"
+                        class="last-sync-time"
+                        style="font-size: 12px; color: #909399"
+                      >
                         最后更新：{{ formatDate(businessInfo.lastSyncTime) }}
                       </span>
                       <el-button
@@ -772,44 +802,55 @@
                     </div>
                   </div>
                 </template>
-               <div v-if="!selectedCustomer?.companyName" class="empty-state">
-                <el-empty description="该客户没有公司名称，无法查询工商信息" />
-              </div>
-              <div v-else class="business-info-wrapper">
-                <!-- 公司名称 -->
-                <div class="business-header" style="margin-bottom: 20px">
-                  <h2 class="company-name" style="margin: 0; font-size: 24px; font-weight: 600; color: #262626">
-                    {{ businessInfo?.companyName || selectedCustomer?.companyName || '未知公司' }}
-                  </h2>
-          </div>
-
-                <!-- 公司基本信息 -->
-                <div v-if="businessInfo" class="company-basic-info">
-                  <div class="info-grid">
-                    <div class="info-item">
-                      <label class="info-label">法定代表人：</label>
-                      <span class="info-value">{{ businessInfo.legalRepresentative || '-' }}</span>
+                <div v-if="!selectedCustomer?.companyName" class="empty-state">
+                  <el-empty description="该客户没有公司名称，无法查询工商信息" />
                 </div>
-                    <div class="info-item">
-                      <label class="info-label">统一社会信用代码：</label>
-                      <span class="info-value">{{ businessInfo.unifiedSocialCreditCode || '-' }}</span>
-                    </div>
-                    <div class="info-item">
-                      <label class="info-label">注册资本：</label>
-                      <span class="info-value">
-                        {{ businessInfo.registeredCapital ? formatCurrency(businessInfo.registeredCapital, false) + '万元' : '-' }}
-                      </span>
-                    </div>
-                    <div class="info-item">
-                      <label class="info-label">注册地址：</label>
-                      <span class="info-value">{{ businessInfo.registeredAddress || '-' }}</span>
+                <div v-else class="business-info-wrapper">
+                  <!-- 公司名称 -->
+                  <div class="business-header" style="margin-bottom: 20px">
+                    <h2
+                      class="company-name"
+                      style="margin: 0; font-size: 24px; font-weight: 600; color: #262626"
+                    >
+                      {{ businessInfo?.companyName || selectedCustomer?.companyName || '未知公司' }}
+                    </h2>
+                  </div>
+
+                  <!-- 公司基本信息 -->
+                  <div v-if="businessInfo" class="company-basic-info">
+                    <div class="info-grid">
+                      <div class="info-item">
+                        <label class="info-label">法定代表人：</label>
+                        <span class="info-value">{{
+                          businessInfo.legalRepresentative || '-'
+                        }}</span>
+                      </div>
+                      <div class="info-item">
+                        <label class="info-label">统一社会信用代码：</label>
+                        <span class="info-value">{{
+                          businessInfo.unifiedSocialCreditCode || '-'
+                        }}</span>
+                      </div>
+                      <div class="info-item">
+                        <label class="info-label">注册资本：</label>
+                        <span class="info-value">
+                          {{
+                            businessInfo.registeredCapital
+                              ? formatCurrency(businessInfo.registeredCapital, false) + '万元'
+                              : '-'
+                          }}
+                        </span>
+                      </div>
+                      <div class="info-item">
+                        <label class="info-label">注册地址：</label>
+                        <span class="info-value">{{ businessInfo.registeredAddress || '-' }}</span>
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                <!-- Tab导航栏 -->
-                <div class="business-tabs-wrapper" style="padding: 0 16px; margin-bottom: 16px">
-                  <el-tabs v-model="businessSubTab" type="border-card">
+                  <!-- Tab导航栏 -->
+                  <div class="business-tabs-wrapper" style="padding: 0 16px; margin-bottom: 16px">
+                    <el-tabs v-model="businessSubTab" type="border-card">
                       <el-tab-pane label="工商信息" name="info">
                         <!-- 过期提示 -->
                         <el-alert
@@ -831,55 +872,74 @@
 
                         <!-- 工商信息主表 -->
                         <div v-else-if="businessInfo" class="business-info-content">
-                  <el-descriptions :column="2" border>
-                    <el-descriptions-item label="统一社会信用代码">
-                      {{ businessInfo.unifiedSocialCreditCode || '-' }}
-                    </el-descriptions-item>
-                    <el-descriptions-item label="企业名称">
-                      {{ businessInfo.companyName || '-' }}
-                    </el-descriptions-item>
-                    <el-descriptions-item label="法定代表人">
-                      {{ businessInfo.legalRepresentative || '-' }}
-                    </el-descriptions-item>
-                    <el-descriptions-item label="经营状态">
-                      <el-tag :type="businessInfo.operatingStatus === '存续' ? 'success' : 'info'" size="small">
-                        {{ businessInfo.operatingStatus || '-' }}
-                      </el-tag>
-                    </el-descriptions-item>
-                    <el-descriptions-item label="注册资本">
-                      {{ businessInfo.registeredCapital ? formatCurrency(businessInfo.registeredCapital, false) + '万元' : '-' }}
-                    </el-descriptions-item>
-                    <el-descriptions-item label="实缴资本">
-                      {{ businessInfo.paidInCapital ? formatCurrency(businessInfo.paidInCapital, false) + '万元' : '-' }}
-                    </el-descriptions-item>
-                    <el-descriptions-item label="工商注册号">
-                      {{ businessInfo.businessRegistrationNumber || '-' }}
-                    </el-descriptions-item>
-                    <el-descriptions-item label="组织机构代码">
-                      {{ businessInfo.organizationCode || '-' }}
-                    </el-descriptions-item>
-                    <el-descriptions-item label="成立日期">
-                      {{ businessInfo.establishmentDate ? formatDateOnly(businessInfo.establishmentDate) : '-' }}
-                    </el-descriptions-item>
-                    <el-descriptions-item label="企业类型">
-                      {{ businessInfo.companyType || '-' }}
-                    </el-descriptions-item>
-                    <el-descriptions-item label="营业期限">
-                      {{ businessInfo.businessTerm || '-' }}
-                    </el-descriptions-item>
-                    <el-descriptions-item label="登记机关">
-                      {{ businessInfo.registrationAuthority || '-' }}
-                    </el-descriptions-item>
-                    <el-descriptions-item label="核准日期">
-                      {{ businessInfo.approvalDate ? formatDateOnly(businessInfo.approvalDate) : '-' }}
-                    </el-descriptions-item>
-                    <el-descriptions-item label="注册地址" :span="2">
-                      {{ businessInfo.registeredAddress || '-' }}
-                    </el-descriptions-item>
-                    <el-descriptions-item label="经营范围" :span="2">
-                      {{ businessInfo.businessScope || '-' }}
-                    </el-descriptions-item>
-                    </el-descriptions>
+                          <el-descriptions :column="2" border>
+                            <el-descriptions-item label="统一社会信用代码">
+                              {{ businessInfo.unifiedSocialCreditCode || '-' }}
+                            </el-descriptions-item>
+                            <el-descriptions-item label="企业名称">
+                              {{ businessInfo.companyName || '-' }}
+                            </el-descriptions-item>
+                            <el-descriptions-item label="法定代表人">
+                              {{ businessInfo.legalRepresentative || '-' }}
+                            </el-descriptions-item>
+                            <el-descriptions-item label="经营状态">
+                              <el-tag
+                                :type="businessInfo.operatingStatus === '存续' ? 'success' : 'info'"
+                                size="small"
+                              >
+                                {{ businessInfo.operatingStatus || '-' }}
+                              </el-tag>
+                            </el-descriptions-item>
+                            <el-descriptions-item label="注册资本">
+                              {{
+                                businessInfo.registeredCapital
+                                  ? formatCurrency(businessInfo.registeredCapital, false) + '万元'
+                                  : '-'
+                              }}
+                            </el-descriptions-item>
+                            <el-descriptions-item label="实缴资本">
+                              {{
+                                businessInfo.paidInCapital
+                                  ? formatCurrency(businessInfo.paidInCapital, false) + '万元'
+                                  : '-'
+                              }}
+                            </el-descriptions-item>
+                            <el-descriptions-item label="工商注册号">
+                              {{ businessInfo.businessRegistrationNumber || '-' }}
+                            </el-descriptions-item>
+                            <el-descriptions-item label="组织机构代码">
+                              {{ businessInfo.organizationCode || '-' }}
+                            </el-descriptions-item>
+                            <el-descriptions-item label="成立日期">
+                              {{
+                                businessInfo.establishmentDate
+                                  ? formatDateOnly(businessInfo.establishmentDate)
+                                  : '-'
+                              }}
+                            </el-descriptions-item>
+                            <el-descriptions-item label="企业类型">
+                              {{ businessInfo.companyType || '-' }}
+                            </el-descriptions-item>
+                            <el-descriptions-item label="营业期限">
+                              {{ businessInfo.businessTerm || '-' }}
+                            </el-descriptions-item>
+                            <el-descriptions-item label="登记机关">
+                              {{ businessInfo.registrationAuthority || '-' }}
+                            </el-descriptions-item>
+                            <el-descriptions-item label="核准日期">
+                              {{
+                                businessInfo.approvalDate
+                                  ? formatDateOnly(businessInfo.approvalDate)
+                                  : '-'
+                              }}
+                            </el-descriptions-item>
+                            <el-descriptions-item label="注册地址" :span="2">
+                              {{ businessInfo.registeredAddress || '-' }}
+                            </el-descriptions-item>
+                            <el-descriptions-item label="经营范围" :span="2">
+                              {{ businessInfo.businessScope || '-' }}
+                            </el-descriptions-item>
+                          </el-descriptions>
                         </div>
                         <div v-else class="empty-state">
                           <el-empty description="暂无工商信息">
@@ -891,7 +951,11 @@
                                 </p>
                               </div>
                             </template>
-                            <el-button type="primary" @click="refreshBusinessInfo" :loading="businessInfoRefreshing">
+                            <el-button
+                              type="primary"
+                              @click="refreshBusinessInfo"
+                              :loading="businessInfoRefreshing"
+                            >
                               立即刷新
                             </el-button>
                           </el-empty>
@@ -904,12 +968,15 @@
                         </div>
                         <!-- 主要人员 -->
                         <div v-else-if="businessInfo" class="business-info-content">
-                  <el-table :data="businessInfo.personnel || []" border style="width: 100%">
-                    <el-table-column type="index" label="序号" width="60" />
-                    <el-table-column prop="name" label="姓名" min-width="150" />
-                    <el-table-column prop="position" label="职务" min-width="200" />
-                  </el-table>
-                          <div v-if="!businessInfo.personnel || businessInfo.personnel.length === 0" class="empty-state">
+                          <el-table :data="businessInfo.personnel || []" border style="width: 100%">
+                            <el-table-column type="index" label="序号" width="60" />
+                            <el-table-column prop="name" label="姓名" min-width="150" />
+                            <el-table-column prop="position" label="职务" min-width="200" />
+                          </el-table>
+                          <div
+                            v-if="!businessInfo.personnel || businessInfo.personnel.length === 0"
+                            class="empty-state"
+                          >
                             <el-empty description="暂无主要人员信息" />
                           </div>
                         </div>
@@ -924,22 +991,53 @@
                         </div>
                         <!-- 股东信息 -->
                         <div v-else-if="businessInfo" class="business-info-content">
-                  <el-table :data="businessInfo.shareholders || []" border style="width: 100%">
-                    <el-table-column type="index" label="序号" width="60" />
-                    <el-table-column prop="shareholderName" label="股东名称" min-width="200" />
-                    <el-table-column prop="shareholdingRatio" label="持股比例" width="120" align="right">
-                      <template #default="{ row }">
-                        {{ row.shareholdingRatio != null ? Number(row.shareholdingRatio).toFixed(2) + '%' : '-' }}
-                      </template>
-                    </el-table-column>
-                    <el-table-column prop="shareholderType" label="股东类型" width="150" />
-                    <el-table-column prop="investmentAmount" label="投资金额(万元)" width="150" align="right">
-                      <template #default="{ row }">
-                        {{ row.investmentAmount ? formatCurrency(row.investmentAmount, false) : '-' }}
-                      </template>
-                    </el-table-column>
-                  </el-table>
-                          <div v-if="!businessInfo.shareholders || businessInfo.shareholders.length === 0" class="empty-state">
+                          <el-table
+                            :data="businessInfo.shareholders || []"
+                            border
+                            style="width: 100%"
+                          >
+                            <el-table-column type="index" label="序号" width="60" />
+                            <el-table-column
+                              prop="shareholderName"
+                              label="股东名称"
+                              min-width="200"
+                            />
+                            <el-table-column
+                              prop="shareholdingRatio"
+                              label="持股比例"
+                              width="120"
+                              align="right"
+                            >
+                              <template #default="{ row }">
+                                {{
+                                  row.shareholdingRatio != null
+                                    ? Number(row.shareholdingRatio).toFixed(2) + '%'
+                                    : '-'
+                                }}
+                              </template>
+                            </el-table-column>
+                            <el-table-column prop="shareholderType" label="股东类型" width="150" />
+                            <el-table-column
+                              prop="investmentAmount"
+                              label="投资金额(万元)"
+                              width="150"
+                              align="right"
+                            >
+                              <template #default="{ row }">
+                                {{
+                                  row.investmentAmount
+                                    ? formatCurrency(row.investmentAmount, false)
+                                    : '-'
+                                }}
+                              </template>
+                            </el-table-column>
+                          </el-table>
+                          <div
+                            v-if="
+                              !businessInfo.shareholders || businessInfo.shareholders.length === 0
+                            "
+                            class="empty-state"
+                          >
                             <el-empty description="暂无股东信息" />
                           </div>
                         </div>
@@ -954,24 +1052,34 @@
                         </div>
                         <!-- 分支机构 -->
                         <div v-else-if="businessInfo" class="business-info-content">
-                  <el-table :data="businessInfo.branches || []" border style="width: 100%">
-                    <el-table-column type="index" label="序号" width="60" />
-                    <el-table-column prop="companyName" label="公司名称" min-width="250" />
-                    <el-table-column prop="personInCharge" label="负责人" width="120" />
-                    <el-table-column prop="establishmentDate" label="成立时间" width="120">
-                      <template #default="{ row }">
-                        {{ row.establishmentDate ? formatDateOnly(row.establishmentDate) : '-' }}
-                      </template>
-                    </el-table-column>
-                    <el-table-column prop="operatingStatus" label="经营状态" width="120">
-                      <template #default="{ row }">
-                        <el-tag :type="row.operatingStatus === '存续' ? 'success' : 'info'" size="small">
-                          {{ row.operatingStatus || '-' }}
-                        </el-tag>
-                      </template>
-                    </el-table-column>
-                  </el-table>
-                          <div v-if="!businessInfo.branches || businessInfo.branches.length === 0" class="empty-state">
+                          <el-table :data="businessInfo.branches || []" border style="width: 100%">
+                            <el-table-column type="index" label="序号" width="60" />
+                            <el-table-column prop="companyName" label="公司名称" min-width="250" />
+                            <el-table-column prop="personInCharge" label="负责人" width="120" />
+                            <el-table-column prop="establishmentDate" label="成立时间" width="120">
+                              <template #default="{ row }">
+                                {{
+                                  row.establishmentDate
+                                    ? formatDateOnly(row.establishmentDate)
+                                    : '-'
+                                }}
+                              </template>
+                            </el-table-column>
+                            <el-table-column prop="operatingStatus" label="经营状态" width="120">
+                              <template #default="{ row }">
+                                <el-tag
+                                  :type="row.operatingStatus === '存续' ? 'success' : 'info'"
+                                  size="small"
+                                >
+                                  {{ row.operatingStatus || '-' }}
+                                </el-tag>
+                              </template>
+                            </el-table-column>
+                          </el-table>
+                          <div
+                            v-if="!businessInfo.branches || businessInfo.branches.length === 0"
+                            class="empty-state"
+                          >
                             <el-empty description="暂无分支机构信息" />
                           </div>
                         </div>
@@ -986,37 +1094,95 @@
                         </div>
                         <!-- 对外投资 -->
                         <div v-else-if="businessInfo" class="business-info-content">
-                  <el-table :data="businessInfo.investments || []" border style="width: 100%">
-                    <el-table-column type="index" label="序号" width="60" />
-                    <el-table-column prop="investedCompany" label="被投资企业" min-width="200" show-overflow-tooltip />
-                    <el-table-column prop="regStatus" label="企业状态" width="100" />
-                    <el-table-column prop="legalPersonName" label="法人" width="120" />
-                    <el-table-column prop="orgType" label="公司类型" width="180" show-overflow-tooltip />
-                    <el-table-column prop="establishmentDate" label="开业时间" width="120" align="center">
-                      <template #default="{ row }">
-                        {{ row.establishmentDate ? formatDateOnly(row.establishmentDate) : '-' }}
-                      </template>
-                    </el-table-column>
-                    <el-table-column prop="category" label="行业" width="150" show-overflow-tooltip />
-                    <el-table-column prop="regCapital" label="注册资金" width="150" />
-                    <el-table-column prop="subscriptionDate" label="认缴出资时间" width="120" align="center">
-                      <template #default="{ row }">
-                        {{ row.subscriptionDate ? formatDateOnly(row.subscriptionDate) : '-' }}
-                      </template>
-                    </el-table-column>
-                    <el-table-column prop="shareholderType" label="股东类型" width="100" />
-                    <el-table-column prop="shareholdingRatio" label="持股比例" width="100" align="right">
-                      <template #default="{ row }">
-                        {{ row.shareholdingRatio != null ? Number(row.shareholdingRatio).toFixed(2) + '%' : '-' }}
-                      </template>
-                    </el-table-column>
-                    <el-table-column prop="investmentAmount" label="投资金额(万元)" width="150" align="right">
-                      <template #default="{ row }">
-                        {{ row.investmentAmount ? formatCurrency(row.investmentAmount / 10000, false) + '万元' : '-' }}
-                      </template>
-                    </el-table-column>
-                  </el-table>
-                          <div v-if="!businessInfo.investments || businessInfo.investments.length === 0" class="empty-state">
+                          <el-table
+                            :data="businessInfo.investments || []"
+                            border
+                            style="width: 100%"
+                          >
+                            <el-table-column type="index" label="序号" width="60" />
+                            <el-table-column
+                              prop="investedCompany"
+                              label="被投资企业"
+                              min-width="200"
+                              show-overflow-tooltip
+                            />
+                            <el-table-column prop="regStatus" label="企业状态" width="100" />
+                            <el-table-column prop="legalPersonName" label="法人" width="120" />
+                            <el-table-column
+                              prop="orgType"
+                              label="公司类型"
+                              width="180"
+                              show-overflow-tooltip
+                            />
+                            <el-table-column
+                              prop="establishmentDate"
+                              label="开业时间"
+                              width="120"
+                              align="center"
+                            >
+                              <template #default="{ row }">
+                                {{
+                                  row.establishmentDate
+                                    ? formatDateOnly(row.establishmentDate)
+                                    : '-'
+                                }}
+                              </template>
+                            </el-table-column>
+                            <el-table-column
+                              prop="category"
+                              label="行业"
+                              width="150"
+                              show-overflow-tooltip
+                            />
+                            <el-table-column prop="regCapital" label="注册资金" width="150" />
+                            <el-table-column
+                              prop="subscriptionDate"
+                              label="认缴出资时间"
+                              width="120"
+                              align="center"
+                            >
+                              <template #default="{ row }">
+                                {{
+                                  row.subscriptionDate ? formatDateOnly(row.subscriptionDate) : '-'
+                                }}
+                              </template>
+                            </el-table-column>
+                            <el-table-column prop="shareholderType" label="股东类型" width="100" />
+                            <el-table-column
+                              prop="shareholdingRatio"
+                              label="持股比例"
+                              width="100"
+                              align="right"
+                            >
+                              <template #default="{ row }">
+                                {{
+                                  row.shareholdingRatio != null
+                                    ? Number(row.shareholdingRatio).toFixed(2) + '%'
+                                    : '-'
+                                }}
+                              </template>
+                            </el-table-column>
+                            <el-table-column
+                              prop="investmentAmount"
+                              label="投资金额(万元)"
+                              width="150"
+                              align="right"
+                            >
+                              <template #default="{ row }">
+                                {{
+                                  row.investmentAmount
+                                    ? formatCurrency(row.investmentAmount / 10000, false) + '万元'
+                                    : '-'
+                                }}
+                              </template>
+                            </el-table-column>
+                          </el-table>
+                          <div
+                            v-if="
+                              !businessInfo.investments || businessInfo.investments.length === 0
+                            "
+                            class="empty-state"
+                          >
                             <el-empty description="暂无对外投资信息" />
                           </div>
                         </div>
@@ -1031,26 +1197,45 @@
                         </div>
                         <!-- 变更记录 -->
                         <div v-else-if="businessInfo" class="business-info-content">
-                  <el-table :data="businessInfo.changeRecords || []" border style="width: 100%">
-                    <el-table-column type="index" label="序号" width="60" />
-                    <el-table-column prop="changeDate" label="变更日期" width="120">
-                      <template #default="{ row }">
-                        {{ formatDateOnly(row.changeDate) }}
-                      </template>
-                    </el-table-column>
-                    <el-table-column prop="changeItem" label="变更事项" min-width="150" />
-                    <el-table-column prop="beforeChange" label="变更前" min-width="200" show-overflow-tooltip>
-                      <template #default="{ row }">
-                        {{ formatDatesInText(row.beforeChange) }}
-                      </template>
-                    </el-table-column>
-                    <el-table-column prop="afterChange" label="变更后" min-width="200" show-overflow-tooltip>
-                      <template #default="{ row }">
-                        {{ formatDatesInText(row.afterChange) }}
-                      </template>
-                    </el-table-column>
-                  </el-table>
-                          <div v-if="!businessInfo.changeRecords || businessInfo.changeRecords.length === 0" class="empty-state">
+                          <el-table
+                            :data="businessInfo.changeRecords || []"
+                            border
+                            style="width: 100%"
+                          >
+                            <el-table-column type="index" label="序号" width="60" />
+                            <el-table-column prop="changeDate" label="变更日期" width="120">
+                              <template #default="{ row }">
+                                {{ formatDateOnly(row.changeDate) }}
+                              </template>
+                            </el-table-column>
+                            <el-table-column prop="changeItem" label="变更事项" min-width="150" />
+                            <el-table-column
+                              prop="beforeChange"
+                              label="变更前"
+                              min-width="200"
+                              show-overflow-tooltip
+                            >
+                              <template #default="{ row }">
+                                {{ formatDatesInText(row.beforeChange) }}
+                              </template>
+                            </el-table-column>
+                            <el-table-column
+                              prop="afterChange"
+                              label="变更后"
+                              min-width="200"
+                              show-overflow-tooltip
+                            >
+                              <template #default="{ row }">
+                                {{ formatDatesInText(row.afterChange) }}
+                              </template>
+                            </el-table-column>
+                          </el-table>
+                          <div
+                            v-if="
+                              !businessInfo.changeRecords || businessInfo.changeRecords.length === 0
+                            "
+                            class="empty-state"
+                          >
                             <el-empty description="暂无变更记录" />
                           </div>
                         </div>
@@ -1059,12 +1244,16 @@
                         </div>
                       </el-tab-pane>
                     </el-tabs>
+                  </div>
                 </div>
-              </div>
               </el-card>
 
-             <!-- 联系人内容（支持树形表和联系人图谱切换） -->
-              <el-card shadow="never" id="customer-section-contacts" class=" tab-content detail-section section-card">
+              <!-- 联系人内容（支持树形表和联系人图谱切换） -->
+              <el-card
+                shadow="never"
+                id="customer-section-contacts"
+                class="tab-content detail-section section-card"
+              >
                 <template #header>
                   <div style="display: flex; justify-content: space-between; align-items: center">
                     <h3 class="section-title" style="margin: 0">联系人</h3>
@@ -1087,66 +1276,99 @@
                   </div>
                 </template>
                 <div class="list-padding">
-
-                <!-- 列表视图 -->
-                <div v-if="contactViewMode === 'list'">
-                  <el-table :data="contactListData" border style="width: 100%">
-                    <el-table-column prop="name" label="姓名" min-width="150">
-                      <template #default="{ row }">
-                        <span :style="{ paddingLeft: row.level * 20 + 'px' }">
-                          {{ row.name }}
-                          <el-tag
-                            v-if="row.isPrimary"
-                            type="success"
-                            size="small"
-                            style="margin-left: 6px"
-                            >主要</el-tag
+                  <!-- 列表视图 -->
+                  <div v-if="contactViewMode === 'list'">
+                    <el-table :data="contactListData" border style="width: 100%">
+                      <el-table-column prop="name" label="姓名" min-width="150">
+                        <template #default="{ row }">
+                          <span :style="{ paddingLeft: row.level * 20 + 'px' }">
+                            {{ row.name }}
+                            <el-tag
+                              v-if="row.isPrimary"
+                              type="success"
+                              size="small"
+                              style="margin-left: 6px"
+                              >主要</el-tag
+                            >
+                          </span>
+                        </template>
+                      </el-table-column>
+                      <el-table-column label="类型" width="120">
+                        <template #default="{ row }">
+                          <el-tag :type="getContactTypeColor(row.type)" size="small">
+                            {{ getContactTypeName(row.type) }}
+                          </el-tag>
+                        </template>
+                      </el-table-column>
+                      <el-table-column
+                        prop="position"
+                        label="职位"
+                        width="150"
+                        show-overflow-tooltip
+                      />
+                      <el-table-column
+                        prop="department"
+                        label="部门"
+                        width="150"
+                        show-overflow-tooltip
+                      />
+                      <el-table-column prop="phone" label="电话" width="150" />
+                      <el-table-column
+                        prop="email"
+                        label="邮箱"
+                        min-width="180"
+                        show-overflow-tooltip
+                      />
+                      <el-table-column
+                        prop="wechat"
+                        label="微信"
+                        width="120"
+                        show-overflow-tooltip
+                      />
+                      <el-table-column label="操作" width="160" fixed="right">
+                        <template #default="{ row }">
+                          <el-button size="small" type="primary" @click="openEditContact(row)"
+                            >编辑</el-button
                           >
-                        </span>
-                      </template>
-                    </el-table-column>
-                    <el-table-column label="类型" width="120">
-                      <template #default="{ row }">
-                        <el-tag :type="getContactTypeColor(row.type)" size="small">
-                          {{ getContactTypeName(row.type) }}
-                        </el-tag>
-                      </template>
-                    </el-table-column>
-                    <el-table-column prop="position" label="职位" width="150" show-overflow-tooltip />
-                    <el-table-column prop="department" label="部门" width="150" show-overflow-tooltip />
-                    <el-table-column prop="phone" label="电话" width="150" />
-                    <el-table-column prop="email" label="邮箱" min-width="180" show-overflow-tooltip />
-                    <el-table-column prop="wechat" label="微信" width="120" show-overflow-tooltip />
-                    <el-table-column label="操作" width="160" fixed="right">
-                      <template #default="{ row }">
-                        <el-button size="small" type="primary" @click="openEditContact(row)">编辑</el-button>
-                        <el-button size="small" type="danger" @click="deleteContact(row)">删除</el-button>
-                      </template>
-                    </el-table-column>
-                  </el-table>
-                </div>
+                          <el-button size="small" type="danger" @click="deleteContact(row)"
+                            >删除</el-button
+                          >
+                        </template>
+                      </el-table-column>
+                    </el-table>
+                  </div>
 
-                <!-- 联系人图谱视图（vue3-tree-org） -->
-                <div v-else class="contact-mindmap-view">
-                  <Vue3TreeOrg
-                    v-if="contactOrgTree"
-                    :data="contactOrgTree"
-                    :horizontal="true"
-                    :collapsable="true"
-                    :scalable="true"
-                    :draggable="true"
-                    :node-draggable="false"
-                    :clone-node-drag="false"
-                    :label-style="{ whiteSpace: 'nowrap', fontSize: '13px' }"
-                    :label-class-name="contactOrgLabelClass"
-                    :tool-bar="{ expand: true, scale: true, zoom: true, restore: true, fullscreen: false }"
-                  />
-                </div>
+                  <!-- 联系人图谱视图（vue3-tree-org） -->
+                  <div v-else class="contact-mindmap-view">
+                    <Vue3TreeOrg
+                      v-if="contactOrgTree"
+                      :data="contactOrgTree"
+                      :horizontal="true"
+                      :collapsable="true"
+                      :scalable="true"
+                      :draggable="true"
+                      :node-draggable="false"
+                      :clone-node-drag="false"
+                      :label-style="{ whiteSpace: 'nowrap', fontSize: '13px' }"
+                      :label-class-name="contactOrgLabelClass"
+                      :tool-bar="{
+                        expand: true,
+                        scale: true,
+                        zoom: true,
+                        restore: true,
+                        fullscreen: false,
+                      }"
+                    />
+                  </div>
                 </div>
               </el-card>
 
-                <!-- 合作与信用内容 -->
-              <el-card shadow="never" id="customer-section-cooperation" class="tab-content detail-section  section-card" >
+              <!-- 合作与信用内容 -->
+              <el-card
+                shadow="never"
+                id="customer-section-cooperation"
+                class="tab-content detail-section section-card"
+              >
                 <template #header>
                   <div style="display: flex; justify-content: space-between; align-items: center">
                     <h3 class="section-title" style="margin: 0">合作与信用</h3>
@@ -1172,546 +1394,569 @@
                         </el-button>
                       </template>
                     </div>
-                </div>
+                  </div>
                 </template>
-              <div class="list-padding">
-                <div v-if="cooperationLoading" style="text-align: center; padding: 40px 0">
-                  <el-icon class="is-loading" style="font-size: 24px"><Loading /></el-icon>
-              </div>
-
-                <div v-else class="cooperation-content">
-                  <!-- 合作习惯区域 -->
-                  <div class="cooperation-section">
-                    <h4 class="section-title" style="margin-bottom: 12px">合作习惯</h4>
-                    <div class="info-grid">
-                      <div class="info-item" :class="{ 'full-width': cooperationEditMode }">
-                        <label>开票要求：</label>
-                        <span v-if="!cooperationEditMode">
-                          {{ getInvoiceRequirementLabel(customerProfile?.invoiceRequirement) || '-' }}
-                        </span>
-                        <div v-else style="display: flex; flex-direction: column; gap: 8px; width: 100%">
-                          <el-select
-                            v-model="cooperationForm.invoiceRequirement"
-                            placeholder="请选择开票要求"
-                            style="width: 100%"
-                          >
-                            <el-option label="专票" value="special_vat" />
-                            <el-option label="普票" value="normal_invoice" />
-                            <el-option label="不开票" value="no_invoice" />
-                          </el-select>
-                <el-input
-                            v-model="cooperationForm.invoiceRemark"
-                            placeholder="开票说明（可选）"
-                            maxlength="500"
-                            show-word-limit
-                            type="textarea"
-                            :rows="2"
-                          />
-                        </div>
-                      </div>
-                      <div class="info-item">
-                        <label>货运方式：</label>
-                        <span v-if="!cooperationEditMode">
-                          <el-tag
-                            v-for="method in customerProfile?.shippingMethods"
-                            :key="method"
-                            size="small"
-                            style="margin-right: 6px"
-                          >
-                            {{ getShippingMethodLabel(method) }}
-                          </el-tag>
-                          <span v-if="!customerProfile?.shippingMethods || customerProfile.shippingMethods.length === 0">-</span>
-                        </span>
-                <el-select
-                          v-else
-                          v-model="cooperationForm.shippingMethods"
-                          multiple
-                          placeholder="请选择货运方式"
-                          style="width: 100%"
-                        >
-                          <el-option label="专车" value="dedicated_truck" />
-                          <el-option label="物流" value="logistics" />
-                          <el-option label="自提" value="self_pickup" />
-                          <el-option label="快递" value="courier" />
-                </el-select>
-                      </div>
-                      <div class="info-item">
-                        <label>主要采购品类：</label>
-                        <span v-if="!cooperationEditMode">
-                          <el-tag
-                            v-for="categoryId in customerProfile?.mainCategoryIds"
-                            :key="categoryId"
-                            size="small"
-                            style="margin-right: 6px"
-                          >
-                            {{ getCategoryLabel(categoryId) }}
-                          </el-tag>
-                          <span v-if="!customerProfile?.mainCategoryIds || customerProfile.mainCategoryIds.length === 0">-</span>
-                        </span>
-                <el-select
-                          v-else
-                          v-model="cooperationForm.mainCategoryIds"
-                          multiple
-                  filterable
-                          placeholder="请选择主要采购品类"
-                          style="width: 100%"
-                          :loading="categoryOptionsLoading"
-                        >
-                  <el-option
-                            v-for="category in categoryOptions"
-                            :key="category.id"
-                            :label="category.label"
-                            :value="category.id"
-                  />
-                </el-select>
-              </div>
-                      <div class="info-item">
-                        <label>意向竞品：</label>
-                        <span v-if="!cooperationEditMode">
-                          <el-tag
-                            v-for="brand in customerProfile?.competitorBrands"
-                            :key="brand"
-                            size="small"
-                            style="margin-right: 6px"
-                          >
-                            {{ brand }}
-                          </el-tag>
-                          <span v-if="!customerProfile?.competitorBrands || customerProfile.competitorBrands.length === 0">-</span>
-                        </span>
-                        <el-select
-                          v-else
-                          v-model="cooperationForm.competitorBrands"
-                          multiple
-                          filterable
-                          allow-create
-                          default-first-option
-                          placeholder="请输入或选择竞品品牌"
-                          style="width: 100%"
-                        />
-                        </div>
-                      </div>
+                <div class="list-padding">
+                  <div v-if="cooperationLoading" style="text-align: center; padding: 40px 0">
+                    <el-icon class="is-loading" style="font-size: 24px"><Loading /></el-icon>
                   </div>
 
-                  <!-- 信用评定区域 -->
-                  <div class="cooperation-section">
-                    <h4 class="section-title">
-                      信用评定
-                      <el-button
-                        type="text"
-                          size="small"
-                        style="margin-left: 12px"
-                        @click="showCreditHistoryDialog = true"
-                      >
-                        查看历史
-                      </el-button>
-                    </h4>
-                    <div class="info-grid">
-                      <div class="info-item">
-                        <label>信用额度：</label>
-                        <span v-if="!cooperationEditMode">
-                          {{ customerProfile?.creditLimit ? formatCurrency(customerProfile.creditLimit, false) : '-' }}
-                        </span>
-                        <div v-else style="display: flex; gap: 12px; align-items: center">
-                          <el-input-number
-                            v-model="cooperationForm.creditLimit"
-                            :min="0"
-                            :precision="2"
-                            placeholder="请输入信用额度"
-                            style="width: 200px"
-                          />
-                          <span style="color: #909399">元</span>
-                      </div>
-                      </div>
-                      <div class="info-item">
-                        <label>额度档位：</label>
-                        <span v-if="!cooperationEditMode">
-                          {{ getCreditTierLabel(customerProfile?.creditTier) || '-' }}
-                        </span>
-                        <el-select
-                          v-else
-                          v-model="cooperationForm.creditTier"
-                          placeholder="请选择额度档位"
-                          style="width: 100%"
-                        >
-                          <el-option label="15万" value="tier_150k" />
-                          <el-option label="10万" value="tier_100k" />
-                          <el-option label="5万" value="tier_50k" />
-                          <el-option label="无" value="none" />
-                        </el-select>
-                      </div>
-                      <div class="info-item">
-                        <label>客户等级：</label>
-                        <span v-if="!cooperationEditMode">
-                          <el-tag
-                            v-if="selectedCustomer.level"
-                            :type="getLevelType(selectedCustomer.level)"
-                            size="small"
+                  <div v-else class="cooperation-content">
+                    <!-- 合作习惯区域 -->
+                    <div class="cooperation-section">
+                      <h4 class="section-title" style="margin-bottom: 12px">合作习惯</h4>
+                      <div class="info-grid">
+                        <div class="info-item" :class="{ 'full-width': cooperationEditMode }">
+                          <label>开票要求：</label>
+                          <span v-if="!cooperationEditMode">
+                            {{
+                              getInvoiceRequirementLabel(customerProfile?.invoiceRequirement) || '-'
+                            }}
+                          </span>
+                          <div
+                            v-else
+                            style="display: flex; flex-direction: column; gap: 8px; width: 100%"
                           >
-                            {{ selectedCustomer.level }}级
-                          </el-tag>
-                          <span v-else>-</span>
-                        </span>
-                        <el-select
-                          v-else
-                          v-model="cooperationForm.level"
-                          placeholder="请选择客户等级"
-                          style="width: 100%"
+                            <el-select
+                              v-model="cooperationForm.invoiceRequirement"
+                              placeholder="请选择开票要求"
+                              style="width: 100%"
+                            >
+                              <el-option label="专票" value="special_vat" />
+                              <el-option label="普票" value="normal_invoice" />
+                              <el-option label="不开票" value="no_invoice" />
+                            </el-select>
+                            <el-input
+                              v-model="cooperationForm.invoiceRemark"
+                              placeholder="开票说明（可选）"
+                              maxlength="500"
+                              show-word-limit
+                              type="textarea"
+                              :rows="2"
+                            />
+                          </div>
+                        </div>
+                        <div class="info-item">
+                          <label>货运方式：</label>
+                          <span v-if="!cooperationEditMode">
+                            <el-tag
+                              v-for="method in customerProfile?.shippingMethods"
+                              :key="method"
+                              size="small"
+                              style="margin-right: 6px"
+                            >
+                              {{ getShippingMethodLabel(method) }}
+                            </el-tag>
+                            <span
+                              v-if="
+                                !customerProfile?.shippingMethods ||
+                                customerProfile.shippingMethods.length === 0
+                              "
+                              >-</span
+                            >
+                          </span>
+                          <el-select
+                            v-else
+                            v-model="cooperationForm.shippingMethods"
+                            multiple
+                            placeholder="请选择货运方式"
+                            style="width: 100%"
+                          >
+                            <el-option label="专车" value="dedicated_truck" />
+                            <el-option label="物流" value="logistics" />
+                            <el-option label="自提" value="self_pickup" />
+                            <el-option label="快递" value="courier" />
+                          </el-select>
+                        </div>
+                        <div class="info-item">
+                          <label>主要采购品类：</label>
+                          <span v-if="!cooperationEditMode">
+                            <el-tag
+                              v-for="categoryId in customerProfile?.mainCategoryIds"
+                              :key="categoryId"
+                              size="small"
+                              style="margin-right: 6px"
+                            >
+                              {{ getCategoryLabel(categoryId) }}
+                            </el-tag>
+                            <span
+                              v-if="
+                                !customerProfile?.mainCategoryIds ||
+                                customerProfile.mainCategoryIds.length === 0
+                              "
+                              >-</span
+                            >
+                          </span>
+                          <el-select
+                            v-else
+                            v-model="cooperationForm.mainCategoryIds"
+                            multiple
+                            filterable
+                            placeholder="请选择主要采购品类"
+                            style="width: 100%"
+                            :loading="categoryOptionsLoading"
+                          >
+                            <el-option
+                              v-for="category in categoryOptions"
+                              :key="category.id"
+                              :label="category.label"
+                              :value="category.id"
+                            />
+                          </el-select>
+                        </div>
+                        <div class="info-item">
+                          <label>意向竞品：</label>
+                          <span v-if="!cooperationEditMode">
+                            <el-tag
+                              v-for="brand in customerProfile?.competitorBrands"
+                              :key="brand"
+                              size="small"
+                              style="margin-right: 6px"
+                            >
+                              {{ brand }}
+                            </el-tag>
+                            <span
+                              v-if="
+                                !customerProfile?.competitorBrands ||
+                                customerProfile.competitorBrands.length === 0
+                              "
+                              >-</span
+                            >
+                          </span>
+                          <el-select
+                            v-else
+                            v-model="cooperationForm.competitorBrands"
+                            multiple
+                            filterable
+                            allow-create
+                            default-first-option
+                            placeholder="请输入或选择竞品品牌"
+                            style="width: 100%"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- 信用评定区域 -->
+                    <div class="cooperation-section">
+                      <h4 class="section-title">
+                        信用评定
+                        <el-button
+                          type="text"
+                          size="small"
+                          style="margin-left: 12px"
+                          @click="showCreditHistoryDialog = true"
                         >
-                          <el-option label="A级" value="A" />
-                          <el-option label="B级" value="B" />
-                          <el-option label="C级" value="C" />
-                          <el-option label="D级" value="D" />
-                        </el-select>
+                          查看历史
+                        </el-button>
+                      </h4>
+                      <div class="info-grid">
+                        <div class="info-item">
+                          <label>信用额度：</label>
+                          <span v-if="!cooperationEditMode">
+                            {{
+                              customerProfile?.creditLimit
+                                ? formatCurrency(customerProfile.creditLimit, false)
+                                : '-'
+                            }}
+                          </span>
+                          <div v-else style="display: flex; gap: 12px; align-items: center">
+                            <el-input-number
+                              v-model="cooperationForm.creditLimit"
+                              :min="0"
+                              :precision="2"
+                              placeholder="请输入信用额度"
+                              style="width: 200px"
+                            />
+                            <span style="color: #909399">元</span>
+                          </div>
+                        </div>
+                        <div class="info-item">
+                          <label>额度档位：</label>
+                          <span v-if="!cooperationEditMode">
+                            {{ getCreditTierLabel(customerProfile?.creditTier) || '-' }}
+                          </span>
+                          <el-select
+                            v-else
+                            v-model="cooperationForm.creditTier"
+                            placeholder="请选择额度档位"
+                            style="width: 100%"
+                          >
+                            <el-option label="15万" value="tier_150k" />
+                            <el-option label="10万" value="tier_100k" />
+                            <el-option label="5万" value="tier_50k" />
+                            <el-option label="无" value="none" />
+                          </el-select>
+                        </div>
+                        <div class="info-item">
+                          <label>客户等级：</label>
+                          <span v-if="!cooperationEditMode">
+                            <el-tag
+                              v-if="selectedCustomer.level"
+                              :type="getLevelType(selectedCustomer.level)"
+                              size="small"
+                            >
+                              {{ selectedCustomer.level }}级
+                            </el-tag>
+                            <span v-else>-</span>
+                          </span>
+                          <el-select
+                            v-else
+                            v-model="cooperationForm.level"
+                            placeholder="请选择客户等级"
+                            style="width: 100%"
+                          >
+                            <el-option label="A级" value="A" />
+                            <el-option label="B级" value="B" />
+                            <el-option label="C级" value="C" />
+                            <el-option label="D级" value="D" />
+                          </el-select>
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
-              </div>
               </el-card>
 
               <!-- 需求内容 -->
-              <el-card shadow="never" id="customer-section-requirements" class="tab-content detail-section section-card">
-                  <template #header>
-                    <div style="display: flex; justify-content: space-between; align-items: center">
-                      <h3 class="section-title" style="margin: 0">客户需求</h3>
-                      <el-button type="primary" size="small" @click="openCreateRequirement"
-                        >新增需求</el-button
-                  >
-                </div>
-                  </template>
+              <el-card
+                shadow="never"
+                id="customer-section-requirements"
+                class="tab-content detail-section section-card"
+              >
+                <template #header>
+                  <div style="display: flex; justify-content: space-between; align-items: center">
+                    <h3 class="section-title" style="margin: 0">客户需求</h3>
+                    <el-button type="primary" size="small" @click="openCreateRequirement"
+                      >新增需求</el-button
+                    >
+                  </div>
+                </template>
                 <div class="list-padding">
-                <el-table :data="customerRequirements" border style="width: 100%">
-                  <el-table-column label="需求类型" width="120">
-                    <template #default="{ row }">
-                      <el-tag :type="getRequirementTypeTagType(row.type)" size="small">
-                        {{ getRequirementTypeLabel(row.type) }}
-                      </el-tag>
-                    </template>
-                  </el-table-column>
-                  <el-table-column prop="content" label="需求内容" min-width="200" show-overflow-tooltip />
-                  <el-table-column prop="problemToSolve" label="要解决的问题" min-width="200" show-overflow-tooltip />
-                  <el-table-column label="优先级" width="100">
-                    <template #default="{ row }">
-                      <el-tag :type="getRequirementPriorityTagType(row.priority)" size="small">
-                        {{ getRequirementPriorityLabel(row.priority) }}
-                      </el-tag>
-                    </template>
-                  </el-table-column>
-                  <el-table-column label="状态" width="100">
-                    <template #default="{ row }">
-                      <el-tag :type="getRequirementStatusTagType(row.status)" size="small">
-                        {{ getRequirementStatusLabel(row.status) }}
-                      </el-tag>
-                    </template>
-                  </el-table-column>
-                  <el-table-column prop="createdAt" label="创建时间" width="180">
-                    <template #default="{ row }">
-                      {{ formatDate(row.createdAt) }}
-                    </template>
-                  </el-table-column>
-                  <el-table-column label="操作" width="200" fixed="right">
-                    <template #default="{ row }">
-                      <el-button size="small" type="primary" @click="openEditRequirement(row)"
-                        >编辑</el-button
-                      >
-                      <el-button size="small" type="danger" @click="deleteRequirement(row)"
-                        >删除</el-button
-                      >
-                    </template>
-                  </el-table-column>
-                </el-table>
-              </div>
+                  <el-table :data="customerRequirements" border style="width: 100%">
+                    <el-table-column label="需求类型" width="120">
+                      <template #default="{ row }">
+                        <el-tag :type="getRequirementTypeTagType(row.type)" size="small">
+                          {{ getRequirementTypeLabel(row.type) }}
+                        </el-tag>
+                      </template>
+                    </el-table-column>
+                    <el-table-column
+                      prop="content"
+                      label="需求内容"
+                      min-width="200"
+                      show-overflow-tooltip
+                    />
+                    <el-table-column
+                      prop="problemToSolve"
+                      label="要解决的问题"
+                      min-width="200"
+                      show-overflow-tooltip
+                    />
+                    <el-table-column label="优先级" width="100">
+                      <template #default="{ row }">
+                        <el-tag :type="getRequirementPriorityTagType(row.priority)" size="small">
+                          {{ getRequirementPriorityLabel(row.priority) }}
+                        </el-tag>
+                      </template>
+                    </el-table-column>
+                    <el-table-column label="状态" width="100">
+                      <template #default="{ row }">
+                        <el-tag :type="getRequirementStatusTagType(row.status)" size="small">
+                          {{ getRequirementStatusLabel(row.status) }}
+                        </el-tag>
+                      </template>
+                    </el-table-column>
+                    <el-table-column prop="createdAt" label="创建时间" width="180">
+                      <template #default="{ row }">
+                        {{ formatDate(row.createdAt) }}
+                      </template>
+                    </el-table-column>
+                    <el-table-column label="操作" width="200" fixed="right">
+                      <template #default="{ row }">
+                        <el-button size="small" type="primary" @click="openEditRequirement(row)"
+                          >编辑</el-button
+                        >
+                        <el-button size="small" type="danger" @click="deleteRequirement(row)"
+                          >删除</el-button
+                        >
+                      </template>
+                    </el-table-column>
+                  </el-table>
+                </div>
               </el-card>
-            <!-- 拜访记录内容 -->
-              <el-card shadow="never" id="customer-section-visits" class="tab-content detail-section section-card">
+              <!-- 拜访记录内容 -->
+              <el-card
+                shadow="never"
+                id="customer-section-visits"
+                class="tab-content detail-section section-card"
+              >
                 <template #header>
                   <h3 class="section-title" style="margin: 0">拜访记录</h3>
                 </template>
-              <div class="list-padding">
-                <ContactVisitList
-                  v-if="selectedCustomer?.id"
-                  related-to-type="customer"
-                  :related-to-id="String(selectedCustomer.id)"
-                />
-              </div>
+                <div class="list-padding">
+                  <ContactVisitList
+                    v-if="selectedCustomer?.id"
+                    related-to-type="customer"
+                    :related-to-id="String(selectedCustomer.id)"
+                  />
+                </div>
               </el-card>
 
-            <!-- 商机内容（列表显示） -->
-              <el-card shadow="never" id="customer-section-opportunities" class="tab-content detail-section section-card">
-                  <template #header>
-                    <div style="display: flex; justify-content: space-between; align-items: center">
-                      <h3 class="section-title" style="margin: 0">商机</h3>
-                  <el-button type="primary" size="small" @click="openCreateOpportunity"
-                    >新增商机</el-button
+              <!-- 商机内容（列表显示） -->
+              <el-card
+                shadow="never"
+                id="customer-section-opportunities"
+                class="tab-content detail-section section-card"
+              >
+                <template #header>
+                  <div style="display: flex; justify-content: space-between; align-items: center">
+                    <h3 class="section-title" style="margin: 0">商机</h3>
+                    <el-button type="primary" size="small" @click="openCreateOpportunity"
+                      >新增商机</el-button
+                    >
+                  </div>
+                </template>
+                <div class="list-padding">
+                  <el-table
+                    :data="customerOpportunities"
+                    border
+                    style="width: 100%"
+                    :summary-method="getOpportunitySummaries"
+                    show-summary
                   >
-                </div>
-                  </template>
-                <div class="list-padding">
-                <el-table
-                  :data="customerOpportunities"
-                  border
-                  style="width: 100%"
-                  :summary-method="getOpportunitySummaries"
-                  show-summary
-                >
-                  <el-table-column prop="title" label="商机名称" min-width="180" />
-                  <el-table-column prop="stage" label="阶段" width="120">
-                    <template #default="{ row }">
-                      <el-tag :type="getStageType(row.stage)" size="small">{{
-                        getStageName(row.stage)
-                      }}</el-tag>
-                    </template>
-                  </el-table-column>
-                  <el-table-column prop="value" label="金额" width="120" align="right">
-                    <template #default="{ row }">{{ formatCurrency(row.value) }}</template>
-                  </el-table-column>
-                  <el-table-column prop="probability" label="概率" width="100" align="center">
-                    <template #default="{ row }">{{ row.probability }}%</template>
-                  </el-table-column>
-                  <el-table-column prop="expectedCloseDate" label="预计成交日期" width="160">
-                    <template #default="{ row }">{{ formatDateOnly(row.expectedCloseDate) }}</template>
-                  </el-table-column>
-                  <el-table-column label="负责人" width="120">
-                    <template #default="{ row }">{{ getUserName(row.owner) }}</template>
-                  </el-table-column>
-                  <el-table-column label="操作" width="160" fixed="right">
-                    <template #default="{ row }">
-                      <el-button size="small" type="primary" @click="openEditOpportunity(row)"
-                        >编辑</el-button
-                      >
-                      <el-button size="small" type="danger" @click="deleteOpportunity(row)"
-                        >删除</el-button
-                      >
-                    </template>
-                  </el-table-column>
-                </el-table>
-              </div>
-                </el-card>
-
-            <!-- 报价内容 -->
-              <el-card shadow="never" id="customer-section-quotes" class="tab-content detail-section section-card">
-                  <template #header>
-                    <div style="display: flex; justify-content: space-between; align-items: center">
-                      <h3 class="section-title" style="margin: 0">销售报价</h3>
-                      <el-button type="primary" size="small" @click="openCreateQuote">新增报价</el-button>
-                    </div>
-                  </template>
-                <div class="list-padding">
-                <el-table :data="customerQuotes" border style="width: 100%">
-                  <el-table-column prop="quoteNumber" label="报价单号" width="150">
-                    <template #default="{ row }">
-                      <el-link type="primary" :underline="false" @click="viewQuote(row)" style="cursor: pointer">
-                        {{ row.quoteNumber }}
-                      </el-link>
-                    </template>
-                  </el-table-column>
-                  <el-table-column prop="opportunity.name" label="商机" width="150" show-overflow-tooltip>
-                    <template #default="{ row }">
-                      <span class="opportunity-name">{{ row.opportunity?.name || '-' }}</span>
-                    </template>
-                  </el-table-column>
-                  <el-table-column prop="totalAmount" label="总金额" width="120" align="right">
-                    <template #default="{ row }">
-                      {{ formatCurrency(row.totalAmount) }}
-                    </template>
-                  </el-table-column>
-                  <el-table-column prop="quoteDate" label="报价日期" width="120">
-                    <template #default="{ row }">
-                      {{ formatDateOnly(row.quoteDate) }}
-                    </template>
-                  </el-table-column>
-                  <el-table-column prop="expiryDate" label="有效期" width="120">
-                    <template #default="{ row }">
-                      {{ row.expiryDate ? formatDateOnly(row.expiryDate) : '-' }}
-                    </template>
-                  </el-table-column>
-                  <el-table-column prop="status" label="状态" width="120">
-                    <template #default="{ row }">
-                      <el-tag :type="getQuoteStatusType(row.status)">
-                        {{ getQuoteStatusName(row.status) }}
-                      </el-tag>
-                    </template>
-                  </el-table-column>
-                  <el-table-column prop="owner" label="负责人" width="120">
-                    <template #default="{ row }">
-                      {{ row.owner?.user?.username || row.owner?.username || '-' }}
-                    </template>
-                  </el-table-column>
-                  <el-table-column label="部门" width="120">
-                    <template #default="{ row }">
-                      <span v-if="row.department?.name">{{ row.department.name }}</span>
-                      <span v-else class="text-gray-400">-</span>
-                    </template>
-                  </el-table-column>
-                  <el-table-column label="创建者" width="120">
-                    <template #default="{ row }">
-                      {{ row.creator?.user?.username || row.creator?.nickname || '-' }}
-                    </template>
-                  </el-table-column>
-                  <el-table-column prop="createdAt" label="创建时间" width="180">
-                    <template #default="{ row }">
-                      {{ formatDateTime(row.createdAt) }}
-                    </template>
-                  </el-table-column>
-                  <el-table-column label="操作" width="300" fixed="right">
-                    <template #default="{ row }">
-                      <div class="action-buttons">
-                        <el-button
-                          v-if="row.status === 'draft'"
-                          type="warning"
-                          size="small"
-                          :icon="Edit"
-                          @click="openEditQuote(row)"
-                        >
-                          编辑
-                        </el-button>
-                        <el-button
-                          v-if="row.status === 'draft' || row.status === 'rejected'"
-                          type="success"
-                          size="small"
-                          @click="viewQuote(row)"
-                        >
-                          {{ row.status === 'rejected' ? '重新提交审批' : '提交审批' }}
-                        </el-button>
-                        <el-button type="info" size="small" :icon="Printer" @click="printQuote(row)">
-                          打印
-                        </el-button>
-                        <el-button type="info" size="small" @click="createContractFromQuote(row)">
-                          创建合同
-                        </el-button>
-                        <el-button type="danger" size="small" :icon="Delete" @click="deleteQuote(row)">
-                          删除
-                        </el-button>
-                      </div>
-                    </template>
-                  </el-table-column>
-                </el-table>
-              </div>
-                </el-card>
-
-            <!-- 合同内容 -->
-              <el-card shadow="never" id="customer-section-contracts" class="tab-content detail-section section-card">
-                  <template #header>
-                    <div style="display: flex; justify-content: space-between; align-items: center">
-                      <h3 class="section-title" style="margin: 0">销售合同</h3>
-                      <el-button type="primary" size="small" @click="openCreateContract">新增合同</el-button>
-                    </div>
-                  </template>
-                <div class="list-padding">
-                <el-table :data="customerContracts" border style="width: 100%">
-                  <el-table-column prop="contractNumber" label="合同编号" min-width="150" />
-                  <el-table-column prop="type" label="合同类型" width="120">
-                    <template #default="{ row }">
-                      <el-tag :type="getContractTypeTagType(row.type)" size="small">
-                        {{ getContractTypeName(row.type) }}
-                      </el-tag>
-                    </template>
-                  </el-table-column>
-                  <el-table-column prop="status" label="状态" width="120">
-                    <template #default="{ row }">
-                      <el-tag :type="getContractStatusType(row.status)" size="small">
-                        {{ getContractStatusName(row.status) }}
-                      </el-tag>
-                    </template>
-                  </el-table-column>
-                  <el-table-column prop="totalAmount" label="总金额" width="120" align="right">
-                    <template #default="{ row }">{{ formatCurrency(row.totalAmount) }}</template>
-                  </el-table-column>
-                  <el-table-column prop="signDate" label="签约日期" width="120">
-                    <template #default="{ row }">
-                      <span v-if="row.signDate">{{ formatDate(row.signDate) }}</span>
-                      <span v-else class="text-gray-400">-</span>
-                    </template>
-                  </el-table-column>
-                  <el-table-column prop="effectiveDate" label="生效日期" width="120">
-                    <template #default="{ row }">
-                      <span v-if="row.effectiveDate">{{ formatDate(row.effectiveDate) }}</span>
-                      <span v-else class="text-gray-400">-</span>
-                    </template>
-                  </el-table-column>
-                  <el-table-column prop="expiryDate" label="到期日期" width="120">
-                    <template #default="{ row }">
-                      <span v-if="row.expiryDate">{{ formatDate(row.expiryDate) }}</span>
-                      <span v-else class="text-gray-400">-</span>
-                    </template>
-                  </el-table-column>
-                  <el-table-column prop="quote" label="关联报价" width="150" show-overflow-tooltip>
-                    <template #default="{ row }">
-                      <span v-if="row.quote?.quoteNumber">{{ row.quote.quoteNumber }}</span>
-                      <span v-else class="text-gray-400">-</span>
-                    </template>
-                  </el-table-column>
-                  <el-table-column prop="opportunity" label="关联商机" width="150" show-overflow-tooltip>
-                    <template #default="{ row }">
-                      <span v-if="row.opportunity?.name">{{ row.opportunity.name }}</span>
-                      <span v-else class="text-gray-400">-</span>
-                    </template>
-                  </el-table-column>
-                  <el-table-column prop="createdAt" label="创建时间" width="180">
-                    <template #default="{ row }">{{ formatDate(row.createdAt) }}</template>
-                  </el-table-column>
-                  <el-table-column label="操作" width="160" fixed="right">
-                    <template #default="{ row }">
-                      <el-button size="small" type="primary" @click="openEditContract(row)">编辑</el-button>
-                      <el-button size="small" type="danger" @click="deleteContract(row)">删除</el-button>
-                    </template>
-                  </el-table-column>
-                </el-table>
-              </div>
-                </el-card>
-
-            <!-- 订单内容 -->
-              <el-card shadow="never" id="customer-section-orders" class="tab-content detail-section section-card">
-                  <template #header>
-                    <div style="display: flex; justify-content: space-between; align-items: center">
-                      <h3 class="section-title" style="margin: 0">销售订单</h3>
-                      <div style="display: flex; align-items: center; gap: 12px">
-                        <el-radio-group v-model="orderViewMode" size="default">
-                          <el-radio-button label="list">订单列表</el-radio-button>
-                          <el-radio-button label="analytics">数据分析</el-radio-button>
-                        </el-radio-group>
-                        <el-button v-if="orderViewMode === 'list'" type="primary" size="small" @click="openCreateOrder">新增订单</el-button>
-                      </div>
-                    </div>
-                  </template>
-                <div class="list-padding">
-
-                <!-- 订单列表视图 -->
-                <div v-if="orderViewMode === 'list'">
-                  <el-table :data="customerOrders" border style="width: 100%">
-                    <el-table-column prop="orderNumber" label="订单编号" min-width="150" />
-                    <el-table-column prop="orderDate" label="订单日期" width="120">
-                      <template #default="{ row }">{{ formatDateOnly(row.orderDate) }}</template>
-                    </el-table-column>
-                    <el-table-column prop="deliveryDate" label="交货日期" width="120">
+                    <el-table-column prop="title" label="商机名称" min-width="180" />
+                    <el-table-column prop="stage" label="阶段" width="120">
                       <template #default="{ row }">
-                        <span v-if="row.deliveryDate">{{ formatDateOnly(row.deliveryDate) }}</span>
+                        <el-tag :type="getStageType(row.stage)" size="small">{{
+                          getStageName(row.stage)
+                        }}</el-tag>
+                      </template>
+                    </el-table-column>
+                    <el-table-column prop="value" label="金额" width="120" align="right">
+                      <template #default="{ row }">{{ formatCurrency(row.value) }}</template>
+                    </el-table-column>
+                    <el-table-column prop="probability" label="概率" width="100" align="center">
+                      <template #default="{ row }">{{ row.probability }}%</template>
+                    </el-table-column>
+                    <el-table-column prop="expectedCloseDate" label="预计成交日期" width="160">
+                      <template #default="{ row }">{{
+                        formatDateOnly(row.expectedCloseDate)
+                      }}</template>
+                    </el-table-column>
+                    <el-table-column label="负责人" width="120">
+                      <template #default="{ row }">{{ getUserName(row.owner) }}</template>
+                    </el-table-column>
+                    <el-table-column label="操作" width="160" fixed="right">
+                      <template #default="{ row }">
+                        <el-button size="small" type="primary" @click="openEditOpportunity(row)"
+                          >编辑</el-button
+                        >
+                        <el-button size="small" type="danger" @click="deleteOpportunity(row)"
+                          >删除</el-button
+                        >
+                      </template>
+                    </el-table-column>
+                  </el-table>
+                </div>
+              </el-card>
+
+              <!-- 报价内容 -->
+              <el-card
+                shadow="never"
+                id="customer-section-quotes"
+                class="tab-content detail-section section-card"
+              >
+                <template #header>
+                  <div style="display: flex; justify-content: space-between; align-items: center">
+                    <h3 class="section-title" style="margin: 0">销售报价</h3>
+                    <el-button type="primary" size="small" @click="openCreateQuote"
+                      >新增报价</el-button
+                    >
+                  </div>
+                </template>
+                <div class="list-padding">
+                  <el-table :data="customerQuotes" border style="width: 100%">
+                    <el-table-column prop="quoteNumber" label="报价单号" width="150">
+                      <template #default="{ row }">
+                        <el-link
+                          type="primary"
+                          :underline="false"
+                          @click="viewQuote(row)"
+                          style="cursor: pointer"
+                        >
+                          {{ row.quoteNumber }}
+                        </el-link>
+                      </template>
+                    </el-table-column>
+                    <el-table-column
+                      prop="opportunity.name"
+                      label="商机"
+                      width="150"
+                      show-overflow-tooltip
+                    >
+                      <template #default="{ row }">
+                        <span class="opportunity-name">{{ row.opportunity?.name || '-' }}</span>
+                      </template>
+                    </el-table-column>
+                    <el-table-column prop="totalAmount" label="总金额" width="120" align="right">
+                      <template #default="{ row }">
+                        {{ formatCurrency(row.totalAmount) }}
+                      </template>
+                    </el-table-column>
+                    <el-table-column prop="quoteDate" label="报价日期" width="120">
+                      <template #default="{ row }">
+                        {{ formatDateOnly(row.quoteDate) }}
+                      </template>
+                    </el-table-column>
+                    <el-table-column prop="expiryDate" label="有效期" width="120">
+                      <template #default="{ row }">
+                        {{ row.expiryDate ? formatDateOnly(row.expiryDate) : '-' }}
+                      </template>
+                    </el-table-column>
+                    <el-table-column prop="status" label="状态" width="120">
+                      <template #default="{ row }">
+                        <el-tag :type="getQuoteStatusType(row.status)">
+                          {{ getQuoteStatusName(row.status) }}
+                        </el-tag>
+                      </template>
+                    </el-table-column>
+                    <el-table-column prop="owner" label="负责人" width="120">
+                      <template #default="{ row }">
+                        {{ row.owner?.user?.username || row.owner?.username || '-' }}
+                      </template>
+                    </el-table-column>
+                    <el-table-column label="部门" width="120">
+                      <template #default="{ row }">
+                        <span v-if="row.department?.name">{{ row.department.name }}</span>
                         <span v-else class="text-gray-400">-</span>
+                      </template>
+                    </el-table-column>
+                    <el-table-column label="创建者" width="120">
+                      <template #default="{ row }">
+                        {{ row.creator?.user?.username || row.creator?.nickname || '-' }}
+                      </template>
+                    </el-table-column>
+                    <el-table-column prop="createdAt" label="创建时间" width="180">
+                      <template #default="{ row }">
+                        {{ formatDateTime(row.createdAt) }}
+                      </template>
+                    </el-table-column>
+                    <el-table-column label="操作" width="300" fixed="right">
+                      <template #default="{ row }">
+                        <div class="action-buttons">
+                          <el-button
+                            v-if="row.status === 'draft'"
+                            type="warning"
+                            size="small"
+                            :icon="Edit"
+                            @click="openEditQuote(row)"
+                          >
+                            编辑
+                          </el-button>
+                          <el-button
+                            v-if="row.status === 'draft' || row.status === 'rejected'"
+                            type="success"
+                            size="small"
+                            @click="viewQuote(row)"
+                          >
+                            {{ row.status === 'rejected' ? '重新提交审批' : '提交审批' }}
+                          </el-button>
+                          <el-button
+                            type="info"
+                            size="small"
+                            :icon="Printer"
+                            @click="printQuote(row)"
+                          >
+                            打印
+                          </el-button>
+                          <el-button type="info" size="small" @click="createContractFromQuote(row)">
+                            创建合同
+                          </el-button>
+                          <el-button
+                            type="danger"
+                            size="small"
+                            :icon="Delete"
+                            @click="deleteQuote(row)"
+                          >
+                            删除
+                          </el-button>
+                        </div>
+                      </template>
+                    </el-table-column>
+                  </el-table>
+                </div>
+              </el-card>
+
+              <!-- 合同内容 -->
+              <el-card
+                shadow="never"
+                id="customer-section-contracts"
+                class="tab-content detail-section section-card"
+              >
+                <template #header>
+                  <div style="display: flex; justify-content: space-between; align-items: center">
+                    <h3 class="section-title" style="margin: 0">销售合同</h3>
+                    <el-button type="primary" size="small" @click="openCreateContract"
+                      >新增合同</el-button
+                    >
+                  </div>
+                </template>
+                <div class="list-padding">
+                  <el-table :data="customerContracts" border style="width: 100%">
+                    <el-table-column prop="contractNumber" label="合同编号" min-width="150" />
+                    <el-table-column prop="type" label="合同类型" width="120">
+                      <template #default="{ row }">
+                        <el-tag :type="getContractTypeTagType(row.type)" size="small">
+                          {{ getContractTypeName(row.type) }}
+                        </el-tag>
+                      </template>
+                    </el-table-column>
+                    <el-table-column prop="status" label="状态" width="120">
+                      <template #default="{ row }">
+                        <el-tag :type="getContractStatusType(row.status)" size="small">
+                          {{ getContractStatusName(row.status) }}
+                        </el-tag>
                       </template>
                     </el-table-column>
                     <el-table-column prop="totalAmount" label="总金额" width="120" align="right">
                       <template #default="{ row }">{{ formatCurrency(row.totalAmount) }}</template>
                     </el-table-column>
-                    <el-table-column prop="status" label="状态" width="120">
+                    <el-table-column prop="signDate" label="签约日期" width="120">
                       <template #default="{ row }">
-                        <el-tag :type="getOrderStatusType(row.status)" size="small">
-                          {{ getOrderStatusName(row.status) }}
-                        </el-tag>
+                        <span v-if="row.signDate">{{ formatDate(row.signDate) }}</span>
+                        <span v-else class="text-gray-400">-</span>
                       </template>
                     </el-table-column>
-                    <el-table-column prop="quote" label="关联报价" width="150" show-overflow-tooltip>
+                    <el-table-column prop="effectiveDate" label="生效日期" width="120">
+                      <template #default="{ row }">
+                        <span v-if="row.effectiveDate">{{ formatDate(row.effectiveDate) }}</span>
+                        <span v-else class="text-gray-400">-</span>
+                      </template>
+                    </el-table-column>
+                    <el-table-column prop="expiryDate" label="到期日期" width="120">
+                      <template #default="{ row }">
+                        <span v-if="row.expiryDate">{{ formatDate(row.expiryDate) }}</span>
+                        <span v-else class="text-gray-400">-</span>
+                      </template>
+                    </el-table-column>
+                    <el-table-column
+                      prop="quote"
+                      label="关联报价"
+                      width="150"
+                      show-overflow-tooltip
+                    >
                       <template #default="{ row }">
                         <span v-if="row.quote?.quoteNumber">{{ row.quote.quoteNumber }}</span>
                         <span v-else class="text-gray-400">-</span>
                       </template>
                     </el-table-column>
-                    <el-table-column prop="contract" label="关联合同" width="150" show-overflow-tooltip>
-                      <template #default="{ row }">
-                        <span v-if="row.contract?.contractNumber">{{ row.contract.contractNumber }}</span>
-                        <span v-else class="text-gray-400">-</span>
-                      </template>
-                    </el-table-column>
-                    <el-table-column prop="opportunity" label="关联商机" width="150" show-overflow-tooltip>
+                    <el-table-column
+                      prop="opportunity"
+                      label="关联商机"
+                      width="150"
+                      show-overflow-tooltip
+                    >
                       <template #default="{ row }">
                         <span v-if="row.opportunity?.name">{{ row.opportunity.name }}</span>
                         <span v-else class="text-gray-400">-</span>
@@ -1722,51 +1967,163 @@
                     </el-table-column>
                     <el-table-column label="操作" width="160" fixed="right">
                       <template #default="{ row }">
-                        <el-button size="small" type="primary" @click="openEditOrder(row)">编辑</el-button>
-                        <el-button size="small" type="danger" @click="deleteOrder(row)">删除</el-button>
+                        <el-button size="small" type="primary" @click="openEditContract(row)"
+                          >编辑</el-button
+                        >
+                        <el-button size="small" type="danger" @click="deleteContract(row)"
+                          >删除</el-button
+                        >
                       </template>
                     </el-table-column>
                   </el-table>
                 </div>
+              </el-card>
 
-                <!-- 数据分析视图 -->
-                <div v-else class="analytics-content">
-                  <template v-if="customerOrders.length === 0">
-                    <div class="chart-container">
-                      <el-empty description="暂无订单数据" />
+              <!-- 订单内容 -->
+              <el-card
+                shadow="never"
+                id="customer-section-orders"
+                class="tab-content detail-section section-card"
+              >
+                <template #header>
+                  <div style="display: flex; justify-content: space-between; align-items: center">
+                    <h3 class="section-title" style="margin: 0">销售订单</h3>
+                    <div style="display: flex; align-items: center; gap: 12px">
+                      <el-radio-group v-model="orderViewMode" size="default">
+                        <el-radio-button label="list">订单列表</el-radio-button>
+                        <el-radio-button label="analytics">数据分析</el-radio-button>
+                      </el-radio-group>
+                      <el-button
+                        v-if="orderViewMode === 'list'"
+                        type="primary"
+                        size="small"
+                        @click="openCreateOrder"
+                        >新增订单</el-button
+                      >
                     </div>
-                  </template>
-                  <template v-else>
-                    <!-- 订单金额趋势图 -->
-                    <div class="chart-container">
-                      <div class="chart-header">
-                        <div class="chart-title">订单金额趋势</div>
-                        <el-select
-                          v-model="orderAnalyticsPeriod"
-                          size="small"
-                          style="width: 120px"
-                          @change="updateOrderCharts"
-                        >
-                          <el-option label="近30天" value="30days" />
-                          <el-option label="本月" value="thisMonth" />
-                          <el-option label="上月" value="lastMonth" />
-                          <el-option label="本年" value="thisYear" />
-                        </el-select>
+                  </div>
+                </template>
+                <div class="list-padding">
+                  <!-- 订单列表视图 -->
+                  <div v-if="orderViewMode === 'list'">
+                    <el-table :data="customerOrders" border style="width: 100%">
+                      <el-table-column prop="orderNumber" label="订单编号" min-width="150" />
+                      <el-table-column prop="orderDate" label="订单日期" width="120">
+                        <template #default="{ row }">{{ formatDateOnly(row.orderDate) }}</template>
+                      </el-table-column>
+                      <el-table-column prop="deliveryDate" label="交货日期" width="120">
+                        <template #default="{ row }">
+                          <span v-if="row.deliveryDate">{{
+                            formatDateOnly(row.deliveryDate)
+                          }}</span>
+                          <span v-else class="text-gray-400">-</span>
+                        </template>
+                      </el-table-column>
+                      <el-table-column prop="totalAmount" label="总金额" width="120" align="right">
+                        <template #default="{ row }">{{
+                          formatCurrency(row.totalAmount)
+                        }}</template>
+                      </el-table-column>
+                      <el-table-column prop="status" label="状态" width="120">
+                        <template #default="{ row }">
+                          <el-tag :type="getOrderStatusType(row.status)" size="small">
+                            {{ getOrderStatusName(row.status) }}
+                          </el-tag>
+                        </template>
+                      </el-table-column>
+                      <el-table-column
+                        prop="quote"
+                        label="关联报价"
+                        width="150"
+                        show-overflow-tooltip
+                      >
+                        <template #default="{ row }">
+                          <span v-if="row.quote?.quoteNumber">{{ row.quote.quoteNumber }}</span>
+                          <span v-else class="text-gray-400">-</span>
+                        </template>
+                      </el-table-column>
+                      <el-table-column
+                        prop="contract"
+                        label="关联合同"
+                        width="150"
+                        show-overflow-tooltip
+                      >
+                        <template #default="{ row }">
+                          <span v-if="row.contract?.contractNumber">{{
+                            row.contract.contractNumber
+                          }}</span>
+                          <span v-else class="text-gray-400">-</span>
+                        </template>
+                      </el-table-column>
+                      <el-table-column
+                        prop="opportunity"
+                        label="关联商机"
+                        width="150"
+                        show-overflow-tooltip
+                      >
+                        <template #default="{ row }">
+                          <span v-if="row.opportunity?.name">{{ row.opportunity.name }}</span>
+                          <span v-else class="text-gray-400">-</span>
+                        </template>
+                      </el-table-column>
+                      <el-table-column prop="createdAt" label="创建时间" width="180">
+                        <template #default="{ row }">{{ formatDate(row.createdAt) }}</template>
+                      </el-table-column>
+                      <el-table-column label="操作" width="160" fixed="right">
+                        <template #default="{ row }">
+                          <el-button size="small" type="primary" @click="openEditOrder(row)"
+                            >编辑</el-button
+                          >
+                          <el-button size="small" type="danger" @click="deleteOrder(row)"
+                            >删除</el-button
+                          >
+                        </template>
+                      </el-table-column>
+                    </el-table>
+                  </div>
+
+                  <!-- 数据分析视图 -->
+                  <div v-else class="analytics-content">
+                    <template v-if="customerOrders.length === 0">
+                      <div class="chart-container">
+                        <el-empty description="暂无订单数据" />
                       </div>
-                      <div ref="orderAmountTrendChart" style="width: 100%; height: 300px"></div>
-                    </div>
+                    </template>
+                    <template v-else>
+                      <!-- 订单金额趋势图 -->
+                      <div class="chart-container">
+                        <div class="chart-header">
+                          <div class="chart-title">订单金额趋势</div>
+                          <el-select
+                            v-model="orderAnalyticsPeriod"
+                            size="small"
+                            style="width: 120px"
+                            @change="updateOrderCharts"
+                          >
+                            <el-option label="近30天" value="30days" />
+                            <el-option label="本月" value="thisMonth" />
+                            <el-option label="上月" value="lastMonth" />
+                            <el-option label="本年" value="thisYear" />
+                          </el-select>
+                        </div>
+                        <div ref="orderAmountTrendChart" style="width: 100%; height: 300px"></div>
+                      </div>
 
-                    <!-- 订单产品占比饼图 -->
-                    <div class="chart-container">
-                      <div class="chart-title">订单产品占比</div>
-                      <div ref="orderProductPieChart" style="width: 100%; height: 400px"></div>
-                    </div>
-                  </template>
+                      <!-- 订单产品占比饼图 -->
+                      <div class="chart-container">
+                        <div class="chart-title">订单产品占比</div>
+                        <div ref="orderProductPieChart" style="width: 100%; height: 400px"></div>
+                      </div>
+                    </template>
+                  </div>
                 </div>
-              </div>
-                </el-card>
-             <!-- 对账内容 -->
-             <el-card shadow="never" id="customer-section-statements" class="tab-content statement-content detail-section section-card">
+              </el-card>
+              <!-- 对账内容 -->
+              <el-card
+                shadow="never"
+                id="customer-section-statements"
+                class="tab-content statement-content detail-section section-card"
+              >
                 <template #header>
                   <div style="display: flex; justify-content: space-between; align-items: center">
                     <h3 class="section-title" style="margin: 0">财务对账</h3>
@@ -1787,457 +2144,481 @@
                     </div>
                   </div>
                 </template>
-              <div v-if="statementTransactions.length > 0" class="statement-table-wrapper">
-                <table class="statement-table">
-                  <thead>
-                    <tr>
-                      <th class="col-date">日期</th>
-                      <th class="col-code">实例编码</th>
-                      <th class="col-summary">摘要</th>
-                      <th class="col-debit">借方-本位币</th>
-                      <th class="col-credit">贷方-本位币</th>
-                      <th class="col-dc">借/贷</th>
-                      <th class="col-balance">余额-本位币</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <template v-for="(group, groupIndex) in groupedTransactions" :key="groupIndex">
-                      <tr
-                        v-for="(item, index) in group.items"
-                        :key="item.id"
-                        :class="{ 'period-total': item.isPeriodTotal }"
-                      >
-                        <td class="col-date">
-                          <span v-if="!item.isPeriodTotal">{{ formatDateOnly(item.date) }}</span>
-                          <span v-else class="period-total-label">{{ item.periodLabel }}</span>
-                        </td>
-                        <td class="col-code">
-                          <span v-if="!item.isPeriodTotal && item.instanceCode" class="instance-code-link">
-                            <el-icon style="margin-right: 4px; font-size: 12px"><Document /></el-icon>
-                            {{ truncateCode(item.instanceCode) }}
-                          </span>
-                        </td>
-                        <td class="col-summary">{{ item.summary || '-' }}</td>
-                        <td class="col-debit" align="right">
-                          {{ item.debit ? formatCurrency(item.debit, false) : '-' }}
-                        </td>
-                        <td class="col-credit" align="right">
-                          {{ item.credit ? formatCurrency(item.credit, false) : '-' }}
-                        </td>
-                        <td class="col-dc" align="center">{{ item.dcType || '-' }}</td>
-                        <td class="col-balance" align="right">
-                          {{ item.balance ? formatCurrency(item.balance, false) : '-' }}
-                        </td>
+                <div v-if="statementTransactions.length > 0" class="statement-table-wrapper">
+                  <table class="statement-table">
+                    <thead>
+                      <tr>
+                        <th class="col-date">日期</th>
+                        <th class="col-code">实例编码</th>
+                        <th class="col-summary">摘要</th>
+                        <th class="col-debit">借方-本位币</th>
+                        <th class="col-credit">贷方-本位币</th>
+                        <th class="col-dc">借/贷</th>
+                        <th class="col-balance">余额-本位币</th>
                       </tr>
-                    </template>
-                  </tbody>
-                </table>
-              </div>
-              <div v-else class="empty-state">
-                <el-empty description="暂无对账数据" />
-              </div>
+                    </thead>
+                    <tbody>
+                      <template
+                        v-for="(group, groupIndex) in groupedTransactions"
+                        :key="groupIndex"
+                      >
+                        <tr
+                          v-for="(item, index) in group.items"
+                          :key="item.id"
+                          :class="{ 'period-total': item.isPeriodTotal }"
+                        >
+                          <td class="col-date">
+                            <span v-if="!item.isPeriodTotal">{{ formatDateOnly(item.date) }}</span>
+                            <span v-else class="period-total-label">{{ item.periodLabel }}</span>
+                          </td>
+                          <td class="col-code">
+                            <span
+                              v-if="!item.isPeriodTotal && item.instanceCode"
+                              class="instance-code-link"
+                            >
+                              <el-icon style="margin-right: 4px; font-size: 12px"
+                                ><Document
+                              /></el-icon>
+                              {{ truncateCode(item.instanceCode) }}
+                            </span>
+                          </td>
+                          <td class="col-summary">{{ item.summary || '-' }}</td>
+                          <td class="col-debit" align="right">
+                            {{ item.debit ? formatCurrency(item.debit, false) : '-' }}
+                          </td>
+                          <td class="col-credit" align="right">
+                            {{ item.credit ? formatCurrency(item.credit, false) : '-' }}
+                          </td>
+                          <td class="col-dc" align="center">{{ item.dcType || '-' }}</td>
+                          <td class="col-balance" align="right">
+                            {{ item.balance ? formatCurrency(item.balance, false) : '-' }}
+                          </td>
+                        </tr>
+                      </template>
+                    </tbody>
+                  </table>
+                </div>
+                <div v-else class="empty-state">
+                  <el-empty description="暂无对账数据" />
+                </div>
               </el-card>
               <!-- 活动记录内容 -->
-              <el-card shadow="never" id="customer-section-activities" class="tab-content detail-section section-card">
+              <el-card
+                shadow="never"
+                id="customer-section-activities"
+                class="tab-content detail-section section-card"
+              >
                 <template #header>
                   <h3 class="section-title" style="margin: 0">活动记录</h3>
                 </template>
-              <ActivityList
-                v-if="selectedCustomer?.id"
-                :related-to-type="'customer'"
-                :related-to-id="selectedCustomer.id"
-                :auto-load="true"
-                @refresh="() => {}"
-              />
+                <ActivityList
+                  v-if="selectedCustomer?.id"
+                  :related-to-type="'customer'"
+                  :related-to-id="selectedCustomer.id"
+                  :auto-load="true"
+                  @refresh="() => {}"
+                />
               </el-card>
-            <!-- 客户图谱内容（vue3-tree-org） -->
-            <el-card shadow="never" id="customer-section-graph" class="tab-content graph-content detail-section section-card">
+              <!-- 客户图谱内容（vue3-tree-org） -->
+              <el-card
+                shadow="never"
+                id="customer-section-graph"
+                class="tab-content graph-content detail-section section-card"
+              >
                 <template #header>
                   <h3 class="section-title" style="margin: 0">客户图谱</h3>
                 </template>
-              <div class="customer-graph-container">
-                <Vue3TreeOrg
-                  v-if="customerOrgTree"
-                  :data="customerOrgTree"
-                  :horizontal="true"
-                  :collapsable="true"
-                  :scalable="true"
-                  :draggable="true"
-                  :node-draggable="false"
-                  :clone-node-drag="false"
-                  :label-style="{ whiteSpace: 'nowrap', fontSize: '13px' }"
-                  :label-class-name="customerOrgLabelClass"
-                  :tool-bar="{ expand: true, scale: true, zoom: true, restore: true, fullscreen: false }"
-                />
-            </div>
+                <div class="customer-graph-container">
+                  <Vue3TreeOrg
+                    v-if="customerOrgTree"
+                    :data="customerOrgTree"
+                    :horizontal="true"
+                    :collapsable="true"
+                    :scalable="true"
+                    :draggable="true"
+                    :node-draggable="false"
+                    :clone-node-drag="false"
+                    :label-style="{ whiteSpace: 'nowrap', fontSize: '13px' }"
+                    :label-class-name="customerOrgLabelClass"
+                    :tool-bar="{
+                      expand: true,
+                      scale: true,
+                      zoom: true,
+                      restore: true,
+                      fullscreen: false,
+                    }"
+                  />
+                </div>
               </el-card>
             </template>
-
           </div>
         </div>
       </div>
     </el-drawer>
 
-  <!-- 完成活动弹窗 -->
-  <el-dialog v-model="completeDialog.visible" title="完成活动" width="480px">
-    <el-form label-width="90px">
-      <el-form-item label="完成结果">
-        <el-input v-model="completeDialog.outcome" placeholder="请输入结果/结论" />
-      </el-form-item>
-      <el-form-item label="完成内容">
-        <el-input
-          v-model="completeDialog.content"
-          type="textarea"
-          :rows="4"
-          placeholder="请输入完成的详细内容"
-        />
-      </el-form-item>
-    </el-form>
-    <template #footer>
-      <el-button @click="completeDialog.visible = false">取消</el-button>
-      <el-button type="primary" @click="submitComplete">确定</el-button>
-    </template>
-  </el-dialog>
+    <!-- 完成活动弹窗 -->
+    <el-dialog v-model="completeDialog.visible" title="完成活动" width="480px">
+      <el-form label-width="90px">
+        <el-form-item label="完成结果">
+          <el-input v-model="completeDialog.outcome" placeholder="请输入结果/结论" />
+        </el-form-item>
+        <el-form-item label="完成内容">
+          <el-input
+            v-model="completeDialog.content"
+            type="textarea"
+            :rows="4"
+            placeholder="请输入完成的详细内容"
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="completeDialog.visible = false">取消</el-button>
+        <el-button type="primary" @click="submitComplete">确定</el-button>
+      </template>
+    </el-dialog>
 
-  <!-- 新增/编辑拜访弹窗 -->
-  <el-dialog
-    v-model="visitDialogVisible"
-    :title="visitDialogTitle"
-    width="720px"
-    :close-on-click-modal="false"
-  >
-    <VisitForm
-      :visit="editingVisit"
-      :default-related-type="editingVisit ? undefined : 'customer'"
-      :default-related-id="editingVisit ? undefined : selectedCustomer?.id"
-      @success="handleVisitFormSuccess"
-      @cancel="visitDialogVisible = false"
-    />
-  </el-dialog>
-
-  <!-- 新建活动弹窗 -->
-  <el-dialog
-    v-model="createActivityDialogVisible"
-    title="新建活动"
-    width="600px"
-    :close-on-click-modal="false"
-  >
-    <ActivityForm
-      ref="activityFormRef"
-      :default-related-to-type="'customer'"
-      :default-related-to-id="selectedCustomer?.id"
-      @submit="handleActivitySubmit"
-      @cancel="createActivityDialogVisible = false"
-    />
-    <template #footer>
-      <el-button @click="createActivityDialogVisible = false">取消</el-button>
-      <el-button type="primary" :loading="savingActivity" @click="handleActivityFormSubmit">
-        保存
-      </el-button>
-    </template>
-  </el-dialog>
-
-  <!-- 新增/编辑报价弹窗 -->
-  <QuoteFormDialog
-    v-model="quoteDialogVisible"
-    :title="quoteDialogTitle"
-    :quote="currentQuote"
-    :default-customer-id="selectedCustomer?.id"
-    @success="handleQuoteSuccess"
-    @cancel="quoteDialogVisible = false"
-  />
-
-  <!-- 报价详情对话框 -->
-  <QuoteDetailDialog
-    v-model="quoteDetailDialogVisible"
-    :quote-id="currentQuoteId"
-    @edit="handleQuoteEdit"
-    @updated="handleQuoteUpdated"
-  />
-
-  <!-- 打印对话框 -->
-  <el-dialog
-    v-model="printDialogVisible"
-    title="打印报价单"
-    width="90%"
-    :close-on-click-modal="false"
-    class="print-dialog"
-  >
-    <QuotePrint
-      v-if="printQuoteData"
-      ref="quotePrintRef"
-      :quote="printQuoteData"
-    />
-    <template #footer>
-      <el-button @click="printDialogVisible = false">关闭</el-button>
-      <el-button type="primary" :icon="Printer" @click="handlePrint">打印</el-button>
-    </template>
-  </el-dialog>
-
-  <!-- 新增/编辑合同对话框 -->
-  <ContractFormDialog
-    v-model="contractDialogVisible"
-    :title="contractDialogTitle"
-    :default-customer-id="selectedCustomer?.id"
-    :contract="currentContract"
-    @success="handleContractSuccess"
-    @cancel="contractDialogVisible = false"
-  />
-
-  <!-- 新增/编辑订单对话框 -->
-  <OrderFormDialog
-    v-model="orderDialogVisible"
-    :title="orderDialogTitle"
-    :default-customer-id="selectedCustomer?.id ? Number(selectedCustomer.id) : undefined as number | undefined"
-    :order="currentOrder"
-    @success="handleOrderSuccess"
-    @cancel="orderDialogVisible = false"
-  />
-
-  <!-- 新增/编辑商机对话框 -->
-  <OpportunityFormDialog
-    v-model="opportunityDialogVisible"
-    :title="opportunityDialogTitle"
-    :default-customer-id="selectedCustomer?.id"
-    :opportunity="currentOpportunity"
-    @success="handleOpportunitySuccess"
-    @cancel="opportunityDialogVisible = false"
-  />
-
-  <!-- 新增/编辑需求对话框 -->
-  <el-dialog v-model="requirementDialog.visible" :title="requirementDialog.title" width="800px">
-    <el-form
-      ref="requirementFormRef"
-      :model="requirementForm"
-      :rules="requirementRules"
-      label-width="120px"
+    <!-- 新增/编辑拜访弹窗 -->
+    <el-dialog
+      v-model="visitDialogVisible"
+      :title="visitDialogTitle"
+      width="720px"
+      :close-on-click-modal="false"
     >
-      <el-form-item label="需求类型" prop="type">
-        <el-radio-group v-model="requirementForm.type">
-          <el-radio :label="RequirementType.EXPLICIT">显性需求（客户提出的需求）</el-radio>
-          <el-radio :label="RequirementType.IMPLICIT">隐性需求（客户可能会有的需求）</el-radio>
-          <el-radio :label="RequirementType.INTANGIBLE">无形需求（需要自己主动发现）</el-radio>
-        </el-radio-group>
-      </el-form-item>
-      <el-form-item label="需求内容" prop="content">
-        <el-input
-          v-model="requirementForm.content"
-          type="textarea"
-          :rows="3"
-          placeholder="请输入需求内容"
-        />
-      </el-form-item>
-      <el-form-item label="要解决的问题" prop="problemToSolve">
-        <el-input
-          v-model="requirementForm.problemToSolve"
-          type="textarea"
-          :rows="3"
-          placeholder="请输入需求背后要解决的问题"
-        />
-      </el-form-item>
-      <el-form-item label="优先级" prop="priority">
-        <el-radio-group v-model="requirementForm.priority">
-          <el-radio :label="0">低</el-radio>
-          <el-radio :label="1">中</el-radio>
-          <el-radio :label="2">高</el-radio>
-        </el-radio-group>
-      </el-form-item>
-      <el-form-item label="状态" prop="status">
-        <el-select v-model="requirementForm.status" placeholder="请选择状态" style="width: 100%">
-          <el-option label="待处理" value="pending" />
-          <el-option label="处理中" value="processing" />
-          <el-option label="已解决" value="resolved" />
-          <el-option label="已关闭" value="closed" />
-        </el-select>
-      </el-form-item>
-      <el-form-item label="标签" prop="tags">
-        <el-select
-          v-model="requirementForm.tags"
-          multiple
-          filterable
-          allow-create
-          default-first-option
-          placeholder="请输入或选择标签"
-          style="width: 100%"
-        >
-          <el-option
-            v-for="tag in commonRequirementTags"
-            :key="tag"
-            :label="tag"
-            :value="tag"
-          />
-        </el-select>
-      </el-form-item>
-      <el-form-item label="备注" prop="notes">
-        <el-input
-          v-model="requirementForm.notes"
-          type="textarea"
-          :rows="3"
-          placeholder="请输入备注信息"
-        />
-      </el-form-item>
-    </el-form>
-    <template #footer>
-      <el-button @click="requirementDialog.visible = false">取消</el-button>
-      <el-button type="primary" :loading="requirementDialog.saving" @click="submitRequirement"
-        >确定</el-button
+      <VisitForm
+        :visit="editingVisit"
+        :default-related-type="editingVisit ? undefined : 'customer'"
+        :default-related-id="editingVisit ? undefined : selectedCustomer?.id"
+        @success="handleVisitFormSuccess"
+        @cancel="visitDialogVisible = false"
+      />
+    </el-dialog>
+
+    <!-- 新建活动弹窗 -->
+    <el-dialog
+      v-model="createActivityDialogVisible"
+      title="新建活动"
+      width="600px"
+      :close-on-click-modal="false"
+    >
+      <ActivityForm
+        ref="activityFormRef"
+        :default-related-to-type="'customer'"
+        :default-related-to-id="selectedCustomer?.id"
+        @submit="handleActivitySubmit"
+        @cancel="createActivityDialogVisible = false"
+      />
+      <template #footer>
+        <el-button @click="createActivityDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="savingActivity" @click="handleActivityFormSubmit">
+          保存
+        </el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 新增/编辑报价弹窗 -->
+    <QuoteFormDialog
+      v-model="quoteDialogVisible"
+      :title="quoteDialogTitle"
+      :quote="currentQuote"
+      :default-customer-id="selectedCustomer?.id"
+      @success="handleQuoteSuccess"
+      @cancel="quoteDialogVisible = false"
+    />
+
+    <!-- 报价详情对话框 -->
+    <QuoteDetailDialog
+      v-model="quoteDetailDialogVisible"
+      :quote-id="currentQuoteId"
+      @edit="handleQuoteEdit"
+      @updated="handleQuoteUpdated"
+    />
+
+    <!-- 打印对话框 -->
+    <el-dialog
+      v-model="printDialogVisible"
+      title="打印报价单"
+      width="90%"
+      :close-on-click-modal="false"
+      class="print-dialog"
+    >
+      <QuotePrint v-if="printQuoteData" ref="quotePrintRef" :quote="printQuoteData" />
+      <template #footer>
+        <el-button @click="printDialogVisible = false">关闭</el-button>
+        <el-button type="primary" :icon="Printer" @click="handlePrint">打印</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 新增/编辑合同对话框 -->
+    <ContractFormDialog
+      v-model="contractDialogVisible"
+      :title="contractDialogTitle"
+      :default-customer-id="selectedCustomer?.id"
+      :contract="currentContract"
+      @success="handleContractSuccess"
+      @cancel="contractDialogVisible = false"
+    />
+
+    <!-- 新增/编辑订单对话框 -->
+    <OrderFormDialog
+      v-model="orderDialogVisible"
+      :title="orderDialogTitle"
+      :default-customer-id="
+        selectedCustomer?.id ? Number(selectedCustomer.id) : (undefined as number | undefined)
+      "
+      :order="currentOrder"
+      @success="handleOrderSuccess"
+      @cancel="orderDialogVisible = false"
+    />
+
+    <!-- 新增/编辑商机对话框 -->
+    <OpportunityFormDialog
+      v-model="opportunityDialogVisible"
+      :title="opportunityDialogTitle"
+      :default-customer-id="selectedCustomer?.id"
+      :opportunity="currentOpportunity"
+      @success="handleOpportunitySuccess"
+      @cancel="opportunityDialogVisible = false"
+    />
+
+    <!-- 新增/编辑需求对话框 -->
+    <el-dialog v-model="requirementDialog.visible" :title="requirementDialog.title" width="800px">
+      <el-form
+        ref="requirementFormRef"
+        :model="requirementForm"
+        :rules="requirementRules"
+        label-width="120px"
       >
-    </template>
-  </el-dialog>
-
-  <!-- 新增/编辑联系人对话框 -->
-  <el-dialog v-model="contactDialog.visible" :title="contactDialog.title" width="600px">
-    <el-form ref="contactFormRef" :model="contactForm" :rules="contactRules" label-width="100px">
-      <el-form-item label="联系人姓名" prop="name">
-        <el-input
-          v-model="contactForm.name"
-          placeholder="请输入联系人姓名"
-          maxlength="100"
-          show-word-limit
-        />
-      </el-form-item>
-      <el-form-item label="职位" prop="position">
-        <el-input v-model="contactForm.position" placeholder="请输入职位" />
-      </el-form-item>
-      <el-form-item label="部门" prop="department">
-        <el-input v-model="contactForm.department" placeholder="请输入部门" />
-      </el-form-item>
-      <el-form-item label="联系人类型" prop="type">
-        <el-select v-model="contactForm.type" placeholder="请选择联系人类型" style="width: 100%">
-          <el-option label="主要联系人" value="primary" />
-          <el-option label="次要联系人" value="secondary" />
-          <el-option label="决策者" value="decision_maker" />
-          <el-option label="影响者" value="influencer" />
-          <el-option label="使用者" value="user" />
-        </el-select>
-      </el-form-item>
-      <el-form-item label="邮箱" prop="email">
-        <el-input v-model="contactForm.email" placeholder="请输入邮箱" />
-      </el-form-item>
-      <el-form-item label="手机号" prop="phone">
-        <el-input v-model="contactForm.phone" placeholder="请输入手机号" />
-      </el-form-item>
-      <el-form-item label="座机" prop="telephone">
-        <el-input v-model="contactForm.telephone" placeholder="请输入座机" />
-      </el-form-item>
-      <el-form-item label="关联客户" prop="customerId">
-        <el-input :model-value="selectedCustomer?.name" disabled placeholder="关联客户" />
-      </el-form-item>
-      <el-form-item label="上级联系人" prop="parentId">
-        <el-select
-          v-model="contactForm.parentId"
-          placeholder="请选择上级联系人（可选）"
-          filterable
-          clearable
-          style="width: 100%"
-        >
-          <el-option
-            v-for="contact in parentContactOptionsForDialog"
-            :key="contact.id"
-            :label="`${contact.name}${contact.position ? ' - ' + contact.position : ''}`"
-            :value="contact.id"
+        <el-form-item label="需求类型" prop="type">
+          <el-radio-group v-model="requirementForm.type">
+            <el-radio :label="RequirementType.EXPLICIT">显性需求（客户提出的需求）</el-radio>
+            <el-radio :label="RequirementType.IMPLICIT">隐性需求（客户可能会有的需求）</el-radio>
+            <el-radio :label="RequirementType.INTANGIBLE">无形需求（需要自己主动发现）</el-radio>
+          </el-radio-group>
+        </el-form-item>
+        <el-form-item label="需求内容" prop="content">
+          <el-input
+            v-model="requirementForm.content"
+            type="textarea"
+            :rows="3"
+            placeholder="请输入需求内容"
           />
-        </el-select>
-        <div style="font-size: 12px; color: #909399; margin-top: 4px;">
-          选择同一客户下的其他联系人作为上级
-        </div>
-      </el-form-item>
-      <el-form-item label="是否主要联系人" prop="isPrimary">
-        <el-switch v-model="contactForm.isPrimary" />
-      </el-form-item>
-      <el-form-item label="备注" prop="remark">
-        <el-input
-          v-model="contactForm.remark"
-          type="textarea"
-          :rows="3"
-          maxlength="500"
-          show-word-limit
-          placeholder="请输入备注"
-        />
-      </el-form-item>
-    </el-form>
-    <template #footer>
-      <el-button @click="contactDialog.visible = false">取消</el-button>
-      <el-button type="primary" :loading="contactDialog.saving" @click="submitContact"
-        >确定</el-button
-      >
-    </template>
-  </el-dialog>
-
-  <!-- 批量转移对话框 -->
-  <el-dialog v-model="transferDialogVisible" title="批量转移客户" width="500px">
-    <el-form :model="{ ownerId: transferOwnerId }" label-width="100px">
-      <el-form-item label="选择负责人" required>
-        <el-select
-          v-model="transferOwnerId"
-          style="width: 100%"
-          placeholder="请选择负责人"
-          filterable
-          :loading="ownerLoading"
-        >
-          <el-option
-            v-for="user in ownerOptions"
-            :key="user.id"
-            :label="user.name"
-            :value="user.id"
+        </el-form-item>
+        <el-form-item label="要解决的问题" prop="problemToSolve">
+          <el-input
+            v-model="requirementForm.problemToSolve"
+            type="textarea"
+            :rows="3"
+            placeholder="请输入需求背后要解决的问题"
           />
-        </el-select>
-        <div class="text-sm text-gray-500 mt-1">
-          将选中的 {{ selectedRows.length }} 个客户转移给所选负责人
-        </div>
-      </el-form-item>
-    </el-form>
-    <template #footer>
-      <el-button @click="transferDialogVisible = false">取消</el-button>
-      <el-button type="primary" @click="confirmBatchTransfer">确定</el-button>
-    </template>
-  </el-dialog>
+        </el-form-item>
+        <el-form-item label="优先级" prop="priority">
+          <el-radio-group v-model="requirementForm.priority">
+            <el-radio :label="0">低</el-radio>
+            <el-radio :label="1">中</el-radio>
+            <el-radio :label="2">高</el-radio>
+          </el-radio-group>
+        </el-form-item>
+        <el-form-item label="状态" prop="status">
+          <el-select v-model="requirementForm.status" placeholder="请选择状态" style="width: 100%">
+            <el-option label="待处理" value="pending" />
+            <el-option label="处理中" value="processing" />
+            <el-option label="已解决" value="resolved" />
+            <el-option label="已关闭" value="closed" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="标签" prop="tags">
+          <el-select
+            v-model="requirementForm.tags"
+            multiple
+            filterable
+            allow-create
+            default-first-option
+            placeholder="请输入或选择标签"
+            style="width: 100%"
+          >
+            <el-option v-for="tag in commonRequirementTags" :key="tag" :label="tag" :value="tag" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="备注" prop="notes">
+          <el-input
+            v-model="requirementForm.notes"
+            type="textarea"
+            :rows="3"
+            placeholder="请输入备注信息"
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="requirementDialog.visible = false">取消</el-button>
+        <el-button type="primary" :loading="requirementDialog.saving" @click="submitRequirement"
+          >确定</el-button
+        >
+      </template>
+    </el-dialog>
 
-  <!-- 信用变更历史对话框 -->
-  <el-dialog v-model="showCreditHistoryDialog" title="信用变更历史" width="800px" @open="loadCreditHistory">
-    <el-table :data="creditHistory" border style="width: 100%">
-      <el-table-column prop="createdAt" label="变更时间" width="180">
-        <template #default="{ row }">
-          {{ formatDate(row.createdAt) }}
-        </template>
-      </el-table-column>
-      <el-table-column prop="changer" label="变更人" width="120">
-        <template #default="{ row }">
-          {{ row.changer?.nickname || row.changer?.user?.username || '-' }}
-        </template>
-      </el-table-column>
-      <el-table-column label="信用额度" width="150">
-        <template #default="{ row }">
-          <span v-if="row.oldLimit !== null || row.newLimit !== null">
-            {{ row.oldLimit !== null ? formatCurrency(row.oldLimit, false) : '-' }} →
-            {{ row.newLimit !== null ? formatCurrency(row.newLimit, false) : '-' }}
-          </span>
-          <span v-else>-</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="额度档位" width="150">
-        <template #default="{ row }">
-          <span v-if="row.oldTier || row.newTier">
-            {{ getCreditTierLabel(row.oldTier) }} → {{ getCreditTierLabel(row.newTier) }}
-          </span>
-          <span v-else>-</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="客户等级" width="120">
-        <template #default="{ row }">
-          <span v-if="row.oldRating || row.newRating">
-            {{ row.oldRating || '-' }} → {{ row.newRating || '-' }}
-          </span>
-          <span v-else>-</span>
-        </template>
-      </el-table-column>
-      <el-table-column prop="changeReason" label="变更原因" min-width="200" show-overflow-tooltip />
-    </el-table>
-    <template #footer>
-      <el-button @click="showCreditHistoryDialog = false">关闭</el-button>
-    </template>
-  </el-dialog>
-</div>
+    <!-- 新增/编辑联系人对话框 -->
+    <el-dialog v-model="contactDialog.visible" :title="contactDialog.title" width="600px">
+      <el-form ref="contactFormRef" :model="contactForm" :rules="contactRules" label-width="100px">
+        <el-form-item label="联系人姓名" prop="name">
+          <el-input
+            v-model="contactForm.name"
+            placeholder="请输入联系人姓名"
+            maxlength="100"
+            show-word-limit
+          />
+        </el-form-item>
+        <el-form-item label="职位" prop="position">
+          <el-input v-model="contactForm.position" placeholder="请输入职位" />
+        </el-form-item>
+        <el-form-item label="部门" prop="department">
+          <el-input v-model="contactForm.department" placeholder="请输入部门" />
+        </el-form-item>
+        <el-form-item label="联系人类型" prop="type">
+          <el-select v-model="contactForm.type" placeholder="请选择联系人类型" style="width: 100%">
+            <el-option label="主要联系人" value="primary" />
+            <el-option label="次要联系人" value="secondary" />
+            <el-option label="决策者" value="decision_maker" />
+            <el-option label="影响者" value="influencer" />
+            <el-option label="使用者" value="user" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="邮箱" prop="email">
+          <el-input v-model="contactForm.email" placeholder="请输入邮箱" />
+        </el-form-item>
+        <el-form-item label="手机号" prop="phone">
+          <el-input v-model="contactForm.phone" placeholder="请输入手机号" />
+        </el-form-item>
+        <el-form-item label="座机" prop="telephone">
+          <el-input v-model="contactForm.telephone" placeholder="请输入座机" />
+        </el-form-item>
+        <el-form-item label="关联客户" prop="customerId">
+          <el-input :model-value="selectedCustomer?.name" disabled placeholder="关联客户" />
+        </el-form-item>
+        <el-form-item label="上级联系人" prop="parentId">
+          <el-select
+            v-model="contactForm.parentId"
+            placeholder="请选择上级联系人（可选）"
+            filterable
+            clearable
+            style="width: 100%"
+          >
+            <el-option
+              v-for="contact in parentContactOptionsForDialog"
+              :key="contact.id"
+              :label="`${contact.name}${contact.position ? ' - ' + contact.position : ''}`"
+              :value="contact.id"
+            />
+          </el-select>
+          <div style="font-size: 12px; color: #909399; margin-top: 4px">
+            选择同一客户下的其他联系人作为上级
+          </div>
+        </el-form-item>
+        <el-form-item label="是否主要联系人" prop="isPrimary">
+          <el-switch v-model="contactForm.isPrimary" />
+        </el-form-item>
+        <el-form-item label="备注" prop="remark">
+          <el-input
+            v-model="contactForm.remark"
+            type="textarea"
+            :rows="3"
+            maxlength="500"
+            show-word-limit
+            placeholder="请输入备注"
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="contactDialog.visible = false">取消</el-button>
+        <el-button type="primary" :loading="contactDialog.saving" @click="submitContact"
+          >确定</el-button
+        >
+      </template>
+    </el-dialog>
+
+    <!-- 批量转移对话框 -->
+    <el-dialog v-model="transferDialogVisible" title="批量转移客户" width="500px">
+      <el-form :model="{ ownerId: transferOwnerId }" label-width="100px">
+        <el-form-item label="选择负责人" required>
+          <el-select
+            v-model="transferOwnerId"
+            style="width: 100%"
+            placeholder="请选择负责人"
+            filterable
+            :loading="ownerLoading"
+          >
+            <el-option
+              v-for="user in ownerOptions"
+              :key="user.id"
+              :label="user.name"
+              :value="user.id"
+            />
+          </el-select>
+          <div class="text-sm text-gray-500 mt-1">
+            将选中的 {{ selectedRows.length }} 个客户转移给所选负责人
+          </div>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="transferDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="confirmBatchTransfer">确定</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 信用变更历史对话框 -->
+    <el-dialog
+      v-model="showCreditHistoryDialog"
+      title="信用变更历史"
+      width="800px"
+      @open="loadCreditHistory"
+    >
+      <el-table :data="creditHistory" border style="width: 100%">
+        <el-table-column prop="createdAt" label="变更时间" width="180">
+          <template #default="{ row }">
+            {{ formatDate(row.createdAt) }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="changer" label="变更人" width="120">
+          <template #default="{ row }">
+            {{ row.changer?.nickname || row.changer?.user?.username || '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column label="信用额度" width="150">
+          <template #default="{ row }">
+            <span v-if="row.oldLimit !== null || row.newLimit !== null">
+              {{ row.oldLimit !== null ? formatCurrency(row.oldLimit, false) : '-' }} →
+              {{ row.newLimit !== null ? formatCurrency(row.newLimit, false) : '-' }}
+            </span>
+            <span v-else>-</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="额度档位" width="150">
+          <template #default="{ row }">
+            <span v-if="row.oldTier || row.newTier">
+              {{ getCreditTierLabel(row.oldTier) }} → {{ getCreditTierLabel(row.newTier) }}
+            </span>
+            <span v-else>-</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="客户等级" width="120">
+          <template #default="{ row }">
+            <span v-if="row.oldRating || row.newRating">
+              {{ row.oldRating || '-' }} → {{ row.newRating || '-' }}
+            </span>
+            <span v-else>-</span>
+          </template>
+        </el-table-column>
+        <el-table-column
+          prop="changeReason"
+          label="变更原因"
+          min-width="200"
+          show-overflow-tooltip
+        />
+      </el-table>
+      <template #footer>
+        <el-button @click="showCreditHistoryDialog = false">关闭</el-button>
+      </template>
+    </el-dialog>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -2264,17 +2645,17 @@ import {
   Document,
   DocumentCopy,
   Files,
-    ShoppingCart,
+  ShoppingCart,
   Location,
-    List,
-    Share,
-    Wallet,
-    OfficeBuilding,
-    Grid,
-    Fold,
-    Expand,
-    Loading,
-    Printer,
+  List,
+  Share,
+  Wallet,
+  OfficeBuilding,
+  Grid,
+  Fold,
+  Expand,
+  Loading,
+  Printer,
 } from '@element-plus/icons-vue'
 import { Close } from '@element-plus/icons-vue'
 import * as echarts from 'echarts'
@@ -2302,14 +2683,23 @@ import customerRequirementApi, {
   RequirementType,
 } from '@/api/customerRequirement'
 import quoteApi, { type Quote, type CreateQuoteDto, type UpdateQuoteDto } from '@/api/quote'
-import contractApi, { type Contract, type CreateContractDto, type UpdateContractDto } from '@/api/contract'
+import contractApi, {
+  type Contract,
+  type CreateContractDto,
+  type UpdateContractDto,
+} from '@/api/contract'
 import orderApi, { type Order, type CreateOrderDto, type UpdateOrderDto } from '@/api/order'
 import visitApi, { type Visit } from '@/api/visit'
 import customerTagApi, { type CustomerTag } from '@/api/customerTag'
 import request from '@/utils/request'
 import commonApi from '@/api/common'
 import dictionaryApi, { type DictItem } from '@/api/dictionary'
-import { getDepartmentTree, getDepartmentMembers, type Department, type Member } from '@/api/department'
+import {
+  getDepartmentTree,
+  getDepartmentMembers,
+  type Department,
+  type Member,
+} from '@/api/department'
 import ActivityForm from '@/components/activity/ActivityForm.vue'
 import ActivityList from '@/components/activity/ActivityList.vue'
 import VisitForm from '@/components/visit/VisitForm.vue'
@@ -2320,6 +2710,7 @@ import QuotePrint from '@/components/quote/QuotePrint.vue'
 import ContractFormDialog from '@/components/contract/ContractFormDialog.vue'
 import OrderFormDialog from '@/components/order/OrderFormDialog.vue'
 import OpportunityFormDialog from '@/components/opportunity/OpportunityFormDialog.vue'
+import DynamicForm from '@/components/custom-field/DynamicForm.vue'
 import businessInfoApi, {
   type BusinessInfo,
   type BusinessPersonnel,
@@ -2440,7 +2831,9 @@ const businessInfo = ref<BusinessInfo | null>(null)
 const businessInfoLoading = ref(false)
 const businessInfoRefreshing = ref(false)
 const businessInfoExpired = ref(false)
-const businessSubTab = ref<'info' | 'personnel' | 'shareholders' | 'branches' | 'investments' | 'changes'>('info')
+const businessSubTab = ref<
+  'info' | 'personnel' | 'shareholders' | 'branches' | 'investments' | 'changes'
+>('info')
 const hoveredActivityId = ref<string>('')
 const parentContactOptionsForDialog = ref<any[]>([])
 const contactViewMode = ref<'list' | 'graph'>('list')
@@ -2730,12 +3123,26 @@ const detailSectionKeys = [
   'activities',
   'graph',
 ] as const
-const activeTab = ref<'basic' | 'business' | 'contacts' | 'cooperation' | 'requirements' | 'visits' | 'opportunities' | 'quotes' | 'contracts' | 'orders' | 'statements' | 'activities' | 'graph'>('basic')
+const activeTab = ref<
+  | 'basic'
+  | 'business'
+  | 'contacts'
+  | 'cooperation'
+  | 'requirements'
+  | 'visits'
+  | 'opportunities'
+  | 'quotes'
+  | 'contracts'
+  | 'orders'
+  | 'statements'
+  | 'activities'
+  | 'graph'
+>('basic')
 const orderViewMode = ref<'list' | 'analytics'>('list')
 const orderAnalyticsPeriod = ref<'30days' | 'thisMonth' | 'lastMonth' | 'thisYear'>('30days')
 
 // 表单数据
-const formData = reactive<CreateCustomerDto & { id?: string; ownerId?: string }>({
+const formData = reactive<CreateCustomerDto & { id?: string; ownerId?: string; customFields?: Record<string, any> }>({
   name: '',
   code: '',
   type: 'individual',
@@ -2753,6 +3160,7 @@ const formData = reactive<CreateCustomerDto & { id?: string; ownerId?: string }>
   addressDetail: '',
   ownerId: '',
   tags: [],
+  customFields: {},
 })
 
 // 标签列表
@@ -2829,15 +3237,15 @@ const getUserName = (user?: any) => {
 const formatDateOnly = (dateString: string | null | undefined) => {
   if (!dateString) return '-'
   try {
-  const d = new Date(dateString)
+    const d = new Date(dateString)
     // 检查日期是否有效（不是无效日期，且不是1970-01-01这种默认值）
     if (isNaN(d.getTime()) || d.getFullYear() < 1900) {
       return '-'
     }
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${y}-${m}-${day}`
+    const y = d.getFullYear()
+    const m = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+    return `${y}-${m}-${day}`
   } catch (e) {
     return '-'
   }
@@ -2951,11 +3359,11 @@ const formatCurrency = (value: number | string | null | undefined, showSymbol = 
   if (isNaN(numValue)) return '-'
 
   if (showSymbol) {
-  return new Intl.NumberFormat('zh-CN', {
-    style: 'currency',
-    currency: 'CNY',
+    return new Intl.NumberFormat('zh-CN', {
+      style: 'currency',
+      currency: 'CNY',
       minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
+      maximumFractionDigits: 2,
     }).format(numValue)
   } else {
     return new Intl.NumberFormat('zh-CN', {
@@ -3003,7 +3411,10 @@ const getSummaries = (param: { columns: Array<{ property?: string }>; data: Cust
 }
 
 // 计算商机合计行
-const getOpportunitySummaries = (param: { columns: Array<{ property?: string; label?: string }>; data: any[] }) => {
+const getOpportunitySummaries = (param: {
+  columns: Array<{ property?: string; label?: string }>
+  data: any[]
+}) => {
   const { columns, data } = param
   const sums: string[] = []
 
@@ -3081,11 +3492,32 @@ const loadCustomers = async () => {
   }
 }
 
+// 搜索输入防抖定时器
+let searchInputTimer: ReturnType<typeof setTimeout> | null = null
+
+// 搜索输入框处理（带防抖）
+const handleSearchInput = () => {
+  if (searchInputTimer) {
+    clearTimeout(searchInputTimer)
+  }
+  searchInputTimer = setTimeout(() => {
+    handleSearch()
+  }, 500) // 500ms 防抖延迟
+}
+
 // 搜索
 const handleSearch = () => {
   pagination.page = 1
   loadCustomers()
 }
+
+// 组件卸载时清理定时器
+onUnmounted(() => {
+  if (searchInputTimer) {
+    clearTimeout(searchInputTimer)
+    searchInputTimer = null
+  }
+})
 
 // 重置搜索
 const handleReset = () => {
@@ -3480,7 +3912,12 @@ const loadingAllDetails = ref(false) // 统一加载状态
 const loadCustomerDetails = async (customerId: string | number) => {
   try {
     // 验证客户ID
-    if (!customerId || customerId === 'undefined' || customerId === 'null' || String(customerId).trim() === '') {
+    if (
+      !customerId ||
+      customerId === 'undefined' ||
+      customerId === 'null' ||
+      String(customerId).trim() === ''
+    ) {
       console.error('无效的客户ID:', customerId)
       ElMessage.error('客户ID无效')
       return
@@ -3504,30 +3941,32 @@ const loadCustomerDetails = async (customerId: string | number) => {
     // 2. 并行加载所有数据
     await Promise.allSettled([
       // 联系人
-      loadContacts().catch(err => console.error('加载联系人失败:', err)),
+      loadContacts().catch((err) => console.error('加载联系人失败:', err)),
       // 商机
-      loadOpportunities().catch(err => console.error('加载商机失败:', err)),
+      loadOpportunities().catch((err) => console.error('加载商机失败:', err)),
       // 需求
-      loadRequirements().catch(err => console.error('加载需求失败:', err)),
+      loadRequirements().catch((err) => console.error('加载需求失败:', err)),
       // 拜访记录
-      loadVisits().catch(err => console.error('加载拜访记录失败:', err)),
+      loadVisits().catch((err) => console.error('加载拜访记录失败:', err)),
       // 报价
-      loadQuotes().catch(err => console.error('加载报价失败:', err)),
+      loadQuotes().catch((err) => console.error('加载报价失败:', err)),
       // 合同
-      loadContracts().catch(err => console.error('加载合同失败:', err)),
+      loadContracts().catch((err) => console.error('加载合同失败:', err)),
       // 订单
-      loadOrders().then(() => {
-        // 订单加载完成后更新图表
-        nextTick(() => {
-          updateOrderCharts()
+      loadOrders()
+        .then(() => {
+          // 订单加载完成后更新图表
+          nextTick(() => {
+            updateOrderCharts()
+          })
         })
-      }).catch(err => console.error('加载订单失败:', err)),
+        .catch((err) => console.error('加载订单失败:', err)),
       // 财务对账
-      loadStatements().catch(err => console.error('加载财务对账失败:', err)),
+      loadStatements().catch((err) => console.error('加载财务对账失败:', err)),
       // 工商信息
-      loadBusinessInfo().catch(err => console.error('加载工商信息失败:', err)),
+      loadBusinessInfo().catch((err) => console.error('加载工商信息失败:', err)),
       // 合作与信用
-      loadCustomerProfile().catch(err => console.error('加载合作与信用失败:', err)),
+      loadCustomerProfile().catch((err) => console.error('加载合作与信用失败:', err)),
     ])
 
     // 重置已加载的tab标记（切换客户时重置）
@@ -3945,8 +4384,7 @@ const loadOwnerOptions = async () => {
     const collectDepartmentMembers = async (dept: Department) => {
       try {
         const membersRes = await getDepartmentMembers(dept.id, { page: 1, limit: 1000 })
-        const members =
-          membersRes.data?.members || membersRes.data?.items || membersRes.data || []
+        const members = membersRes.data?.members || membersRes.data?.items || membersRes.data || []
         members.forEach((m: Member) => {
           const id = String(m.id)
           if (!memberMap.has(id)) {
@@ -4211,7 +4649,7 @@ const confirmBatchTransfer = async () => {
     const ownerId = Number(transferOwnerId.value)
 
     // 批量更新客户的负责人
-    await Promise.all(ids.map(id => customerApi.update(id, { ownerId } as UpdateCustomerDto)))
+    await Promise.all(ids.map((id) => customerApi.update(id, { ownerId } as UpdateCustomerDto)))
 
     ElMessage.success(`成功将 ${ids.length} 个客户转移给负责人`)
     transferDialogVisible.value = false
@@ -4241,7 +4679,9 @@ const handleBatchRelease = async () => {
     const ids = selectedRows.value.map((customer) => customer.id)
 
     // 批量更新客户，清除负责人
-    await Promise.all(ids.map(id => customerApi.update(id, { ownerId: null as any } as UpdateCustomerDto)))
+    await Promise.all(
+      ids.map((id) => customerApi.update(id, { ownerId: null as any } as UpdateCustomerDto)),
+    )
 
     ElMessage.success(`成功将 ${ids.length} 个客户放入公海`)
     selectedRows.value = []
@@ -4349,7 +4789,9 @@ const handleActivityFormSubmit = async () => {
 }
 
 // 处理活动提交
-const handleActivitySubmit = async (data: CreateActivityDto | UpdateActivityDto | CreateActivityDto[]) => {
+const handleActivitySubmit = async (
+  data: CreateActivityDto | UpdateActivityDto | CreateActivityDto[],
+) => {
   try {
     savingActivity.value = true
 
@@ -4369,7 +4811,7 @@ const handleActivitySubmit = async (data: CreateActivityDto | UpdateActivityDto 
         return
       }
       await activityApi.create(data as CreateActivityDto)
-    ElMessage.success('跟进记录已保存')
+      ElMessage.success('跟进记录已保存')
     }
 
     createActivityDialogVisible.value = false
@@ -4567,7 +5009,8 @@ const initKanbanSortable = () => {
           customer.status = originalStatus
 
           // 显示错误消息
-          const errorMessage = error?.response?.data?.message || error?.message || '更新客户状态失败'
+          const errorMessage =
+            error?.response?.data?.message || error?.message || '更新客户状态失败'
           ElMessage.error(errorMessage)
         }
       },
@@ -4830,8 +5273,7 @@ const saveCooperationProfile = async () => {
   const hasTierChange =
     (cooperationForm.creditTier || null) !== (customerProfile.value?.creditTier || null)
 
-  const hasLevelChange =
-    (cooperationForm.level || null) !== (selectedCustomer.value.level || null)
+  const hasLevelChange = (cooperationForm.level || null) !== (selectedCustomer.value.level || null)
   const hasCreditChange = hasLimitChange || hasTierChange || hasLevelChange
 
   if (hasCreditChange) {
@@ -4989,12 +5431,18 @@ const loadBusinessInfo = async () => {
     return
   }
 
-  console.log('[loadBusinessInfo] 开始加载工商信息，customerId:', selectedCustomer.value.id, 'companyName:', selectedCustomer.value.companyName)
+  console.log(
+    '[loadBusinessInfo] 开始加载工商信息，customerId:',
+    selectedCustomer.value.id,
+    'companyName:',
+    selectedCustomer.value.companyName,
+  )
   businessInfoLoading.value = true
   try {
-    const customerId = typeof selectedCustomer.value.id === 'string'
-      ? parseInt(selectedCustomer.value.id)
-      : selectedCustomer.value.id
+    const customerId =
+      typeof selectedCustomer.value.id === 'string'
+        ? parseInt(selectedCustomer.value.id)
+        : selectedCustomer.value.id
     console.log('[loadBusinessInfo] 调用 getBusinessInfo API，customerId:', customerId)
     const response = await businessInfoApi.getBusinessInfo(customerId)
     console.log('[loadBusinessInfo] getBusinessInfo 返回:', {
@@ -5004,15 +5452,24 @@ const loadBusinessInfo = async () => {
 
     // 如果没有数据但有公司名称，自动刷新
     if (!response.data && selectedCustomer.value.companyName) {
-      console.log('[loadBusinessInfo] 没有缓存数据，自动触发刷新，customerId:', selectedCustomer.value.id, 'companyName:', selectedCustomer.value.companyName)
+      console.log(
+        '[loadBusinessInfo] 没有缓存数据，自动触发刷新，customerId:',
+        selectedCustomer.value.id,
+        'companyName:',
+        selectedCustomer.value.companyName,
+      )
       // 自动触发刷新
       try {
-        const customerId = typeof selectedCustomer.value.id === 'string'
-          ? parseInt(selectedCustomer.value.id)
-          : selectedCustomer.value.id
+        const customerId =
+          typeof selectedCustomer.value.id === 'string'
+            ? parseInt(selectedCustomer.value.id)
+            : selectedCustomer.value.id
         console.log('[loadBusinessInfo] 调用 refreshBusinessInfo API，customerId:', customerId)
         const refreshResponse = await businessInfoApi.refreshBusinessInfo(customerId)
-        console.log('[loadBusinessInfo] 刷新成功，返回数据:', refreshResponse.data ? '有数据' : '无数据')
+        console.log(
+          '[loadBusinessInfo] 刷新成功，返回数据:',
+          refreshResponse.data ? '有数据' : '无数据',
+        )
         businessInfo.value = refreshResponse.data || null
         businessInfoExpired.value = false
         if (refreshResponse.data) {
@@ -5026,7 +5483,8 @@ const loadBusinessInfo = async () => {
           data: refreshError.response?.data,
         })
         // 显示错误信息，让用户知道发生了什么
-        const errorMessage = refreshError.response?.data?.message || refreshError.message || '刷新工商信息失败'
+        const errorMessage =
+          refreshError.response?.data?.message || refreshError.message || '刷新工商信息失败'
         ElMessage.warning(`自动刷新失败: ${errorMessage}。请检查天眼查API配置或稍后手动刷新。`)
         businessInfo.value = null
         businessInfoExpired.value = false
@@ -5205,7 +5663,7 @@ const loadContacts = async () => {
     console.error('加载联系人失败:', e)
     // 降级到普通列表接口
     try {
-    const resp = await request.get(`/contacts/customer/${selectedCustomer.value.id}`)
+      const resp = await request.get(`/contacts/customer/${selectedCustomer.value.id}`)
       const contacts = (resp as any).data?.contacts || (resp as any).data || []
       customerContacts.value = contacts
       contactTreeData.value = buildContactTree(contacts)
@@ -5225,7 +5683,7 @@ const buildContactTree = (contacts: any[]): any[] => {
   if (!contacts || contacts.length === 0) return []
 
   // 如果已经是树形结构（有 children），直接返回
-  if (contacts.some(c => c.children)) {
+  if (contacts.some((c) => c.children)) {
     return contacts
   }
 
@@ -5234,12 +5692,12 @@ const buildContactTree = (contacts: any[]): any[] => {
   const roots: any[] = []
 
   // 初始化所有联系人
-  contacts.forEach(contact => {
+  contacts.forEach((contact) => {
     contactMap.set(contact.id, { ...contact, children: [] })
   })
 
   // 构建树
-  contacts.forEach(contact => {
+  contacts.forEach((contact) => {
     const node = contactMap.get(contact.id)
     if (contact.parentId && contactMap.has(contact.parentId)) {
       const parent = contactMap.get(contact.parentId)
@@ -5316,7 +5774,7 @@ const openCreateOpportunity = () => {
 // 编辑商机
 const openEditOpportunity = async (opportunity: Opportunity) => {
   try {
-    const response = await opportunityApi.getDetail(opportunity.id) as unknown as {
+    const response = (await opportunityApi.getDetail(opportunity.id)) as unknown as {
       code: number
       data?: Opportunity
     }
@@ -5356,7 +5814,6 @@ const deleteOpportunity = async (opportunity: any) => {
     }
   }
 }
-
 
 // 报价相关
 const loadQuotes = async () => {
@@ -5649,7 +6106,7 @@ const loadOrders = async () => {
         } catch {
           return order
         }
-      })
+      }),
     )
     customerOrders.value = ordersWithItems
   } catch (e) {
@@ -5745,10 +6202,7 @@ const generateMockTransactions = (startMonth: string, endMonth: string) => {
   let balance = 600000 // 初始余额
 
   // 生成每个月的交易数据
-  while (
-    currentYear < endYear ||
-    (currentYear === endYear && currentMonth <= endM)
-  ) {
+  while (currentYear < endYear || (currentYear === endYear && currentMonth <= endM)) {
     const monthTransactions: any[] = []
     const daysInMonth = new Date(currentYear, currentMonth, 0).getDate()
     const transactionCount = Math.floor(Math.random() * 8) + 5 // 每月5-12笔交易
@@ -5777,7 +6231,11 @@ const generateMockTransactions = (startMonth: string, endMonth: string) => {
       ]
       const summary = summaries[Math.floor(Math.random() * summaries.length)]
 
-      const instanceCode = `TRJVZ${currentYear}${String(currentMonth).padStart(2, '0')}${String(day).padStart(2, '0')}${String(i).padStart(2, '0')}${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`
+      const instanceCode = `TRJVZ${currentYear}${String(currentMonth).padStart(2, '0')}${String(day).padStart(2, '0')}${String(i).padStart(2, '0')}${Math.floor(
+        Math.random() * 1000,
+      )
+        .toString()
+        .padStart(3, '0')}`
 
       monthTransactions.push({
         id: `trans_${currentYear}_${currentMonth}_${i}`,
@@ -5895,14 +6353,14 @@ const truncateCode = (code: string) => {
   return code
 }
 
-
 // 需求相关
 const loadRequirements = async () => {
   if (!selectedCustomer.value) return
   try {
-    const customerId = typeof selectedCustomer.value.id === 'string'
-      ? parseInt(selectedCustomer.value.id)
-      : selectedCustomer.value.id
+    const customerId =
+      typeof selectedCustomer.value.id === 'string'
+        ? parseInt(selectedCustomer.value.id)
+        : selectedCustomer.value.id
     const resp = await customerRequirementApi.getByCustomer(customerId)
     customerRequirements.value = (resp as any).data || []
   } catch (error: any) {
@@ -5915,9 +6373,10 @@ const loadRequirements = async () => {
 const loadVisits = async () => {
   if (!selectedCustomer.value) return
   try {
-    const customerId = typeof selectedCustomer.value.id === 'string'
-      ? parseInt(selectedCustomer.value.id)
-      : selectedCustomer.value.id
+    const customerId =
+      typeof selectedCustomer.value.id === 'string'
+        ? parseInt(selectedCustomer.value.id)
+        : selectedCustomer.value.id
     const resp = await visitApi.getByCustomer(customerId)
     customerVisits.value = (resp as any).data || []
   } catch (error: any) {
@@ -5969,7 +6428,10 @@ const openCreateRequirement = () => {
   requirementDialog.title = '新增需求'
   Object.assign(requirementForm, {
     id: undefined,
-    customerId: typeof selectedCustomer.value?.id === 'string' ? parseInt(selectedCustomer.value.id) : selectedCustomer.value?.id || 0,
+    customerId:
+      typeof selectedCustomer.value?.id === 'string'
+        ? parseInt(selectedCustomer.value.id)
+        : selectedCustomer.value?.id || 0,
     type: RequirementType.EXPLICIT,
     content: '',
     problemToSolve: '',
@@ -6481,10 +6943,10 @@ const submitContact = async () => {
         }
       }
 
-    .section-title {
-      font-size: 16px;
-      font-weight: 600;
-      color: #303133;
+      .section-title {
+        font-size: 16px;
+        font-weight: 600;
+        color: #303133;
       }
     }
   }
@@ -6742,281 +7204,281 @@ const submitContact = async () => {
     }
   }
 }
-  // 思维导图容器样式
-  .contact-mindmap-view {
+// 思维导图容器样式
+.contact-mindmap-view {
+  width: 100%;
+  height: 600px;
+  min-height: 500px;
+  background: #fff;
+  border-radius: 4px;
+  overflow: hidden;
+
+  .mindmap-container {
     width: 100%;
-    height: 600px;
-    min-height: 500px;
-    background: #fff;
-    border-radius: 4px;
-    overflow: hidden;
-
-    .mindmap-container {
-      width: 100%;
-      height: 100%;
-    }
-  }
-
-  // 联系人树形组件样式
-  .contact-tree {
-    :deep(.el-tree-node) {
-      margin-bottom: 8px;
-    }
-
-    :deep(.el-tree-node__content) {
-      height: auto;
-      min-height: 48px;
-      padding: 8px 0;
-    }
-
-    .contact-tree-node {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      width: 100%;
-      padding: 8px 12px;
-      border-radius: 4px;
-      transition: background-color 0.2s;
-
-      &:hover {
-        background-color: #f5f7fa;
-      }
-
-      .contact-info {
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-
-        .contact-name {
-          font-weight: 500;
-          font-size: 14px;
-          color: #303133;
-        }
-
-        .contact-meta {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          font-size: 12px;
-          color: #909399;
-
-          .meta-item {
-            padding: 2px 8px;
-            background: #f4f5f7;
-            border-radius: 3px;
-          }
-        }
-      }
-
-      .contact-actions {
-        display: flex;
-        gap: 8px;
-        margin-left: 16px;
-      }
-    }
-  }
-
-  // 订单工具栏样式
-  // 工具栏在 list-padding 内，不需要额外样式
-
-  // 数据分析视图样式（现在在 list-padding 内）
-  .analytics-content {
-    display: flex;
-    flex-direction: column;
-    gap: 24px; // 图表之间的间距，确保图表卡片之间有明显的间隔
-
-    // 确保每个图表容器都有正确的样式
-    .chart-container {
-      flex-shrink: 0; // 防止图表被压缩
-    }
-
-    .chart-container {
-      // 每个图表使用独立的卡片样式
-      background: white;
-      border-radius: 8px;
-      padding: 20px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-      // 移除所有 margin，使用 gap 控制间距
-        margin: 0;
-
-      .chart-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 16px;
-        padding-bottom: 12px;
-        border-bottom: 1px solid #f0f0f0;
-      }
-
-      .chart-title {
-        font-size: 16px;
-        font-weight: 600;
-        color: #303133;
-        margin-bottom: 16px;
-      }
-      }
-    }
-
-  // 对账内容样式
-  .statement-content {
-    padding: 0;
-    background: #fff;
-      display: flex;
-    flex-direction: column;
     height: 100%;
-    overflow: hidden;
-    flex: 1;
-    min-height: 0;
+  }
+}
 
-    .statement-toolbar {
+// 联系人树形组件样式
+.contact-tree {
+  :deep(.el-tree-node) {
+    margin-bottom: 8px;
+  }
+
+  :deep(.el-tree-node__content) {
+    height: auto;
+    min-height: 48px;
+    padding: 8px 0;
+  }
+
+  .contact-tree-node {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    padding: 8px 12px;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+
+    &:hover {
+      background-color: #f5f7fa;
+    }
+
+    .contact-info {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+
+      .contact-name {
+        font-weight: 500;
+        font-size: 14px;
+        color: #303133;
+      }
+
+      .contact-meta {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 12px;
+        color: #909399;
+
+        .meta-item {
+          padding: 2px 8px;
+          background: #f4f5f7;
+          border-radius: 3px;
+        }
+      }
+    }
+
+    .contact-actions {
+      display: flex;
+      gap: 8px;
+      margin-left: 16px;
+    }
+  }
+}
+
+// 订单工具栏样式
+// 工具栏在 list-padding 内，不需要额外样式
+
+// 数据分析视图样式（现在在 list-padding 内）
+.analytics-content {
+  display: flex;
+  flex-direction: column;
+  gap: 24px; // 图表之间的间距，确保图表卡片之间有明显的间隔
+
+  // 确保每个图表容器都有正确的样式
+  .chart-container {
+    flex-shrink: 0; // 防止图表被压缩
+  }
+
+  .chart-container {
+    // 每个图表使用独立的卡片样式
+    background: white;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    // 移除所有 margin，使用 gap 控制间距
+    margin: 0;
+
+    .chart-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
       margin-bottom: 16px;
-      padding: 12px 16px;
-      background: #f5f7fa;
-      border-radius: 4px;
-      flex-shrink: 0;
-      margin-left: 0;
-      margin-right: 0;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #f0f0f0;
+    }
 
+    .chart-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #303133;
+      margin-bottom: 16px;
+    }
+  }
+}
+
+// 对账内容样式
+.statement-content {
+  padding: 0;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  flex: 1;
+  min-height: 0;
+
+  .statement-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    padding: 12px 16px;
+    background: #f5f7fa;
+    border-radius: 4px;
+    flex-shrink: 0;
+    margin-left: 0;
+    margin-right: 0;
+
+    .toolbar-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+
+      .toolbar-label {
+        font-size: 14px;
+        color: #606266;
+        font-weight: 500;
+      }
+    }
+  }
+
+  // 当toolbar在card header中时的样式
+  .section-card {
+    :deep(.el-card__header) {
       .toolbar-left {
         display: flex;
         align-items: center;
         gap: 8px;
 
         .toolbar-label {
-      font-size: 14px;
+          font-size: 14px;
           color: #606266;
           font-weight: 500;
         }
       }
     }
+  }
 
-    // 当toolbar在card header中时的样式
-    .section-card {
-      :deep(.el-card__header) {
-        .toolbar-left {
-          display: flex;
-          align-items: center;
-          gap: 8px;
+  .statement-table-wrapper {
+    flex: 1;
+    overflow: auto;
+    border: 1px solid #ebeef5;
+    border-radius: 4px;
+    min-height: 0;
+  }
 
-          .toolbar-label {
-            font-size: 14px;
-            color: #606266;
-        font-weight: 500;
-          }
-        }
-      }
-    }
+  .statement-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+    background: #fff;
 
-    .statement-table-wrapper {
-      flex: 1;
-      overflow: auto;
-      border: 1px solid #ebeef5;
-      border-radius: 4px;
-      min-height: 0;
-    }
+    thead {
+      background: #f5f7fa;
+      position: sticky;
+      top: 0;
+      z-index: 10;
 
-    .statement-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 14px;
-      background: #fff;
-
-      thead {
+      th {
+        padding: 12px 16px;
+        text-align: left;
+        font-weight: 600;
+        color: #303133;
+        border-bottom: 1px solid #ebeef5;
+        white-space: nowrap;
         background: #f5f7fa;
-        position: sticky;
-        top: 0;
-        z-index: 10;
-
-        th {
-          padding: 12px 16px;
-          text-align: left;
-          font-weight: 600;
-          color: #303133;
-          border-bottom: 1px solid #ebeef5;
-          white-space: nowrap;
-          background: #f5f7fa;
-        }
       }
+    }
 
-      tbody {
-        tr {
-          border-bottom: 1px solid #ebeef5;
-          transition: background-color 0.2s;
+    tbody {
+      tr {
+        border-bottom: 1px solid #ebeef5;
+        transition: background-color 0.2s;
+
+        &:hover {
+          background-color: #f5f7fa;
+        }
+
+        &.period-total {
+          background-color: #f0f2f5;
+          font-weight: 600;
 
           &:hover {
-            background-color: #f5f7fa;
+            background-color: #e4e7ed;
           }
 
-          &.period-total {
-            background-color: #f0f2f5;
+          .period-total-label {
+            color: #303133;
             font-weight: 600;
-
-            &:hover {
-              background-color: #e4e7ed;
-            }
-
-            .period-total-label {
-              color: #303133;
-              font-weight: 600;
-            }
           }
+        }
 
-          td {
-            padding: 12px 16px;
-            color: #606266;
-            border-right: 1px solid #ebeef5;
+        td {
+          padding: 12px 16px;
+          color: #606266;
+          border-right: 1px solid #ebeef5;
 
-            &:last-child {
-              border-right: none;
-            }
+          &:last-child {
+            border-right: none;
           }
         }
       }
+    }
 
-      .col-date {
-        width: 120px;
-        min-width: 120px;
-      }
+    .col-date {
+      width: 120px;
+      min-width: 120px;
+    }
 
-      .col-code {
-        width: 200px;
-        min-width: 200px;
+    .col-code {
+      width: 200px;
+      min-width: 200px;
 
-        .instance-code-link {
-          display: flex;
-          align-items: center;
-          color: #409eff;
-    cursor: pointer;
-          text-decoration: none;
+      .instance-code-link {
+        display: flex;
+        align-items: center;
+        color: #409eff;
+        cursor: pointer;
+        text-decoration: none;
 
-    &:hover {
-            text-decoration: underline;
-          }
+        &:hover {
+          text-decoration: underline;
         }
       }
+    }
 
-      .col-summary {
-        width: 250px;
-        min-width: 250px;
-      }
+    .col-summary {
+      width: 250px;
+      min-width: 250px;
+    }
 
-      .col-debit,
-      .col-credit,
-      .col-balance {
-        width: 150px;
-        min-width: 150px;
-        font-family: 'Courier New', monospace;
-      }
+    .col-debit,
+    .col-credit,
+    .col-balance {
+      width: 150px;
+      min-width: 150px;
+      font-family: 'Courier New', monospace;
+    }
 
-      .col-dc {
-        width: 80px;
-        min-width: 80px;
-        text-align: center;
-      }
+    .col-dc {
+      width: 80px;
+      min-width: 80px;
+      text-align: center;
+    }
   }
 }
 
@@ -7024,8 +7486,8 @@ const submitContact = async () => {
 .kanban-section {
   padding: 0 20px;
   flex: 1;
-    display: flex;
-    flex-direction: column;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
 }
 
@@ -7109,7 +7571,7 @@ const submitContact = async () => {
   background: #fff;
   border-radius: 6px;
   padding: 12px;
-      margin-bottom: 12px;
+  margin-bottom: 12px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   cursor: move;
   transition: all 0.3s ease;
@@ -7149,7 +7611,7 @@ const submitContact = async () => {
 }
 
 :deep(.tree-org-node__inner.org-node-opportunity-category .tree-org-node__text) {
-      font-weight: 600;
+  font-weight: 600;
   color: #389e0d;
 }
 
@@ -7229,7 +7691,7 @@ const submitContact = async () => {
 
     .card-value {
       color: #606266;
-    flex: 1;
+      flex: 1;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
@@ -7241,12 +7703,12 @@ const submitContact = async () => {
 .graph-content {
   padding: 0;
   background: #fff;
-    display: flex;
-    flex-direction: column;
+  display: flex;
+  flex-direction: column;
   height: 100%;
   overflow: hidden;
   flex: 1;
-    min-height: 0;
+  min-height: 0;
   margin-bottom: 0; // 移除底部间距
 
   .customer-graph-container {
@@ -7441,7 +7903,7 @@ const submitContact = async () => {
     }
 
     .header-actions {
-              flex-shrink: 0;
+      flex-shrink: 0;
     }
   }
 
@@ -7451,7 +7913,7 @@ const submitContact = async () => {
     padding: 20px 24px;
     margin: 0 16px 20px 16px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-                border: 1px solid #f0f0f0;
+    border: 1px solid #f0f0f0;
 
     .info-grid {
       display: grid;
@@ -7464,13 +7926,13 @@ const submitContact = async () => {
       }
 
       .info-item {
-              display: flex;
+        display: flex;
         align-items: flex-start;
         min-height: 36px;
         line-height: 1.6;
 
         .info-label {
-              font-size: 14px;
+          font-size: 14px;
           font-weight: 500;
           color: #606266;
           min-width: 140px;
@@ -7497,7 +7959,21 @@ const submitContact = async () => {
   }
 
   .business-info-content {
-    padding: 16px;
+    // 防止工商信息表格标题换行
+    :deep(.el-descriptions__label) {
+      white-space: nowrap;
+    }
+
+    // 确保标签单元格有足够宽度，防止换行
+    :deep(.el-descriptions__label-cell) {
+      width: auto;
+      min-width: 200px;
+    }
+
+    // 调整表格整体布局，确保标签列有足够空间
+    :deep(.el-descriptions__table) {
+      table-layout: auto;
+    }
   }
 
   // Element Plus tabs 内容区域样式
@@ -7507,7 +7983,7 @@ const submitContact = async () => {
   }
 
   :deep(.el-tab-pane) {
-              padding: 0;
+    padding: 0;
   }
 }
 
@@ -7518,8 +7994,8 @@ const submitContact = async () => {
     padding-bottom: 24px;
     border-bottom: 1px solid #e4e7ed;
 
-                &:last-child {
-                  border-bottom: none;
+    &:last-child {
+      border-bottom: none;
       margin-bottom: 0;
       padding-bottom: 0;
     }
@@ -7529,8 +8005,8 @@ const submitContact = async () => {
       font-weight: 600;
       color: #303133;
       margin-bottom: 16px;
-                  display: flex;
-                  align-items: center;
+      display: flex;
+      align-items: center;
     }
   }
 
@@ -7540,11 +8016,11 @@ const submitContact = async () => {
     gap: 16px;
 
     .info-item {
-                    display: flex;
+      display: flex;
       align-items: flex-start;
 
       label {
-                      font-weight: 500;
+        font-weight: 500;
         color: #606266;
         min-width: 120px;
         margin-right: 8px;

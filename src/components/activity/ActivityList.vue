@@ -8,7 +8,8 @@
           placeholder="搜索标题/描述"
           clearable
           style="width: 220px"
-          @keyup.enter="refreshActivities"
+          @input="handleKeywordInput"
+          @clear="refreshActivities"
         />
         <el-select
           v-model="filters.status"
@@ -17,12 +18,7 @@
           style="width: 140px"
           @change="refreshActivities"
         >
-          <el-option
-            v-for="s in statusOptions"
-            :key="s.value"
-            :label="s.label"
-            :value="s.value"
-          />
+          <el-option v-for="s in statusOptions" :key="s.value" :label="s.label" :value="s.value" />
         </el-select>
         <el-select
           v-model="filters.ownerId"
@@ -31,19 +27,16 @@
           filterable
           style="width: 180px"
           :loading="assigneeLoading"
-          @visible-change="(v: boolean) => { if (v) loadAssignees() }"
+          @visible-change="
+            (v: boolean) => {
+              if (v) loadAssignees()
+            }
+          "
           @change="refreshActivities"
         >
           <el-option :label="'全部'" :value="''" />
-          <el-option
-            v-for="m in assigneeOptions"
-            :key="m.id"
-            :label="m.name"
-            :value="m.id"
-          />
+          <el-option v-for="m in assigneeOptions" :key="m.id" :label="m.name" :value="m.id" />
         </el-select>
-        <el-button :icon="Search" @click="refreshActivities">查询</el-button>
-        <el-button :icon="Refresh" @click="resetFilters">重置</el-button>
       </div>
       <el-button type="primary" :icon="Plus" @click="openCreateDialog">新建</el-button>
     </div>
@@ -52,11 +45,7 @@
       <el-empty description="暂无活动记录" />
     </div>
     <div v-else class="activity-groups">
-      <div
-        v-for="group in groupedActivities"
-        :key="group.date"
-        class="activity-group"
-      >
+      <div v-for="group in groupedActivities" :key="group.date" class="activity-group">
         <div class="group-header">{{ group.date }}</div>
         <el-timeline>
           <el-timeline-item
@@ -71,124 +60,136 @@
             @mouseleave="hoveredActivityId = ''"
           >
             <div class="content-card">
-                <div class="line1">
-                  <div class="user-avatar">
-                    <img
-                      v-if="getUserAvatar(act.owner) && !avatarErrorMap[act.id]"
-                      :src="getUserAvatar(act.owner)"
-                      :alt="getUserName(act.owner)"
-                      class="avatar-img"
-                      @error="handleAvatarError(act.id)"
-                    />
-                    <span v-else class="avatar-text">
-                      {{ getSurname(act.owner) }}
-                    </span>
-                  </div>
-                  <div class="user-info">
-                    <span class="user-name">{{
-                      (act as any).ownerDisplay || getUserName((act as any).owner)
-                    }}</span>
-                    <el-tag
-                      class="activity-type"
-                      size="small"
-                      :type="getTypeColor(act.type)"
-                      effect="dark"
-                    >
-                      <el-icon class="type-icon" style="margin-right: 4px">
-                        <component :is="getTypeIcon(act.type)" />
-                      </el-icon>
-                      {{ getTypeName(act.type) }}
-                    </el-tag>
-                    <!-- 状态标签 -->
-                    <el-tag
-                      size="small"
-                      class="status-tag"
-                      :type="getStatusType(act.status)"
-                    >{{ getStatusName(act.status) }}</el-tag>
-                    <!-- 地点信息 -->
-                    <div v-if="act.location" class="info-item">
-                      <el-icon class="info-icon"><Location /></el-icon>
-                      <span class="info-text">{{ act.location }}</span>
-                    </div>
-                    <!-- 时长信息 -->
-                    <div v-if="getActivityDuration(act)" class="info-item">
-                      <el-icon class="info-icon"><Clock /></el-icon>
-                      <span class="info-text">{{ getActivityDuration(act) }}</span>
-                    </div>
-                    <!-- 优先级标签 -->
-                    <el-tag
-                      size="small"
-                      :type="getPriorityType(act.priority)"
-                      effect="plain"
-                    >
-                      {{ getPriorityName(act.priority) }}
-                    </el-tag>
-                  </div>
+              <div class="line1">
+                <div class="user-avatar">
+                  <img
+                    v-if="getUserAvatar(act.owner) && !avatarErrorMap[act.id]"
+                    :src="getUserAvatar(act.owner)"
+                    :alt="getUserName(act.owner)"
+                    class="avatar-img"
+                    @error="handleAvatarError(act.id)"
+                  />
+                  <span v-else class="avatar-text">
+                    {{ getSurname(act.owner) }}
+                  </span>
                 </div>
-                <div class="line3 title-line">{{ act.title }}</div>
+                <div class="user-info">
+                  <span class="user-name">{{
+                    (act as any).ownerDisplay || getUserName((act as any).owner)
+                  }}</span>
+                  <el-tag
+                    class="activity-type"
+                    size="small"
+                    :type="getTypeColor(act.type)"
+                    effect="dark"
+                  >
+                    <el-icon class="type-icon" style="margin-right: 4px">
+                      <component :is="getTypeIcon(act.type)" />
+                    </el-icon>
+                    {{ getTypeName(act.type) }}
+                  </el-tag>
+                  <!-- 状态标签 -->
+                  <el-tag size="small" class="status-tag" :type="getStatusType(act.status)">{{
+                    getStatusName(act.status)
+                  }}</el-tag>
+                  <!-- 地点信息 -->
+                  <div v-if="act.location" class="info-item">
+                    <el-icon class="info-icon"><Location /></el-icon>
+                    <span class="info-text">{{ act.location }}</span>
+                  </div>
+                  <!-- 时长信息 -->
+                  <div v-if="getActivityDuration(act)" class="info-item">
+                    <el-icon class="info-icon"><Clock /></el-icon>
+                    <span class="info-text">{{ getActivityDuration(act) }}</span>
+                  </div>
+                  <!-- 优先级标签 -->
+                  <el-tag size="small" :type="getPriorityType(act.priority)" effect="plain">
+                    {{ getPriorityName(act.priority) }}
+                  </el-tag>
+                </div>
+              </div>
+              <!-- 活动标题和描述区域 -->
+              <div class="activity-content">
+                <div class="title-line">{{ act.title }}</div>
                 <div v-if="act.description" class="desc-line">{{ act.description }}</div>
+              </div>
 
-                <!-- 进行中的活动附件上传 -->
-                <template v-if="act.status === 'in_progress' && isOwner(act)">
-                  <div class="attachments-section">
-                    <div class="attachments-header">
-                      <span class="label">附件：</span>
-                      <el-upload
-                        :action="uploadAction"
-                        :headers="uploadHeaders"
-                        :file-list="getActivityAttachmentList(act.id)"
-                        :on-success="(response: any, file: UploadFile) => handleActivityAttachmentSuccess(act.id, response, file)"
-                        :on-remove="(file: UploadFile) => handleActivityAttachmentRemove(act.id, file)"
-                        :before-upload="beforeUpload"
-                        multiple
-                        list-type="text"
-                        :show-file-list="false"
-                      >
-                        <el-button type="primary" size="small" :icon="Paperclip">上传附件</el-button>
-                      </el-upload>
-                    </div>
-                    <!-- 附件列表 -->
-                    <div v-if="getActivityAttachments(act.id).length > 0" class="attachments-list">
-                      <div
-                        v-for="(attachment, index) in getActivityAttachments(act.id)"
-                        :key="index"
-                        class="attachment-item"
-                      >
-                        <el-link
-                          :href="attachment.url"
-                          target="_blank"
-                          type="primary"
-                          :icon="Download"
-                        >
-                          {{ getAttachmentName(attachment) }}
-                        </el-link>
-                        <el-button
-                          type="danger"
-                          size="small"
-                          text
-                          :icon="Delete"
-                          @click="removeActivityAttachment(act.id, attachment.url)"
-                          style="margin-left: 8px;"
-                        >
-                          删除
-                        </el-button>
-                      </div>
-                    </div>
-                  </div>
-                </template>
-
-                <!-- 完成结果和完成笔记（仅已完成的活动显示） -->
-                <template v-if="act.status === 'completed'">
-                  <div v-if="act.outcome" class="outcome-line">
-                    <span class="label">完成结果：</span>
-                    <span class="value">{{ act.outcome }}</span>
-                  </div>
-                  <div v-if="act.content" class="content-line">
-                    <span class="label">完成笔记：</span>
-                    <span class="value">{{ act.content }}</span>
+              <!-- 进行中的活动附件上传 -->
+              <template v-if="act.status === 'in_progress' && isOwner(act)">
+                <div class="attachments-section">
+                  <div class="attachments-header">
+                    <span class="label">附件：</span>
+                    <el-upload
+                      :action="uploadAction"
+                      :headers="uploadHeaders"
+                      :file-list="getActivityAttachmentList(act.id)"
+                      :on-success="
+                        (response: any, file: UploadFile) =>
+                          handleActivityAttachmentSuccess(act.id, response, file)
+                      "
+                      :on-remove="
+                        (file: UploadFile) => handleActivityAttachmentRemove(act.id, file)
+                      "
+                      :before-upload="beforeUpload"
+                      multiple
+                      list-type="text"
+                      :show-file-list="false"
+                    >
+                      <el-button type="primary" size="small" :icon="Paperclip">上传附件</el-button>
+                    </el-upload>
                   </div>
                   <!-- 附件列表 -->
-                  <div v-if="act.attachments && act.attachments.length > 0" class="attachments-line">
+                  <div v-if="getActivityAttachments(act.id).length > 0" class="attachments-list">
+                    <div
+                      v-for="(attachment, index) in getActivityAttachments(act.id)"
+                      :key="index"
+                      class="attachment-item"
+                    >
+                      <el-link
+                        :href="attachment.url"
+                        target="_blank"
+                        type="primary"
+                        :icon="Download"
+                      >
+                        {{ getAttachmentName(attachment) }}
+                      </el-link>
+                      <el-button
+                        type="danger"
+                        size="small"
+                        text
+                        :icon="Delete"
+                        @click="removeActivityAttachment(act.id, attachment.url)"
+                        style="margin-left: 8px"
+                      >
+                        删除
+                      </el-button>
+                    </div>
+                  </div>
+                </div>
+              </template>
+
+              <!-- 完成结果和完成笔记（仅已完成的活动显示） -->
+              <template v-if="act.status === 'completed'">
+                <div class="completion-section">
+                  <div v-if="act.outcome" class="outcome-card">
+                    <div class="card-header">
+                      <el-icon class="header-icon"><CircleCheck /></el-icon>
+                      <span class="card-title">完成结果</span>
+                    </div>
+                    <div class="card-content">{{ act.outcome }}</div>
+                  </div>
+                  <div v-if="act.content" class="content-card-item">
+                    <div class="card-header">
+                      <el-icon class="header-icon"><Document /></el-icon>
+                      <span class="card-title">完成笔记</span>
+                    </div>
+                    <div class="card-content">{{ act.content }}</div>
+                  </div>
+                  <!-- 附件列表 -->
+                  <div
+                    v-if="act.attachments && act.attachments.length > 0"
+                    class="attachments-line"
+                  >
                     <span class="label">附件：</span>
                     <div class="attachments-list">
                       <el-link
@@ -198,30 +199,36 @@
                         target="_blank"
                         type="primary"
                         :icon="Download"
-                        style="margin-right: 12px; margin-bottom: 4px;"
+                        style="margin-right: 12px; margin-bottom: 4px"
                       >
-                        {{ getAttachmentName(typeof attachment === 'string' ? { url: attachment } : attachment) }}
+                        {{
+                          getAttachmentName(
+                            typeof attachment === 'string' ? { url: attachment } : attachment,
+                          )
+                        }}
                       </el-link>
                     </div>
                   </div>
-                </template>
-
-                <div
-                  class="activity-actions"
-                  :class="{ visible: hoveredActivityId === act.id }"
-                >
-                  <template v-if="act.status === 'planned' && isOwner(act)">
-                    <el-button type="primary" size="small" @click="startActivity(act)">开始</el-button>
-                  </template>
-                  <template v-else-if="act.status === 'in_progress' && isOwner(act)">
-                    <el-button type="success" size="small" @click="openCompleteDialog(act)">完成</el-button>
-                  </template>
                 </div>
+              </template>
+
+              <div class="activity-actions" :class="{ visible: hoveredActivityId === act.id }">
+                <template v-if="act.status === 'planned' && isOwner(act)">
+                  <el-button type="primary" size="small" @click="startActivity(act)"
+                    >开始</el-button
+                  >
+                </template>
+                <template v-else-if="act.status === 'in_progress' && isOwner(act)">
+                  <el-button type="success" size="small" @click="openCompleteDialog(act)"
+                    >完成</el-button
+                  >
+                </template>
               </div>
-            </el-timeline-item>
-          </el-timeline>
-        </div>
+            </div>
+          </el-timeline-item>
+        </el-timeline>
       </div>
+    </div>
 
     <!-- 新建活动弹窗 -->
     <el-dialog
@@ -290,13 +297,36 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, watch, onMounted } from 'vue'
-import { Plus, Search, Refresh, Phone, VideoCamera, Message, EditPen, Document, Location, Clock, Paperclip, Download, Delete, ChatDotRound } from '@element-plus/icons-vue'
+import {
+  Plus,
+  Phone,
+  VideoCamera,
+  Message,
+  EditPen,
+  Document,
+  Location,
+  Clock,
+  Paperclip,
+  Download,
+  Delete,
+  ChatDotRound,
+  CircleCheck,
+} from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import type { UploadFile, UploadProps } from 'element-plus'
-import activityApi, { type Activity, type CreateActivityDto, type UpdateActivityDto } from '@/api/activity'
+import activityApi, {
+  type Activity,
+  type CreateActivityDto,
+  type UpdateActivityDto,
+} from '@/api/activity'
 import ActivityForm from './ActivityForm.vue'
 import { useAuthStore } from '@/stores/modules/auth'
-import { getDepartmentMembers, getDepartmentTree, type Department, type Member } from '@/api/department'
+import {
+  getDepartmentMembers,
+  getDepartmentTree,
+  type Department,
+  type Member,
+} from '@/api/department'
 
 interface Props {
   // 关联类型
@@ -389,7 +419,6 @@ const formatDateOnly = (dateStr?: string) => {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 }
 
-
 // 格式化时间
 const formatTime = (dateStr?: string) => {
   if (!dateStr) return '-'
@@ -435,7 +464,9 @@ const groupedActivities = computed(() => {
   acts.forEach((a) => {
     const day = formatDateOnly(a.actualStartTime || a.plannedStartTime || a.createdAt)
     // 统一owner显示字段
-    ;(a as any).ownerDisplay = getUserName((a as any).owner || (a as any).ownerName || (a as any).owner_username)
+    ;(a as any).ownerDisplay = getUserName(
+      (a as any).owner || (a as any).ownerName || (a as any).owner_username,
+    )
     if (!map[day]) map[day] = []
     map[day].push(a)
   })
@@ -443,14 +474,12 @@ const groupedActivities = computed(() => {
     .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())
     .map((date) => ({
       date,
-      items: map[date].sort(
-        (x, y) => {
-          // 按时间从早到晚排序（时间线从上到下）
-          const xTime = new Date(x.actualStartTime || x.plannedStartTime || x.createdAt).getTime()
-          const yTime = new Date(y.actualStartTime || y.plannedStartTime || y.createdAt).getTime()
-          return xTime - yTime
-        },
-      ),
+      items: map[date].sort((x, y) => {
+        // 按时间从早到晚排序（时间线从上到下）
+        const xTime = new Date(x.actualStartTime || x.plannedStartTime || x.createdAt).getTime()
+        const yTime = new Date(y.actualStartTime || y.plannedStartTime || y.createdAt).getTime()
+        return xTime - yTime
+      }),
     }))
   return groups
 })
@@ -612,17 +641,19 @@ const loadActivities = async () => {
     // 初始化进行中活动的附件列表
     list.forEach((a: Activity) => {
       if (a.status === 'in_progress' && a.attachments && a.attachments.length > 0) {
-        activityAttachments.value[a.id] = a.attachments.map((att: string | AttachmentInfo, index: number) => {
-          const url = typeof att === 'string' ? att : att.url
-          const originalname = typeof att === 'string' ? undefined : att.originalname
-          return {
-            name: originalname || getAttachmentName(typeof att === 'string' ? { url: att } : att),
-            url,
-            status: 'success',
-            uid: Date.now() + index,
-            response: originalname ? { data: { url, originalname } } : { data: { url } },
-          } as UploadFile
-        })
+        activityAttachments.value[a.id] = a.attachments.map(
+          (att: string | AttachmentInfo, index: number) => {
+            const url = typeof att === 'string' ? att : att.url
+            const originalname = typeof att === 'string' ? undefined : att.originalname
+            return {
+              name: originalname || getAttachmentName(typeof att === 'string' ? { url: att } : att),
+              url,
+              status: 'success',
+              uid: Date.now() + index,
+              response: originalname ? { data: { url, originalname } } : { data: { url } },
+            } as UploadFile
+          },
+        )
       }
     })
 
@@ -637,12 +668,15 @@ const refreshActivities = () => {
   loadActivities()
 }
 
-// 重置筛选
-const resetFilters = () => {
-  filters.keyword = ''
-  filters.status = ''
-  filters.ownerId = ''
-  loadActivities()
+// 关键词输入防抖处理
+let keywordTimer: ReturnType<typeof setTimeout> | null = null
+const handleKeywordInput = () => {
+  if (keywordTimer) {
+    clearTimeout(keywordTimer)
+  }
+  keywordTimer = setTimeout(() => {
+    refreshActivities()
+  }, 500) // 500ms 防抖延迟
 }
 
 // 加载负责人选项
@@ -681,7 +715,10 @@ const loadAssignees = async () => {
     }
 
     const userDepartment = await findDepartmentByMember(departmentTree)
-    const isManager = userDepartment && userDepartment.managerId && String(userDepartment.managerId) === String(memberId)
+    const isManager =
+      userDepartment &&
+      userDepartment.managerId &&
+      String(userDepartment.managerId) === String(memberId)
 
     const memberMap = new Map<string, { id: string; name: string }>()
     const getCurrentUserName = () =>
@@ -909,16 +946,28 @@ const getActivityAttachments = (activityId: string): AttachmentInfo[] => {
   const files = activityAttachments.value[activityId] || []
   return files
     .map((file) => {
-      const resp = (file.response as { data?: { url?: string; originalname?: string; filename?: string }; url?: string; originalname?: string } | string) || {}
-      const url = typeof resp === 'object' && resp !== null
-        ? (resp.data?.url || (resp as { url?: string }).url)
-        : typeof resp === 'string' ? resp : undefined
-      const originalname = typeof resp === 'object' && resp !== null
-        ? (resp.data?.originalname || (resp as { originalname?: string }).originalname)
-        : undefined
-      const filename = typeof resp === 'object' && resp !== null
-        ? (resp.data?.filename || (resp as { filename?: string }).filename)
-        : undefined
+      const resp =
+        (file.response as
+          | {
+              data?: { url?: string; originalname?: string; filename?: string }
+              url?: string
+              originalname?: string
+            }
+          | string) || {}
+      const url =
+        typeof resp === 'object' && resp !== null
+          ? resp.data?.url || (resp as { url?: string }).url
+          : typeof resp === 'string'
+            ? resp
+            : undefined
+      const originalname =
+        typeof resp === 'object' && resp !== null
+          ? resp.data?.originalname || (resp as { originalname?: string }).originalname
+          : undefined
+      const filename =
+        typeof resp === 'object' && resp !== null
+          ? resp.data?.filename || (resp as { filename?: string }).filename
+          : undefined
 
       const attachment: AttachmentInfo = {
         url: file.url || url || '',
@@ -935,19 +984,32 @@ const getActivityAttachments = (activityId: string): AttachmentInfo[] => {
 }
 
 // 活动附件上传成功
-const handleActivityAttachmentSuccess = async (activityId: string, response: unknown, file: UploadFile) => {
-  const resp = response as { data?: { url?: string; originalname?: string; filename?: string }; url?: string; originalname?: string } | string | null
-  const url = resp && typeof resp === 'object'
-    ? (resp.data?.url || resp.url)
-    : typeof resp === 'string' ? resp : undefined
+const handleActivityAttachmentSuccess = async (
+  activityId: string,
+  response: unknown,
+  file: UploadFile,
+) => {
+  const resp = response as
+    | {
+        data?: { url?: string; originalname?: string; filename?: string }
+        url?: string
+        originalname?: string
+      }
+    | string
+    | null
+  const url =
+    resp && typeof resp === 'object'
+      ? resp.data?.url || resp.url
+      : typeof resp === 'string'
+        ? resp
+        : undefined
   if (url) {
     file.url = url
     file.response = resp
 
     // 保存原文件名
-    const originalname = resp && typeof resp === 'object'
-      ? (resp.data?.originalname || resp.originalname)
-      : undefined
+    const originalname =
+      resp && typeof resp === 'object' ? resp.data?.originalname || resp.originalname : undefined
     if (originalname) {
       // 如果 originalname 存在，更新 file.name
       file.name = originalname
@@ -957,10 +1019,15 @@ const handleActivityAttachmentSuccess = async (activityId: string, response: unk
       activityAttachments.value[activityId] = []
     }
     // 检查是否已存在相同的附件
-    const existingUrl = activityAttachments.value[activityId].find(f => {
-      const fUrl = f.url || (typeof f.response === 'object' && f.response !== null
-        ? ((f.response as { data?: { url?: string } }).data?.url || (f.response as { url?: string }).url)
-        : typeof f.response === 'string' ? f.response : undefined)
+    const existingUrl = activityAttachments.value[activityId].find((f) => {
+      const fUrl =
+        f.url ||
+        (typeof f.response === 'object' && f.response !== null
+          ? (f.response as { data?: { url?: string } }).data?.url ||
+            (f.response as { url?: string }).url
+          : typeof f.response === 'string'
+            ? f.response
+            : undefined)
       return fUrl === url
     })
     if (!existingUrl) {
@@ -969,7 +1036,7 @@ const handleActivityAttachmentSuccess = async (activityId: string, response: unk
     ElMessage.success('附件上传成功')
 
     // 更新活动记录（异步，不阻塞UI显示）
-    updateActivityAttachments(activityId).catch(error => {
+    updateActivityAttachments(activityId).catch((error) => {
       console.error('更新活动附件失败:', error)
       // 即使更新失败，附件列表仍然显示，用户可以重试
     })
@@ -982,18 +1049,24 @@ const handleActivityAttachmentSuccess = async (activityId: string, response: unk
 const handleActivityAttachmentRemove = async (activityId: string, file: UploadFile) => {
   if (activityAttachments.value[activityId]) {
     const resp = (file.response as { data?: { url?: string }; url?: string } | string) || {}
-    const url = file.url || (typeof resp === 'object' && resp !== null
-      ? (resp.data?.url || (resp as { url?: string }).url)
-      : typeof resp === 'string' ? resp : undefined)
-    activityAttachments.value[activityId] = activityAttachments.value[activityId].filter(
-      (f) => {
-        const fResp = (f.response as { data?: { url?: string }; url?: string } | string) || {}
-        const fUrl = f.url || (typeof fResp === 'object' && fResp !== null
-          ? (fResp.data?.url || (fResp as { url?: string }).url)
-          : typeof fResp === 'string' ? fResp : undefined)
-        return fUrl !== url
-      }
-    )
+    const url =
+      file.url ||
+      (typeof resp === 'object' && resp !== null
+        ? resp.data?.url || (resp as { url?: string }).url
+        : typeof resp === 'string'
+          ? resp
+          : undefined)
+    activityAttachments.value[activityId] = activityAttachments.value[activityId].filter((f) => {
+      const fResp = (f.response as { data?: { url?: string }; url?: string } | string) || {}
+      const fUrl =
+        f.url ||
+        (typeof fResp === 'object' && fResp !== null
+          ? fResp.data?.url || (fResp as { url?: string }).url
+          : typeof fResp === 'string'
+            ? fResp
+            : undefined)
+      return fUrl !== url
+    })
     // 更新活动记录
     await updateActivityAttachments(activityId)
   }
@@ -1002,12 +1075,10 @@ const handleActivityAttachmentRemove = async (activityId: string, file: UploadFi
 // 删除活动附件
 const removeActivityAttachment = async (activityId: string, attachmentUrl: string) => {
   if (activityAttachments.value[activityId]) {
-    activityAttachments.value[activityId] = activityAttachments.value[activityId].filter(
-      (f) => {
-        const fUrl = f.url || (f.response as any)?.data?.url || (f.response as any)?.url || f.response
-        return fUrl !== attachmentUrl
-      }
-    )
+    activityAttachments.value[activityId] = activityAttachments.value[activityId].filter((f) => {
+      const fUrl = f.url || (f.response as any)?.data?.url || (f.response as any)?.url || f.response
+      return fUrl !== attachmentUrl
+    })
     // 更新活动记录
     await updateActivityAttachments(activityId)
   }
@@ -1018,13 +1089,13 @@ const updateActivityAttachments = async (activityId: string) => {
   try {
     const attachmentInfos = getActivityAttachments(activityId)
     // 保存附件信息（包含URL和原文件名）
-    const attachments = attachmentInfos.map(att => ({
+    const attachments = attachmentInfos.map((att) => ({
       url: att.url,
       originalname: att.originalname,
     }))
-    await activityApi.update(activityId, { attachments: attachments.map(a => a.url) })
+    await activityApi.update(activityId, { attachments: attachments.map((a) => a.url) })
     // 更新活动对象中的附件列表，使其与 activityAttachments 同步
-    const activity = activities.value.find(a => a.id === activityId)
+    const activity = activities.value.find((a) => a.id === activityId)
     if (activity) {
       // 保存完整的附件信息
       activity.attachments = attachments as any
@@ -1049,7 +1120,11 @@ const submitComplete = async () => {
       })
       .filter(Boolean)
 
-    await activityApi.complete(completeDialog.id, completeDialog.outcome, attachments.length > 0 ? attachments : undefined)
+    await activityApi.complete(
+      completeDialog.id,
+      completeDialog.outcome,
+      attachments.length > 0 ? attachments : undefined,
+    )
     ElMessage.success('已完成活动')
     completeDialog.visible = false
     completeDialog.outcome = ''
@@ -1225,29 +1300,124 @@ defineExpose({
           }
         }
 
-        .line3 {
-          font-size: 14px;
-          color: #303133;
-          margin-bottom: 4px;
+        // 活动内容区域
+        .activity-content {
+          margin-bottom: 12px;
 
-          &.title-line {
-            font-weight: 500;
+          .title-line {
+            font-size: 16px;
+            font-weight: 600;
+            color: #303133;
+            margin-bottom: 8px;
+            line-height: 1.5;
+            word-wrap: break-word;
+          }
+
+          .desc-line {
+            font-size: 13px;
+            color: #606266;
+            line-height: 1.6;
+            padding: 10px 12px;
+            background: #f5f7fa;
+            border-left: 3px solid #409eff;
+            border-radius: 4px;
+            margin-bottom: 0;
+            white-space: pre-line;
+            word-wrap: break-word;
+            word-break: break-all;
           }
         }
 
-        .desc-line {
-          font-size: 13px;
-          color: #606266;
-          margin-bottom: 8px;
-          white-space: pre-line;
-          word-wrap: break-word;
-          word-break: break-all;
+        // 完成区域
+        .completion-section {
+          margin-top: 12px;
+          padding-top: 12px;
+          border-top: 1px solid #e4e7ed;
+
+          .outcome-card,
+          .content-card-item {
+            margin-bottom: 12px;
+            background: #fafbfc;
+            border: 1px solid #e4e7ed;
+            border-radius: 6px;
+            overflow: hidden;
+            transition: all 0.2s;
+
+            &:hover {
+              border-color: #c0c4cc;
+              box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+            }
+
+            .card-header {
+              display: flex;
+              align-items: center;
+              padding: 10px 12px;
+              background: #f0f2f5;
+              border-bottom: 1px solid #e4e7ed;
+
+              .header-icon {
+                font-size: 16px;
+                color: #409eff;
+                margin-right: 6px;
+              }
+
+              .card-title {
+                font-size: 13px;
+                font-weight: 600;
+                color: #606266;
+              }
+            }
+
+            .card-content {
+              padding: 12px;
+              font-size: 13px;
+              color: #303133;
+              line-height: 1.6;
+              white-space: pre-line;
+              word-wrap: break-word;
+              word-break: break-all;
+            }
+          }
+
+          .outcome-card {
+            .card-header {
+              .header-icon {
+                color: #67c23a;
+              }
+            }
+          }
+
+          .content-card-item {
+            .card-header {
+              .header-icon {
+                color: #409eff;
+              }
+            }
+          }
+
+          .attachments-line {
+            font-size: 13px;
+            color: #606266;
+            margin-top: 8px;
+
+            .label {
+              color: #909399;
+              font-weight: 500;
+              margin-right: 8px;
+            }
+
+            .attachments-list {
+              display: inline-flex;
+              flex-wrap: wrap;
+              gap: 8px;
+            }
+          }
         }
 
-        .outcome-line,
-        .content-line,
-        .attachments-line,
         .attachments-section {
+          margin-top: 12px;
+          padding-top: 12px;
+          border-top: 1px solid #f0f0f0;
           font-size: 13px;
           color: #606266;
           margin-bottom: 6px;
@@ -1259,34 +1429,6 @@ defineExpose({
             margin-right: 4px;
           }
 
-          .value {
-            color: #303133;
-          }
-        }
-
-        .content-line {
-          .value {
-            white-space: pre-line;
-            word-wrap: break-word;
-            word-break: break-all;
-          }
-        }
-
-        .attachments-line,
-        .attachments-section {
-          .attachments-list {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            margin-top: 8px;
-          }
-        }
-
-        .attachments-section {
-          margin-top: 12px;
-          padding-top: 12px;
-          border-top: 1px solid #f0f0f0;
-
           .attachments-header {
             display: flex;
             align-items: center;
@@ -1294,10 +1436,26 @@ defineExpose({
             margin-bottom: 8px;
           }
 
+          .attachments-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+          }
+
           .attachment-item {
             display: flex;
             align-items: center;
             margin-bottom: 4px;
+          }
+        }
+
+        .attachments-line {
+          .attachments-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
           }
         }
 
@@ -1342,4 +1500,3 @@ defineExpose({
   }
 }
 </style>
-
