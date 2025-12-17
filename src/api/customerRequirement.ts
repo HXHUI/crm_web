@@ -6,9 +6,16 @@ export enum RequirementType {
   INTANGIBLE = 'intangible', // 无形需求
 }
 
+export enum RequirementRelatedType {
+  CUSTOMER = 'customer',
+  OPPORTUNITY = 'opportunity',
+}
+
 export interface CustomerRequirement {
   id: number
-  customerId: number
+  relatedType: RequirementRelatedType
+  relatedId: number
+  customerId?: number // 兼容字段
   customer?: {
     id: number
     name: string
@@ -27,7 +34,10 @@ export interface CustomerRequirement {
 }
 
 export interface CreateRequirementDto {
-  customerId: number
+  // 支持多态关联
+  relatedType?: RequirementRelatedType
+  relatedId?: number
+  customerId?: number // 兼容字段，如果提供则自动转换为 relatedType='customer', relatedId=customerId
   type: RequirementType
   content: string
   problemToSolve?: string
@@ -48,7 +58,10 @@ export interface UpdateRequirementDto {
 }
 
 export interface QueryRequirementDto {
-  customerId?: number
+  // 支持多态查询
+  relatedType?: RequirementRelatedType
+  relatedId?: number
+  customerId?: number // 兼容字段
   type?: RequirementType
   status?: string
   priority?: number
@@ -94,6 +107,10 @@ export const customerRequirementApi = {
 
   getByCustomer: (customerId: number): Promise<{ code: number; message: string; data: CustomerRequirement[] }> => {
     return request.get(`/customer-requirements/customer/${customerId}`)
+  },
+
+  getByOpportunity: (opportunityId: number): Promise<{ code: number; message: string; data: CustomerRequirement[] }> => {
+    return request.get(`/customer-requirements/opportunity/${opportunityId}`)
   },
 }
 

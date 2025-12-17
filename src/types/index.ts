@@ -7,6 +7,7 @@ export interface User {
   avatar?: string
   status: 'active' | 'inactive'
   isSystemAdmin?: boolean  // 是否为系统管理员
+  isTenantAdmin?: boolean  // 是否为租户管理员
   createdAt: string
   updatedAt: string
 }
@@ -103,6 +104,42 @@ export interface RolePermission {
   role: Role
   permission: Permission
   createdAt: string
+}
+
+// 租户管理员相关类型
+export interface TenantAdmin {
+  id: string
+  userId: string
+  tenantId: string
+  user: User
+  tenant: Tenant
+  status: 'active' | 'inactive'
+  createdAt: string
+  updatedAt: string
+}
+
+// 创建租户管理员DTO
+export interface CreateTenantAdminDto {
+  username: string
+  email?: string
+  phone: string
+  password: string
+}
+
+// 查询租户管理员DTO
+export interface QueryTenantAdminDto {
+  search?: string
+  page?: number
+  limit?: number
+}
+
+// 租户管理员列表响应
+export interface TenantAdminListResponse {
+  admins: TenantAdmin[]
+  total: number
+  page: number
+  limit: number
+  totalPages: number
 }
 
 // 客户相关类型

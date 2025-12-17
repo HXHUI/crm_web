@@ -86,6 +86,16 @@
               <el-button v-if="isLeadPool" type="success" :icon="Download" @click="handleClaim">
                 领取 ({{ selectedRows.length }})
               </el-button>
+              <!-- 线索池：分配按钮（只有部门负责人可见） -->
+              <el-button
+                v-if="isLeadPool && isDepartmentManager"
+                type="success"
+                :icon="Switch"
+                @click="openBatchAssign"
+              >
+                分配 ({{ selectedRows.length }})
+              </el-button>
+              <!-- 线索管理：转移按钮 -->
               <el-button
                 v-if="!isLeadPool"
                 type="warning"
@@ -247,7 +257,18 @@
           </el-table-column>
           <el-table-column label="操作" width="300" fixed="right">
             <template #default="{ row }">
+              <!-- 线索池中的线索：显示分配按钮（只有部门负责人可见） -->
               <el-button
+                v-if="!row.ownerId && isDepartmentManager"
+                type="success"
+                size="small"
+                @click="openAssign(row)"
+                style="margin-right: 8px"
+                >分配</el-button
+              >
+              <!-- 有负责人的线索：显示转移按钮 -->
+              <el-button
+                v-if="row.ownerId"
                 type="warning"
                 size="small"
                 @click="openTransfer(row)"
@@ -302,13 +323,19 @@
       >
         <el-form ref="formRef" :model="form" label-width="100px">
           <el-form-item label="姓名"><el-input v-model="form.name" /></el-form-item>
-          <el-form-item label="公司">
+          <el-form-item
+            label="公司"
+            :error="companyDuplicateError"
+            :validate-status="companyDuplicateError ? 'error' : ''"
+          >
             <div class="company-search-wrapper">
               <el-input
                 v-model="form.company"
                 placeholder="请输入公司名称"
                 clearable
                 @keyup.enter="handleCompanySearch"
+                @blur="checkCompanyDuplicate(form.company || '')"
+                @input="() => { companyDuplicateError = '' }"
               >
                 <template #prefix>
                   <el-icon class="search-icon"><Search /></el-icon>
@@ -351,12 +378,22 @@
           <el-form-item label="电话"><el-input v-model="form.phone" /></el-form-item>
           <el-form-item label="邮箱"><el-input v-model="form.email" /></el-form-item>
           <el-form-item label="来源">
-            <el-select v-model="form.leadSource" style="width: 100%" placeholder="请选择">
+            <el-select
+              v-model="form.leadSource"
+              style="width: 100%"
+              placeholder="请选择"
+              filterable
+            >
               <el-option v-for="s in sourceOptions" :key="s.key" :label="s.label" :value="s.key" />
             </el-select>
           </el-form-item>
           <el-form-item label="行业">
-            <el-select v-model="form.industry" style="width: 100%" placeholder="请选择行业">
+            <el-select
+              v-model="form.industry"
+              style="width: 100%"
+              placeholder="请选择行业"
+              filterable
+            >
               <el-option
                 v-for="i in industryOptions"
                 :key="i.key"
@@ -379,6 +416,7 @@
               :options="regionOptions"
               style="width: 100%"
               placeholder="省/市/区"
+              filterable
             />
           </el-form-item>
           <el-form-item label="详细地址"><el-input v-model="form.addressDetail" /></el-form-item>
@@ -484,6 +522,39 @@
           <el-button @click="transferVisible = false">取消</el-button>
           <el-button type="primary" @click="submitTransfer" :loading="transferLoading">
             确认转移
+          </el-button>
+        </template>
+      </el-dialog>
+
+      <!-- 分配对话框 -->
+      <el-dialog
+        v-model="assignVisible"
+        :title="assignMode === 'single' ? '分配线索' : `分配线索 (${selectedRows.length}条)`"
+        width="500px"
+        :close-on-click-modal="false"
+      >
+        <el-form :model="assignForm" label-width="100px">
+          <el-form-item label="选择负责人" required>
+            <el-select
+              v-model="assignForm.newOwnerId"
+              style="width: 100%"
+              placeholder="请选择负责人"
+              filterable
+              :loading="ownerLoading"
+            >
+              <el-option
+                v-for="user in ownerOptions"
+                :key="user.id"
+                :label="user.name"
+                :value="user.id"
+              />
+            </el-select>
+          </el-form-item>
+        </el-form>
+        <template #footer>
+          <el-button @click="assignVisible = false">取消</el-button>
+          <el-button type="primary" @click="submitAssign" :loading="assignLoading">
+            确认分配
           </el-button>
         </template>
       </el-dialog>
@@ -621,7 +692,7 @@
                 <el-option label="100%" :value="100" />
               </el-select>
             </el-form-item>
-            <el-form-item label="预计成交日期" required>
+            <el-form-item label="预计成交日期">
               <el-date-picker
                 v-model="convertForm.expectedCloseDate"
                 type="date"
@@ -865,6 +936,7 @@
                 placeholder="请选择所在地区"
                 clearable
                 style="width: 100%"
+                filterable
                 :props="{ expandTrigger: 'hover' }"
               />
             </el-form-item>
@@ -1599,6 +1671,7 @@ import {
 import leadApi, { type Lead, type QueryLeadDto } from '@/api/lead'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import commonApi from '@/api/common'
+import dictionaryApi, { type DictItem } from '@/api/dictionary'
 import { useAuthStore } from '@/stores/modules/auth'
 import {
   getDepartmentMembers,
@@ -1662,6 +1735,8 @@ const editMode = ref(false)
 const currentEditLead = ref<Lead | null>(null)
 const submitLoading = ref(false)
 const formRef = ref()
+const companyDuplicateError = ref<string>('')
+const checkingCompanyDuplicate = ref(false)
 const form = reactive<{
   name?: string
   company?: string
@@ -1836,6 +1911,8 @@ const convertLoading = ref(false)
 
 // 转移相关
 const transferVisible = ref(false)
+// 分配相关
+const assignVisible = ref(false)
 
 // 不合格对话框相关
 const unqualifiedDialogVisible = ref(false)
@@ -1864,6 +1941,14 @@ const transferForm = reactive<{ newOwnerId?: string }>({
   newOwnerId: '',
 })
 const transferLoading = ref(false)
+
+// 分配相关
+const assignMode = ref<'single' | 'batch'>('single')
+const currentAssignLead = ref<Lead | null>(null)
+const assignForm = reactive<{ newOwnerId?: string }>({
+  newOwnerId: '',
+})
+const assignLoading = ref(false)
 
 // 删除相关
 const deleteLoading = ref(false)
@@ -2257,20 +2342,40 @@ const getStatusName = (s?: string) => {
 
 const loadSources = async () => {
   try {
-    const resp = await leadApi.sources()
-    sourceOptions.value =
-      (resp as unknown as { data: Array<{ key: string; label: string }> }).data || []
+    // 优先使用字典API
+    const resp = await dictionaryApi.getItems('lead_source')
+    sourceOptions.value = resp.data.map((item: DictItem) => ({
+      key: item.value,
+      label: item.label,
+    }))
   } catch {
-    // 忽略错误
+    // 如果字典API失败，尝试使用旧API（兼容性）
+    try {
+      const resp = await leadApi.sources()
+      sourceOptions.value =
+        (resp as unknown as { data: Array<{ key: string; label: string }> }).data || []
+    } catch {
+      // 忽略错误
+    }
   }
 }
 const loadIndustries = async () => {
   try {
-    const resp = await commonApi.industries()
-    industryOptions.value =
-      (resp as unknown as { data: Array<{ key: string; label: string }> }).data || []
+    // 优先使用字典API
+    const resp = await dictionaryApi.getItems('industry')
+    industryOptions.value = resp.data.map((item: DictItem) => ({
+      key: item.value,
+      label: item.label,
+    }))
   } catch {
-    // 忽略错误
+    // 如果字典API失败，尝试使用旧API（兼容性）
+    try {
+      const resp = await commonApi.industries()
+      industryOptions.value =
+        (resp as unknown as { data: Array<{ key: string; label: string }> }).data || []
+    } catch {
+      // 忽略错误
+    }
   }
 }
 const loadUnqualifiedReasons = async () => {
@@ -2746,11 +2851,44 @@ const handleCompanySearch = async () => {
   }
 }
 
+// 检查公司是否重复
+const checkCompanyDuplicate = async (companyName: string) => {
+  if (!companyName || !companyName.trim()) {
+    companyDuplicateError.value = ''
+    return false
+  }
+
+  // 编辑模式下不检查
+  if (editMode.value && currentEditLead.value) {
+    companyDuplicateError.value = ''
+    return false
+  }
+
+  try {
+    checkingCompanyDuplicate.value = true
+    companyDuplicateError.value = ''
+    const response = await leadApi.checkDuplicateCompany(companyName.trim())
+    if (response.data?.data?.isDuplicate) {
+      companyDuplicateError.value = `该公司"${companyName.trim()}"已存在线索，不允许重复添加`
+      return true
+    }
+    return false
+  } catch (error: any) {
+    console.error('检查公司重复失败:', error)
+    // 检查失败时不阻止提交，由后端验证
+    return false
+  } finally {
+    checkingCompanyDuplicate.value = false
+  }
+}
+
 // 选择企业
-const selectCompany = (company: CompanySearchResult) => {
+const selectCompany = async (company: CompanySearchResult) => {
   form.company = company.name
   companySearchResults.value = []
   ElMessage.success(`已选择：${company.name}`)
+  // 选择后立即检查重复
+  await checkCompanyDuplicate(company.name)
 }
 
 const openCreate = () => {
@@ -2852,6 +2990,16 @@ const submitCreate = async () => {
     ElMessage.warning('状态为不合格时，请选择不合格原因')
     return
   }
+
+  // 检查公司重复（仅在创建模式下）
+  if (!editMode.value && form.company && form.company.trim()) {
+    const isDuplicate = await checkCompanyDuplicate(form.company.trim())
+    if (isDuplicate) {
+      ElMessage.error(companyDuplicateError.value)
+      return
+    }
+  }
+
   try {
     submitLoading.value = true
     // 构建提交数据，统一处理 ownerId 的转换
@@ -3044,10 +3192,11 @@ const submitConvert = async () => {
       ElMessage.warning('请选择成交概率')
       return
     }
-    if (!convertForm.expectedCloseDate) {
-      ElMessage.warning('请选择预计成交日期')
-      return
-    }
+    // 预计成交日期改为非必填
+    // if (!convertForm.expectedCloseDate) {
+    //   ElMessage.warning('请选择预计成交日期')
+    //   return
+    // }
   }
 
   // 如果勾选了下一步计划活动，验证必填字段
@@ -3213,6 +3362,59 @@ const submitTransfer = async () => {
     ElMessage.error(message)
   } finally {
     transferLoading.value = false
+  }
+}
+
+// 打开单个分配
+const openAssign = (row: Lead) => {
+  currentAssignLead.value = row
+  assignMode.value = 'single'
+  assignForm.newOwnerId = ''
+  assignVisible.value = true
+}
+
+// 打开批量分配
+const openBatchAssign = () => {
+  if (selectedRows.value.length === 0) {
+    ElMessage.warning('请先选择要分配的线索')
+    return
+  }
+  currentAssignLead.value = null
+  assignMode.value = 'batch'
+  assignForm.newOwnerId = ''
+  assignVisible.value = true
+}
+
+// 提交分配
+const submitAssign = async () => {
+  if (!assignForm.newOwnerId) {
+    ElMessage.warning('请选择负责人')
+    return
+  }
+
+  try {
+    assignLoading.value = true
+
+    let leadIds: string[] = []
+    if (assignMode.value === 'single') {
+      if (!currentAssignLead.value) return
+      leadIds = [currentAssignLead.value.id]
+    } else {
+      leadIds = selectedRows.value.map((row) => row.id)
+    }
+
+    await leadApi.assign(leadIds, assignForm.newOwnerId)
+    ElMessage.success(
+      assignMode.value === 'single' ? '分配成功' : `成功分配 ${leadIds.length} 条线索`,
+    )
+    assignVisible.value = false
+    selectedRows.value = []
+    loadData()
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '分配失败'
+    ElMessage.error(message)
+  } finally {
+    assignLoading.value = false
   }
 }
 

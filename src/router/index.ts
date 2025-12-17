@@ -97,6 +97,18 @@ const router = createRouter({
           meta: { title: '需求管理' },
         },
         {
+          path: 'customers/competitors',
+          name: 'CustomerCompetitors',
+          component: () => import('@/views/customer/CustomerCompetitorList.vue'),
+          meta: { title: '意向竞品' },
+        },
+        {
+          path: 'customers/solutions',
+          name: 'SolutionLibrary',
+          component: () => import('@/views/customer/SolutionLibraryList.vue'),
+          meta: { title: '方案库' },
+        },
+        {
           path: 'opportunities',
           name: 'Opportunities',
           component: () => import('@/views/opportunity/OpportunityList.vue'),
@@ -217,6 +229,63 @@ const router = createRouter({
           name: 'TenantSettings',
           component: () => import('@/views/auth/TenantSettings.vue'),
           meta: { title: '企业信息' },
+          redirect: '/tenant-settings/basic',
+          children: [
+            {
+              path: 'basic',
+              name: 'TenantBasicInfo',
+              component: () => import('@/views/tenant/TenantBasicInfo.vue'),
+              meta: { title: '基本信息' },
+            },
+            {
+              path: 'config',
+              name: 'TenantConfig',
+              component: () => import('@/views/tenant/TenantConfig.vue'),
+              meta: { title: '租户配置' },
+            },
+            {
+              path: 'pricing',
+              name: 'TenantPricing',
+              component: () => import('@/views/tenant/TenantPricing.vue'),
+              meta: { title: '价格配置' },
+            },
+            {
+              path: 'product-config',
+              name: 'TenantProductConfig',
+              component: () => import('@/views/tenant/TenantProductConfig.vue'),
+              meta: { title: '产品配置' },
+            },
+            {
+              path: 'dictionary',
+              name: 'TenantDictionary',
+              component: () => import('@/views/tenant/TenantDictionary.vue'),
+              meta: { title: '字典管理' },
+            },
+            {
+              path: 'custom-fields',
+              name: 'TenantCustomFields',
+              component: () => import('@/views/tenant/TenantCustomFields.vue'),
+              meta: { title: '扩展字段管理' },
+            },
+            {
+              path: 'workflow',
+              name: 'TenantWorkflow',
+              component: () => import('@/views/tenant/TenantWorkflow.vue'),
+              meta: { title: '审批流配置' },
+            },
+            {
+              path: 'subsidiaries',
+              name: 'TenantSubsidiaries',
+              component: () => import('@/views/tenant/TenantSubsidiaries.vue'),
+              meta: { title: '子公司管理' },
+            },
+            {
+              path: 'admins',
+              name: 'TenantAdminManagement',
+              component: () => import('@/views/tenant/TenantAdminManagement.vue'),
+              meta: { title: '租户管理员管理' },
+            },
+          ],
         },
         {
           path: 'custom-field-config',

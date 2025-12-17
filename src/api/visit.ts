@@ -15,6 +15,7 @@ export interface Visit {
   region?: string[]
   detailAddress?: string
   purpose?: 'understand_needs' | 'monthly_performance' | 'performance_increment' | 'product_promotion' | 'holiday_visit' | 'contract_signing' | 'sign_statement' | 'price_policy' | 'after_sales_service' | 'negotiate_cooperation' | 'understand_business' | 'sample_tracking'
+  preparation?: string[]
   result?: string
   feedback?: string
   nextAction?: string
@@ -70,6 +71,7 @@ export interface CreateVisitDto {
   region?: string[]
   detailAddress?: string
   purpose?: 'understand_needs' | 'monthly_performance' | 'performance_increment' | 'product_promotion' | 'holiday_visit' | 'contract_signing' | 'sign_statement' | 'price_policy' | 'after_sales_service' | 'negotiate_cooperation' | 'understand_business' | 'sample_tracking'
+  preparation?: string[]
   customerId?: number
   contactId?: number
   opportunityId?: number
@@ -100,6 +102,7 @@ export interface UpdateVisitDto {
   region?: string[]
   detailAddress?: string
   purpose?: 'understand_needs' | 'monthly_performance' | 'performance_increment' | 'product_promotion' | 'holiday_visit' | 'contract_signing' | 'sign_statement' | 'price_policy' | 'after_sales_service' | 'negotiate_cooperation' | 'understand_business' | 'sample_tracking'
+  preparation?: string[]
   result?: string
   feedback?: string
   nextAction?: string

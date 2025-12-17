@@ -120,6 +120,8 @@ import {
 
 interface Props {
   embedded?: boolean
+  // 在嵌入模式下，是否使用弹窗进行新建/编辑，而不是路由跳转
+  useDialog?: boolean
 }
 
 const router = useRouter()
@@ -198,14 +200,28 @@ const handleCurrentChange = (page: number) => {
 
 const props = withDefaults(defineProps<Props>(), {
   embedded: false,
+  useDialog: false,
 })
 
+const emit = defineEmits<{
+  (e: 'create'): void
+  (e: 'edit', row: CustomFieldConfig): void
+}>()
+
 const goToCreate = () => {
-  router.push('/custom-field-config/create')
+  if (props.embedded && props.useDialog) {
+    emit('create')
+  } else {
+    router.push('/custom-field-config/create')
+  }
 }
 
 const editConfig = (row: CustomFieldConfig) => {
-  router.push(`/custom-field-config/edit/${row.id}`)
+  if (props.embedded && props.useDialog) {
+    emit('edit', row)
+  } else {
+    router.push(`/custom-field-config/edit/${row.id}`)
+  }
 }
 
 const deleteConfig = async (row: CustomFieldConfig) => {
@@ -238,38 +254,14 @@ const handleToggleActive = async (row: CustomFieldConfig) => {
 onMounted(() => {
   loadData()
 })
+
+// 让父组件可以手动触发刷新
+defineExpose({
+  reload: loadData,
+})
 </script>
 
-<style scoped>
-.table-page {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-}
-
-.main-container {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  padding: 16px;
-}
-
-.toolbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-}
-
-.table-section {
-  flex: 1;
-  overflow: hidden;
-}
-
-.pagination-section {
-  margin-top: 16px;
-  display: flex;
-  justify-content: flex-end;
-}
+<style lang="scss" scoped>
+@use '@/styles/common/table-layout.scss';
 </style>
 

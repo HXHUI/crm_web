@@ -76,32 +76,10 @@
           style="width: 100%"
           border
         >
-          <el-table-column type="selection" width="55" />
-          <el-table-column prop="purpose" label="拜访目的" width="150" align="center">
-            <template #default="{ row }">
-              <span v-if="row.purpose">{{ getPurposeName(row.purpose) }}</span>
-              <span v-else class="text-gray-400">-</span>
-            </template>
-          </el-table-column>
-          <el-table-column prop="type" label="类型" width="120" align="center">
-            <template #default="{ row }">
-              <el-tag :type="getTypeColor(row.type)" size="small">
-                {{ getTypeName(row.type) }}
-              </el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column prop="status" label="状态" width="100" align="center">
-            <template #default="{ row }">
-              <el-tag :type="getStatusColor(row.status)" size="small">
-                {{ getStatusName(row.status) }}
-              </el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column prop="plannedStartTime" label="计划时间" width="180">
-            <template #default="{ row }">
-              {{ formatDate(row.plannedStartTime) }}
-            </template>
-          </el-table-column>
+          <!-- 序号 -->
+          <el-table-column type="index" label="序号" width="60" align="center" />
+
+          <!-- 拜访对象 -->
           <el-table-column label="拜访对象" width="200" show-overflow-tooltip>
             <template #default="{ row }">
               <div v-if="row.customer">
@@ -119,6 +97,86 @@
               <span v-else class="text-gray-400">-</span>
             </template>
           </el-table-column>
+
+          <!-- 拜访目的 -->
+          <el-table-column prop="purpose" label="拜访目的" width="150" align="center">
+            <template #default="{ row }">
+              <span v-if="row.purpose">{{ getPurposeName(row.purpose) }}</span>
+              <span v-else class="text-gray-400">-</span>
+            </template>
+          </el-table-column>
+
+          <!-- 拜访类型 -->
+          <el-table-column prop="type" label="拜访类型" width="120" align="center">
+            <template #default="{ row }">
+              <el-tag :type="getTypeColor(row.type)" size="small">
+                {{ getTypeName(row.type) }}
+              </el-tag>
+            </template>
+          </el-table-column>
+
+          <!-- 优先级 -->
+          <el-table-column prop="priority" label="优先级" width="100" align="center">
+            <template #default="{ row }">
+              <el-tag :type="getPriorityType(row.priority)" size="small">
+                {{ getPriorityName(row.priority) }}
+              </el-tag>
+            </template>
+          </el-table-column>
+
+          <!-- 负责人 -->
+          <el-table-column prop="owner" label="负责人" width="150">
+            <template #default="{ row }">
+              {{ row.owner?.user?.username || row.owner?.user?.realName || row.owner?.nickname || '-' }}
+            </template>
+          </el-table-column>
+
+          <!-- 拜访准备（标签显示中文） -->
+          <el-table-column label="拜访准备" min-width="200">
+            <template #default="{ row }">
+              <template v-if="row.preparation && row.preparation.length">
+                <el-tag
+                  v-for="item in row.preparation"
+                  :key="item"
+                  size="small"
+                  class="mr-4"
+                >
+                  {{ getPreparationName(item) }}
+                </el-tag>
+              </template>
+              <span v-else class="text-gray-400">-</span>
+            </template>
+          </el-table-column>
+
+          <!-- 计划开始时间 -->
+          <el-table-column prop="plannedStartTime" label="计划开始时间" width="180">
+            <template #default="{ row }">
+              {{ formatDate(row.plannedStartTime) }}
+            </template>
+          </el-table-column>
+
+          <!-- 计划时长 -->
+          <el-table-column label="计划时长" width="120" align="center">
+            <template #default="{ row }">
+              {{ getPlannedDuration(row) || '-' }}
+            </template>
+          </el-table-column>
+
+          <!-- 实际开始时间 -->
+          <el-table-column prop="actualStartTime" label="实际开始时间" width="180">
+            <template #default="{ row }">
+              {{ row.actualStartTime ? formatDate(row.actualStartTime) : '-' }}
+            </template>
+          </el-table-column>
+
+          <!-- 实际时长 -->
+          <el-table-column label="实际时长" width="120" align="center">
+            <template #default="{ row }">
+              {{ getActualDuration(row) || '-' }}
+            </template>
+          </el-table-column>
+
+          <!-- 所在地区 -->
           <el-table-column label="所在地区" width="200" show-overflow-tooltip>
             <template #default="{ row }">
               <span v-if="row.region && row.region.length > 0">
@@ -127,47 +185,67 @@
               <span v-else class="text-gray-400">-</span>
             </template>
           </el-table-column>
-          <el-table-column prop="detailAddress" label="详情地址" width="200" show-overflow-tooltip />
-          <el-table-column prop="owner" label="负责人" width="150">
-            <template #default="{ row }">
-              {{ row.owner?.user?.username || row.owner?.user?.realName || row.owner?.nickname || '-' }}
-            </template>
-          </el-table-column>
-          <el-table-column label="部门" width="120">
-            <template #default="{ row }">
-              <span v-if="row.department?.name">{{ row.department.name }}</span>
-              <span v-else class="text-gray-400">-</span>
-            </template>
-          </el-table-column>
-          <el-table-column prop="createdAt" label="创建时间" width="180">
-            <template #default="{ row }">
-              {{ formatDate(row.createdAt) }}
-            </template>
-          </el-table-column>
+
+          <!-- 详细地址 -->
+          <el-table-column prop="detailAddress" label="详细地址" width="200" show-overflow-tooltip />
+
+          <!-- 描述 -->
+          <el-table-column prop="description" label="描述" width="200" show-overflow-tooltip />
+
+          <!-- 签到备注 -->
           <el-table-column prop="checkInRemark" label="签到备注" width="150" show-overflow-tooltip>
             <template #default="{ row }">
               <span v-if="row.checkInRemark">{{ row.checkInRemark }}</span>
               <span v-else class="text-gray-400">-</span>
             </template>
           </el-table-column>
+
+          <!-- 拜访结果 -->
           <el-table-column prop="result" label="拜访结果" width="150" show-overflow-tooltip>
             <template #default="{ row }">
               <span v-if="row.result">{{ row.result }}</span>
               <span v-else class="text-gray-400">-</span>
             </template>
           </el-table-column>
+
+          <!-- 客户反馈 -->
           <el-table-column prop="feedback" label="客户反馈" width="150" show-overflow-tooltip>
             <template #default="{ row }">
               <span v-if="row.feedback">{{ row.feedback }}</span>
               <span v-else class="text-gray-400">-</span>
             </template>
           </el-table-column>
+
+          <!-- 下一步行动 -->
           <el-table-column prop="nextAction" label="下一步行动" width="150" show-overflow-tooltip>
             <template #default="{ row }">
               <span v-if="row.nextAction">{{ row.nextAction }}</span>
               <span v-else class="text-gray-400">-</span>
             </template>
           </el-table-column>
+
+          <!-- 部门 -->
+          <el-table-column label="部门" width="120">
+            <template #default="{ row }">
+              <span v-if="row.department?.name">{{ row.department.name }}</span>
+              <span v-else class="text-gray-400">-</span>
+            </template>
+          </el-table-column>
+
+          <!-- 创建时间 -->
+          <el-table-column prop="createdAt" label="创建时间" width="180">
+            <template #default="{ row }">
+              {{ formatDate(row.createdAt) }}
+            </template>
+          </el-table-column>
+
+          <!-- 创建者 -->
+          <el-table-column label="创建者" width="150">
+            <template #default="{ row }">
+              {{ row.creator?.user?.username || row.creator?.user?.realName || row.creator?.nickname || '-' }}
+            </template>
+          </el-table-column>
+
           <el-table-column label="操作" width="200" fixed="right" align="center">
             <template #default="{ row }">
               <el-button size="small" type="primary" link @click="editVisit(row)">编辑</el-button>
@@ -246,6 +324,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Delete } from '@element-plus/icons-vue'
 import visitApi, { type Visit, type QueryVisitDto } from '@/api/visit'
+import dictionaryApi from '@/api/dictionary'
 import VisitForm from '@/components/visit/VisitForm.vue'
 import VisitCheckIn from './components/VisitCheckIn.vue'
 import VisitComplete from './components/VisitComplete.vue'
@@ -253,6 +332,10 @@ import VisitComplete from './components/VisitComplete.vue'
 const loading = ref(false)
 const visits = ref<Visit[]>([])
 const selectedRows = ref<Visit[]>([])
+// 字典映射
+const preparationMap = ref<Record<string, string>>({})
+const purposeMap = ref<Record<string, string>>({})
+const typeMap = ref<Record<string, string>>({})
 
 const searchForm = reactive<QueryVisitDto>({
   type: undefined,
@@ -279,6 +362,37 @@ const checkInVisit = ref<Visit | null>(null)
 
 const completeDialogVisible = ref(false)
 const completeVisit = ref<Visit | null>(null)
+
+// 加载字典
+const loadDictionaries = async () => {
+  try {
+    // 加载拜访准备字典
+    const prepRes = await dictionaryApi.getItems('visit_preparation')
+    const prepMap: Record<string, string> = {}
+    ;(prepRes.data || []).forEach((item) => {
+      prepMap[item.value] = item.label
+    })
+    preparationMap.value = prepMap
+
+    // 加载拜访目的字典
+    const purposeRes = await dictionaryApi.getItems('visit_purpose')
+    const purposeMapData: Record<string, string> = {}
+    ;(purposeRes.data || []).forEach((item) => {
+      purposeMapData[item.value] = item.label
+    })
+    purposeMap.value = purposeMapData
+
+    // 加载拜访类型字典
+    const typeRes = await dictionaryApi.getItems('visit_type')
+    const typeMapData: Record<string, string> = {}
+    ;(typeRes.data || []).forEach((item) => {
+      typeMapData[item.value] = item.label
+    })
+    typeMap.value = typeMapData
+  } catch (error) {
+    console.error('加载字典失败', error)
+  }
+}
 
 // 加载数据
 const loadVisits = async () => {
@@ -421,6 +535,48 @@ const handleDialogClose = () => {
   currentVisit.value = null
 }
 
+// 计算计划时长
+const getPlannedDuration = (row: Visit) => {
+  const start = row.plannedStartTime
+  const end = row.plannedEndTime
+  if (!start || !end) return null
+  return getDurationText(start, end)
+}
+
+// 计算实际时长
+const getActualDuration = (row: Visit) => {
+  const start = row.actualStartTime || row.plannedStartTime
+  const end = row.actualEndTime
+  if (!start || !end) return null
+  return getDurationText(start, end)
+}
+
+const getDurationText = (start: string, end: string) => {
+  try {
+    const s = new Date(start)
+    const e = new Date(end)
+    const diffMinutes = Math.round((e.getTime() - s.getTime()) / (1000 * 60))
+    if (diffMinutes <= 0) return null
+    if (diffMinutes < 60) return `${diffMinutes}分钟`
+    if (diffMinutes < 1440) {
+      const hours = Math.floor(diffMinutes / 60)
+      const minutes = diffMinutes % 60
+      return minutes > 0 ? `${hours}小时${minutes}分钟` : `${hours}小时`
+    }
+    const days = Math.floor(diffMinutes / 1440)
+    const hours = Math.floor((diffMinutes % 1440) / 60)
+    return hours > 0 ? `${days}天${hours}小时` : `${days}天`
+  } catch {
+    return null
+  }
+}
+
+// 拜访准备字典中文名
+const getPreparationName = (value: string) => {
+  if (!value) return ''
+  return preparationMap.value[value] || value
+}
+
 // 格式化日期
 const formatDate = (date: string) => {
   if (!date) return '-'
@@ -435,16 +591,7 @@ const formatDate = (date: string) => {
 
 // 类型名称和颜色
 const getTypeName = (type: string) => {
-  const map: Record<string, string> = {
-    first_visit: '首次拜访',
-    follow_up: '跟进拜访',
-    maintenance: '维护拜访',
-    business_negotiation: '商务洽谈',
-    technical_support: '技术支持',
-    training: '培训',
-    other: '其他',
-  }
-  return map[type] || type
+  return typeMap.value[type] || type
 }
 
 const getTypeColor = (type: string) => {
@@ -481,26 +628,34 @@ const getStatusColor = (status: string) => {
   return map[status] || ''
 }
 
+// 优先级名称和颜色
+const getPriorityName = (priority?: string) => {
+  const map: Record<string, string> = {
+    low: '低',
+    medium: '中',
+    high: '高',
+    urgent: '紧急',
+  }
+  return map[priority || ''] || '中'
+}
+
+const getPriorityType = (priority?: string) => {
+  const map: Record<string, string> = {
+    low: 'info',
+    medium: '',
+    high: 'warning',
+    urgent: 'danger',
+  }
+  return map[priority || ''] || ''
+}
+
 // 拜访目的名称
 const getPurposeName = (purpose: string) => {
-  const map: Record<string, string> = {
-    understand_needs: '了解需求',
-    monthly_performance: '月度履约',
-    performance_increment: '业绩增量',
-    product_promotion: '产品推广',
-    holiday_visit: '节日走访',
-    contract_signing: '合同签订',
-    sign_statement: '签对账单',
-    price_policy: '价格政策',
-    after_sales_service: '售后服务',
-    negotiate_cooperation: '协商合作细节',
-    understand_business: '了解客户经营状况',
-    sample_tracking: '样品跟踪测试',
-  }
-  return map[purpose] || purpose
+  return purposeMap.value[purpose] || purpose
 }
 
 onMounted(() => {
+  loadDictionaries()
   loadVisits()
 })
 </script>

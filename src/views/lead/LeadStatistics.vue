@@ -1372,7 +1372,6 @@ const initRegionMapChart = async () => {
 
 <style scoped lang="scss">
 .lead-statistics {
-  padding: 20px;
   background: #f5f7fa;
   min-height: calc(100vh - 60px);
 }
@@ -1385,7 +1384,7 @@ const initRegionMapChart = async () => {
 .statistics-section {
   background: #fff;
   border-radius: 8px;
-  padding: 20px;
+  padding: 16px;
   overflow-y: auto;
   overflow-x: hidden;
 

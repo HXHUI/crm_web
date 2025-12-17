@@ -128,10 +128,14 @@ export interface CustomerProfile {
   invoiceRequirement?: 'special_vat' | 'normal_invoice' | 'no_invoice'
   invoiceRemark?: string
   shippingMethods?: string[]
-  mainCategoryIds?: number[]
-  competitorBrands?: string[]
   creditLimit?: number
   creditTier?: 'tier_150k' | 'tier_100k' | 'tier_50k' | 'none'
+  fundStatus?: 'abundant' | 'normal' | 'tight'
+  businessYears?: number
+  industryReputation?: 'good' | 'fair' | 'bad'
+  growthPotential?: 'high' | 'medium' | 'low'
+  ownerType?: 'aggressive' | 'conservative'
+  overallComment?: string
   createdAt: string
   updatedAt: string
 }
@@ -158,10 +162,14 @@ export interface CreateCustomerProfileDto {
   invoiceRequirement?: 'special_vat' | 'normal_invoice' | 'no_invoice'
   invoiceRemark?: string
   shippingMethods?: string[]
-  mainCategoryIds?: number[]
-  competitorBrands?: string[]
   creditLimit?: number
   creditTier?: 'tier_150k' | 'tier_100k' | 'tier_50k' | 'none'
+  fundStatus?: 'abundant' | 'normal' | 'tight'
+  businessYears?: number
+  industryReputation?: 'good' | 'fair' | 'bad'
+  growthPotential?: 'high' | 'medium' | 'low'
+  ownerType?: 'aggressive' | 'conservative'
+  overallComment?: string
 }
 
 export interface UpdateCreditInfoDto {
@@ -234,6 +242,16 @@ export const customerApi = {
 
   claimCustomer: (id: string): Promise<{ code: number; message: string }> => {
     return request.post(`/customers/${id}/claim`)
+  },
+
+  // 批量领取客户
+  claimCustomers: (customerIds: string[]): Promise<{ code: number; message: string; data: any }> => {
+    return request.post('/customers/claim', { customerIds })
+  },
+
+  // 批量分配客户
+  assignCustomers: (customerIds: string[], newOwnerId: string): Promise<{ code: number; message: string; data: any }> => {
+    return request.post('/customers/assign', { customerIds, newOwnerId })
   },
 
   releaseCustomer: (id: string): Promise<{ code: number; message: string }> => {

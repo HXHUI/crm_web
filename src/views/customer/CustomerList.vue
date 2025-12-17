@@ -94,7 +94,24 @@
             </el-radio-button>
           </el-radio-group>
           <el-button type="primary" :icon="Plus" @click="goToCreate"> 新增客户 </el-button>
-          <el-button-group v-if="selectedRows.length > 0" style="margin-right: 8px">
+          <!-- 公海列表：显示领取和分配按钮 -->
+          <template v-if="isPublicPool && selectedRows.length > 0">
+            <el-button-group style="margin-right: 8px">
+              <el-button type="success" :icon="Download" @click="handleBatchClaim">
+                领取 ({{ selectedRows.length }})
+              </el-button>
+              <el-button
+                v-if="isDepartmentManager"
+                type="success"
+                :icon="Switch"
+                @click="openBatchAssign"
+              >
+                分配 ({{ selectedRows.length }})
+              </el-button>
+            </el-button-group>
+          </template>
+          <!-- 私海列表：显示转移和放入公海按钮 -->
+          <el-button-group v-if="!isPublicPool && selectedRows.length > 0" style="margin-right: 8px">
             <el-button type="warning" :icon="User" @click="handleBatchTransfer">
               转移 ({{ selectedRows.length }})
             </el-button>
@@ -241,11 +258,26 @@
               {{ formatDate(row.createdAt) }}
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="180" fixed="right">
+          <el-table-column label="操作" :width="isPublicPool && isDepartmentManager ? 280 : isPublicPool ? 240 : 180" fixed="right">
             <template #default="{ row }">
               <el-button type="warning" size="small" :icon="Edit" @click="editCustomer(row)">
                 编辑
               </el-button>
+              <!-- 公海列表：显示领取和分配按钮 -->
+              <template v-if="isPublicPool">
+                <el-button type="success" size="small" :icon="Download" @click="handleSingleClaim(row)">
+                  领取
+                </el-button>
+                <el-button
+                  v-if="isDepartmentManager"
+                  type="success"
+                  size="small"
+                  :icon="Switch"
+                  @click="openSingleAssign(row)"
+                >
+                  分配
+                </el-button>
+              </template>
               <el-button type="danger" size="small" :icon="Delete" @click="deleteCustomer(row)">
                 删除
               </el-button>
@@ -369,6 +401,7 @@
             :options="regionOptions"
             style="width: 100%"
             placeholder="省/市/区"
+            filterable
           />
         </el-form-item>
         <el-form-item label="详细地址">
@@ -403,7 +436,12 @@
           />
         </el-form-item>
         <el-form-item label="行业" prop="industry">
-          <el-select v-model="formData.industry" placeholder="请选择行业" style="width: 100%">
+          <el-select
+            v-model="formData.industry"
+            placeholder="请选择行业"
+            style="width: 100%"
+            filterable
+          >
             <el-option v-for="i in industryOptions" :key="i.key" :label="i.label" :value="i.key" />
           </el-select>
         </el-form-item>
@@ -416,7 +454,12 @@
           </el-select>
         </el-form-item>
         <el-form-item label="客户来源" prop="source">
-          <el-select v-model="formData.source" placeholder="请选择客户来源" style="width: 100%">
+          <el-select
+            v-model="formData.source"
+            placeholder="请选择客户来源"
+            style="width: 100%"
+            filterable
+          >
             <el-option v-for="s in sourceOptions" :key="s.key" :label="s.label" :value="s.key" />
           </el-select>
         </el-form-item>
@@ -495,7 +538,7 @@
     <el-drawer
       v-model="drawerVisible"
       direction="rtl"
-      size="70%"
+      size="80%"
       :with-header="false"
       class="detail-drawer"
       :before-close="handleDrawerClose"
@@ -560,6 +603,16 @@
               <span class="item-btn" :title="menuCollapsed ? '客户需求' : ''">
                 <el-icon class="item-icon"><Document /></el-icon>
                 <span v-show="!menuCollapsed" class="item-text">客户需求</span>
+              </span>
+            </li>
+            <li
+              class="side-item"
+              :class="{ active: activeTab === 'competitors' }"
+              @click="handleNavClick('competitors')"
+            >
+              <span class="item-btn" :title="menuCollapsed ? '意向竞品' : ''">
+                <el-icon class="item-icon"><Document /></el-icon>
+                <span v-show="!menuCollapsed" class="item-text">意向竞品</span>
               </span>
             </li>
             <li
@@ -1349,7 +1402,7 @@
                       :draggable="true"
                       :node-draggable="false"
                       :clone-node-drag="false"
-                      :label-style="{ whiteSpace: 'nowrap', fontSize: '13px' }"
+                      :label-style="{ whiteSpace: 'pre-line', fontSize: '13px', lineHeight: '1.4' }"
                       :label-class-name="contactOrgLabelClass"
                       :tool-bar="{
                         expand: true,
@@ -1358,7 +1411,64 @@
                         restore: true,
                         fullscreen: false,
                       }"
-                    />
+                    >
+                      <template #default="{ node }">
+                        <!-- 联系人节点：以卡片形式展示 -->
+                        <div
+                          v-if="(node as any).type === 'contact' && (node as any).meta"
+                          class="org-card contact-card"
+                        >
+                          <template
+                            v-for="contact in [(node as any).meta]"
+                            :key="contact?.id"
+                          >
+                            <div class="card-title">{{ contact?.name || '-' }}</div>
+                            <div class="card-body">
+                              <div class="row">
+                                <span class="field-label">类型</span>
+                                <span class="field-value field-value-tags">
+                                  <el-tag
+                                    v-if="contact?.type"
+                                    type="info"
+                                    size="small"
+                                  >
+                                    {{ getContactTypeLabel(contact.type) }}
+                                  </el-tag>
+                                  <span v-else>-</span>
+                                </span>
+                              </div>
+                              <div class="row">
+                                <span class="field-label">职位</span>
+                                <span class="field-value">{{ contact?.position || '-' }}</span>
+                              </div>
+                              <div class="row">
+                                <span class="field-label">部门</span>
+                                <span class="field-value">
+                                  {{
+                                    contact?.department?.name ||
+                                    contact?.department ||
+                                    '-'
+                                  }}
+                                </span>
+                              </div>
+                              <div class="row">
+                                <span class="field-label">邮箱</span>
+                                <span class="field-value">{{ contact?.email || '-' }}</span>
+                              </div>
+                              <div class="row">
+                                <span class="field-label">手机号</span>
+                                <span class="field-value">{{ contact?.phone || '-' }}</span>
+                              </div>
+                            </div>
+                          </template>
+                        </div>
+
+                        <!-- 其他节点：保持原来的文本 label 展示 -->
+                        <div v-else class="org-node-default">
+                          {{ node.label }}
+                        </div>
+                      </template>
+                    </Vue3TreeOrg>
                   </div>
                 </div>
               </el-card>
@@ -1468,72 +1578,6 @@
                             <el-option label="快递" value="courier" />
                           </el-select>
                         </div>
-                        <div class="info-item">
-                          <label>主要采购品类：</label>
-                          <span v-if="!cooperationEditMode">
-                            <el-tag
-                              v-for="categoryId in customerProfile?.mainCategoryIds"
-                              :key="categoryId"
-                              size="small"
-                              style="margin-right: 6px"
-                            >
-                              {{ getCategoryLabel(categoryId) }}
-                            </el-tag>
-                            <span
-                              v-if="
-                                !customerProfile?.mainCategoryIds ||
-                                customerProfile.mainCategoryIds.length === 0
-                              "
-                              >-</span
-                            >
-                          </span>
-                          <el-select
-                            v-else
-                            v-model="cooperationForm.mainCategoryIds"
-                            multiple
-                            filterable
-                            placeholder="请选择主要采购品类"
-                            style="width: 100%"
-                            :loading="categoryOptionsLoading"
-                          >
-                            <el-option
-                              v-for="category in categoryOptions"
-                              :key="category.id"
-                              :label="category.label"
-                              :value="category.id"
-                            />
-                          </el-select>
-                        </div>
-                        <div class="info-item">
-                          <label>意向竞品：</label>
-                          <span v-if="!cooperationEditMode">
-                            <el-tag
-                              v-for="brand in customerProfile?.competitorBrands"
-                              :key="brand"
-                              size="small"
-                              style="margin-right: 6px"
-                            >
-                              {{ brand }}
-                            </el-tag>
-                            <span
-                              v-if="
-                                !customerProfile?.competitorBrands ||
-                                customerProfile.competitorBrands.length === 0
-                              "
-                              >-</span
-                            >
-                          </span>
-                          <el-select
-                            v-else
-                            v-model="cooperationForm.competitorBrands"
-                            multiple
-                            filterable
-                            allow-create
-                            default-first-option
-                            placeholder="请输入或选择竞品品牌"
-                            style="width: 100%"
-                          />
-                        </div>
                       </div>
                     </div>
 
@@ -1612,6 +1656,100 @@
                             <el-option label="D级" value="D" />
                           </el-select>
                         </div>
+                        <div class="info-item">
+                          <label>资金状况：</label>
+                          <span v-if="!cooperationEditMode">
+                            {{ getFundStatusLabel(customerProfile?.fundStatus) || '-' }}
+                          </span>
+                          <el-select
+                            v-else
+                            v-model="cooperationForm.fundStatus"
+                            placeholder="请选择资金状况"
+                            style="width: 100%"
+                          >
+                            <el-option label="充裕" value="abundant" />
+                            <el-option label="一般" value="normal" />
+                            <el-option label="紧张" value="tight" />
+                          </el-select>
+                        </div>
+                        <div class="info-item">
+                          <label>经营年限：</label>
+                          <span v-if="!cooperationEditMode">
+                            {{ customerProfile?.businessYears ?? '-' }}<span v-if="customerProfile?.businessYears"> 年</span>
+                          </span>
+                          <div v-else style="display: flex; gap: 12px; align-items: center">
+                            <el-input-number
+                              v-model="cooperationForm.businessYears"
+                              :min="0"
+                              :precision="0"
+                              placeholder="请输入经营年限"
+                              style="width: 160px"
+                            />
+                            <span style="color: #909399">年</span>
+                          </div>
+                        </div>
+                        <div class="info-item">
+                          <label>行业口碑：</label>
+                          <span v-if="!cooperationEditMode">
+                            {{ getIndustryReputationLabel(customerProfile?.industryReputation) || '-' }}
+                          </span>
+                          <el-select
+                            v-else
+                            v-model="cooperationForm.industryReputation"
+                            placeholder="请选择行业口碑"
+                            style="width: 100%"
+                          >
+                            <el-option label="优" value="good" />
+                            <el-option label="良" value="fair" />
+                            <el-option label="差" value="bad" />
+                          </el-select>
+                        </div>
+                        <div class="info-item">
+                          <label>发展潜力：</label>
+                          <span v-if="!cooperationEditMode">
+                            {{ getGrowthPotentialLabel(customerProfile?.growthPotential) || '-' }}
+                          </span>
+                          <el-select
+                            v-else
+                            v-model="cooperationForm.growthPotential"
+                            placeholder="请选择发展潜力"
+                            style="width: 100%"
+                          >
+                            <el-option label="大" value="high" />
+                            <el-option label="中" value="medium" />
+                            <el-option label="小" value="low" />
+                          </el-select>
+                        </div>
+                        <div class="info-item">
+                          <label>老板类型：</label>
+                          <span v-if="!cooperationEditMode">
+                            {{ getOwnerTypeLabel(customerProfile?.ownerType) || '-' }}
+                          </span>
+                          <el-select
+                            v-else
+                            v-model="cooperationForm.ownerType"
+                            placeholder="请选择老板类型"
+                            style="width: 100%"
+                          >
+                            <el-option label="开拓型" value="aggressive" />
+                            <el-option label="保守型" value="conservative" />
+                          </el-select>
+                        </div>
+                        <div class="info-item" style="grid-column: 1 / -1">
+                          <label>综评结论：</label>
+                          <span v-if="!cooperationEditMode">
+                            {{ customerProfile?.overallComment || '-' }}
+                          </span>
+                          <el-input
+                            v-else
+                            v-model="cooperationForm.overallComment"
+                            type="textarea"
+                            placeholder="请输入综合评估结论"
+                            :rows="3"
+                            maxlength="1000"
+                            show-word-limit
+                          />
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1683,6 +1821,34 @@
                       </template>
                     </el-table-column>
                   </el-table>
+                </div>
+              </el-card>
+              <!-- 意向竞品 -->
+              <el-card
+                shadow="never"
+                id="customer-section-competitors"
+                class="tab-content detail-section section-card"
+              >
+                <template #header>
+                  <div style="display: flex; justify-content: space-between; align-items: center">
+                    <h3 class="section-title" style="margin: 0">意向竞品</h3>
+                    <el-button
+                      v-if="selectedCustomer"
+                      type="primary"
+                      size="small"
+                      @click="openCreateCompetitor"
+                    >
+                      新增竞品
+                    </el-button>
+                  </div>
+                </template>
+                <div class="list-padding">
+                  <CompetitorList
+                    v-if="selectedCustomer"
+                    ref="competitorListRef"
+                    related-type="customer"
+                    :related-id="selectedCustomer.id"
+                  />
                 </div>
               </el-card>
               <!-- 拜访记录内容 -->
@@ -2226,7 +2392,17 @@
                 class="tab-content graph-content detail-section section-card"
               >
                 <template #header>
-                  <h3 class="section-title" style="margin: 0">客户图谱</h3>
+                  <div style="display: flex; justify-content: space-between; align-items: center">
+                    <h3 class="section-title" style="margin: 0">客户图谱</h3>
+                    <el-button
+                      type="primary"
+                      size="small"
+                      :icon="FullScreen"
+                      @click="graphFullscreenVisible = true"
+                    >
+                      全屏预览
+                    </el-button>
+                  </div>
                 </template>
                 <div class="customer-graph-container">
                   <Vue3TreeOrg
@@ -2238,7 +2414,7 @@
                     :draggable="true"
                     :node-draggable="false"
                     :clone-node-drag="false"
-                    :label-style="{ whiteSpace: 'nowrap', fontSize: '13px' }"
+                    :label-style="{ whiteSpace: 'pre-line', fontSize: '13px', lineHeight: '1.4' }"
                     :label-class-name="customerOrgLabelClass"
                     :tool-bar="{
                       expand: true,
@@ -2247,7 +2423,307 @@
                       restore: true,
                       fullscreen: false,
                     }"
-                  />
+                  >
+                    <template #default="{ node }">
+                      <!-- 联系人节点：以卡片形式展示 -->
+                      <div
+                        v-if="String(node.id).startsWith('contact_') && node.$$data?.meta"
+                        class="org-card contact-card"
+                      >
+                        <div class="card-title">
+                          {{ node.$$data.meta.name || '-' }}
+                        </div>
+                        <div class="card-body">
+                          <div class="row">
+                            <span class="field-label">类型</span>
+                            <span class="field-value field-value-tags">
+                              <el-tag
+                                v-if="node.$$data.meta.type"
+                                type="info"
+                                size="small"
+                              >
+                                {{ getContactTypeLabel(node.$$data.meta.type) }}
+                              </el-tag>
+                              <span v-else>-</span>
+                            </span>
+                          </div>
+                          <div class="row">
+                            <span class="field-label">职位</span>
+                            <span class="field-value">{{ node.$$data.meta.position || '-' }}</span>
+                          </div>
+                          <div class="row">
+                            <span class="field-label">部门</span>
+                            <span class="field-value">
+                              {{
+                                node.$$data.meta.department?.name ||
+                                node.$$data.meta.department ||
+                                '-'
+                              }}
+                            </span>
+                          </div>
+                          <div class="row">
+                            <span class="field-label">邮箱</span>
+                            <span class="field-value">{{ node.$$data.meta.email || '-' }}</span>
+                          </div>
+                          <div class="row">
+                            <span class="field-label">手机号</span>
+                            <span class="field-value">{{ node.$$data.meta.phone || '-' }}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- 商机节点：以卡片形式展示（直接使用节点 meta） -->
+                      <div
+                        v-else-if="String(node.id).startsWith('opp_') && node.$$data?.meta"
+                        class="org-card opportunity-card"
+                      >
+                        <div class="card-title">
+                          {{ node.$$data.meta.title || '-' }}
+                        </div>
+                        <div class="card-body">
+                          <div class="row">
+                            <span class="field-label">阶段</span>
+                            <span class="field-value field-value-tags">
+                              <el-tag
+                                v-if="node.$$data.meta.stage"
+                                :type="getStageType(node.$$data.meta.stage)"
+                                size="small"
+                              >
+                                {{ getStageName(node.$$data.meta.stage) }}
+                              </el-tag>
+                              <span v-else>-</span>
+                            </span>
+                          </div>
+                          <div class="row">
+                            <span class="field-label">金额</span>
+                            <span class="field-value">
+                              {{
+                                node.$$data.meta.value != null
+                                  ? formatCurrency(node.$$data.meta.value)
+                                  : '-'
+                              }}
+                            </span>
+                          </div>
+                          <div class="row">
+                            <span class="field-label">概率</span>
+                            <span class="field-value">
+                              {{
+                                node.$$data.meta.probability != null
+                                  ? `${node.$$data.meta.probability}%`
+                                  : '-'
+                              }}
+                            </span>
+                          </div>
+                          <div class="row">
+                            <span class="field-label">预计成交日期</span>
+                            <span class="field-value">
+                              {{
+                                node.$$data.meta.expectedCloseDate
+                                  ? formatDateOnly(node.$$data.meta.expectedCloseDate)
+                                  : '-'
+                              }}
+                            </span>
+                          </div>
+                          <div class="row">
+                            <span class="field-label">负责人</span>
+                            <span class="field-value">
+                              {{ getUserName(node.$$data.meta.owner) || '-' }}
+                            </span>
+                          </div>
+                          <div class="row" v-if="node.$$data.meta.description">
+                            <span class="field-label">描述</span>
+                            <span class="field-value">
+                              {{ node.$$data.meta.description }}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- 意向竞品节点：以卡片形式展示（直接使用节点 meta） -->
+                      <div
+                        v-else-if="String(node.id).startsWith('competitor_') && node.$$data?.meta"
+                        class="org-card competitor-card"
+                      >
+                        <div class="card-title">
+                          {{
+                            `${node.$$data.meta.manufacturer || '-'} / ${
+                              node.$$data.meta.productName || '-'
+                            }`
+                          }}
+                        </div>
+                        <div class="card-body">
+                          <div class="row">
+                            <span class="field-label">年用量</span>
+                            <span class="field-value">
+                              {{
+                                node.$$data.meta.annualUsageAmount != null
+                                  ? `${node.$$data.meta.annualUsageAmount} 万元`
+                                  : '-'
+                              }}
+                            </span>
+                          </div>
+                          <div class="row">
+                            <span class="field-label">单位</span>
+                            <span class="field-value">
+                              {{ node.$$data.meta.unit || '-' }}
+                            </span>
+                          </div>
+                          <div class="row">
+                            <span class="field-label">单价</span>
+                            <span class="field-value">
+                              {{
+                                node.$$data.meta.unitPrice != null
+                                  ? `${node.$$data.meta.unitPrice} 元`
+                                  : '-'
+                              }}
+                            </span>
+                          </div>
+                          <div class="row">
+                            <span class="field-label">政策</span>
+                            <span class="field-value">
+                              {{ node.$$data.meta.policy || '-' }}
+                            </span>
+                          </div>
+                          <div class="row">
+                            <span class="field-label">优势</span>
+                            <span class="field-value">
+                              {{ node.$$data.meta.advantages || '-' }}
+                            </span>
+                          </div>
+                          <div class="row">
+                            <span class="field-label">问题</span>
+                            <span class="field-value">
+                              {{ node.$$data.meta.problems || '-' }}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- 可替代产品节点：以卡片形式展示（直接使用节点 meta） -->
+                      <div
+                        v-else-if="String(node.id).startsWith('alt_') && node.$$data?.meta"
+                        class="org-card alternative-card"
+                      >
+                        <div class="card-title">
+                          {{ node.$$data.meta.productName || '-' }}
+                        </div>
+                        <div class="card-body">
+                          <div class="row">
+                            <span class="field-label">单位</span>
+                            <span class="field-value">
+                              {{ node.$$data.meta.unit || '-' }}
+                            </span>
+                          </div>
+                          <div class="row">
+                            <span class="field-label">单价</span>
+                            <span class="field-value">
+                              {{
+                                node.$$data.meta.unitPrice != null
+                                  ? `${node.$$data.meta.unitPrice} 元`
+                                  : '-'
+                              }}
+                            </span>
+                          </div>
+                          <div class="row">
+                            <span class="field-label">年用量</span>
+                            <span class="field-value">
+                              {{
+                                node.$$data.meta.annualPotentialAmount != null
+                                  ? `${node.$$data.meta.annualPotentialAmount} 万元`
+                                  : '-'
+                              }}
+                            </span>
+                          </div>
+                          <div class="row">
+                            <span class="field-label">优势</span>
+                            <span class="field-value">
+                              {{ node.$$data.meta.advantages || '-' }}
+                            </span>
+                          </div>
+                          <div class="row">
+                            <span class="field-label">劣势</span>
+                            <span class="field-value">
+                              {{ node.$$data.meta.disadvantages || '-' }}
+                            </span>
+                          </div>
+                          <div class="row">
+                            <span class="field-label">策略</span>
+                            <span class="field-value">
+                              {{ node.$$data.meta.strategy || '-' }}
+                            </span>
+                          </div>
+                          <div class="row">
+                            <span class="field-label">备注</span>
+                            <span class="field-value">
+                              {{ node.$$data.meta.notes || '-' }}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- 需求节点：以卡片形式展示（直接使用节点 meta） -->
+                      <div
+                        v-else-if="String(node.id).startsWith('req_') && node.$$data?.meta"
+                        class="org-card requirement-card"
+                      >
+                        <div class="card-title">{{ node.$$data.meta.content || '-' }}</div>
+                        <div class="card-body">
+                          <div class="row">
+                            <span class="field-label">要解决的问题</span>
+                            <span class="field-value">
+                              {{ node.$$data.meta.problemToSolve || '-' }}
+                            </span>
+                          </div>
+                          <div class="row">
+                            <span class="field-label">优先级</span>
+                            <span class="field-value field-value-tags">
+                              <el-tag
+                                v-if="node.$$data.meta.priority != null"
+                                :type="getRequirementPriorityTagType(node.$$data.meta.priority)"
+                                size="small"
+                              >
+                                {{ getRequirementPriorityLabel(node.$$data.meta.priority) }}
+                              </el-tag>
+                              <span v-else>-</span>
+                            </span>
+                          </div>
+                          <div class="row">
+                            <span class="field-label">状态</span>
+                            <span class="field-value field-value-tags">
+                              <el-tag
+                                v-if="node.$$data.meta.status"
+                                :type="getRequirementStatusTagType(node.$$data.meta.status)"
+                                size="small"
+                              >
+                                {{ getRequirementStatusLabel(node.$$data.meta.status) }}
+                              </el-tag>
+                              <span v-else>-</span>
+                            </span>
+                          </div>
+                          <div class="row" v-if="node.$$data.meta.tags && node.$$data.meta.tags.length > 0">
+                            <span class="field-label">标签</span>
+                            <span class="field-value field-value-tags">
+                              <el-tag
+                                v-for="(tag, index) in node.$$data.meta.tags"
+                                :key="index"
+                                size="small"
+                              >
+                                {{ tag }}
+                              </el-tag>
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+
+
+                      <!-- 其他节点：保持原来的文本 label 展示 -->
+                      <div v-else class="org-node-default">
+                        {{ node.label }}
+                      </div>
+
+                    </template>
+                  </Vue3TreeOrg>
                 </div>
               </el-card>
             </template>
@@ -2255,6 +2731,339 @@
         </div>
       </div>
     </el-drawer>
+
+    <!-- 客户图谱全屏预览对话框 -->
+    <el-dialog
+      v-model="graphFullscreenVisible"
+      title="客户图谱 - 全屏预览"
+      fullscreen
+      :close-on-click-modal="false"
+      class="graph-fullscreen-dialog"
+      @opened="handleGraphFullscreenOpened"
+    >
+      <div class="customer-graph-container-fullscreen">
+        <div v-if="!customerOrgTree" class="graph-empty-state">
+          <el-empty description="暂无客户图谱数据" />
+        </div>
+        <Vue3TreeOrg
+          v-else-if="graphFullscreenVisible && graphFullscreenReady"
+          :key="`fullscreen-${selectedCustomer?.id || 'default'}-${Date.now()}`"
+          :data="customerOrgTree"
+          :horizontal="true"
+          :collapsable="true"
+          :scalable="true"
+          :draggable="true"
+          :node-draggable="false"
+          :clone-node-drag="false"
+          :label-style="{ whiteSpace: 'pre-line', fontSize: '13px', lineHeight: '1.4' }"
+          :label-class-name="customerOrgLabelClass"
+          :tool-bar="{
+            expand: true,
+            scale: true,
+            zoom: true,
+            restore: true,
+            fullscreen: false,
+          }"
+        >
+          <template #default="{ node }">
+            <!-- 联系人节点：以卡片形式展示 -->
+            <div
+              v-if="String(node.id).startsWith('contact_') && node.$$data?.meta"
+              class="org-card contact-card"
+            >
+              <div class="card-title">
+                {{ node.$$data.meta.name || '-' }}
+              </div>
+              <div class="card-body">
+                <div class="row">
+                  <span class="field-label">类型</span>
+                  <span class="field-value field-value-tags">
+                    <el-tag
+                      v-if="node.$$data.meta.type"
+                      type="info"
+                      size="small"
+                    >
+                      {{ getContactTypeLabel(node.$$data.meta.type) }}
+                    </el-tag>
+                    <span v-else>-</span>
+                  </span>
+                </div>
+                <div class="row">
+                  <span class="field-label">职位</span>
+                  <span class="field-value">{{ node.$$data.meta.position || '-' }}</span>
+                </div>
+                <div class="row">
+                  <span class="field-label">部门</span>
+                  <span class="field-value">
+                    {{
+                      node.$$data.meta.department?.name ||
+                      node.$$data.meta.department ||
+                      '-'
+                    }}
+                  </span>
+                </div>
+                <div class="row">
+                  <span class="field-label">邮箱</span>
+                  <span class="field-value">{{ node.$$data.meta.email || '-' }}</span>
+                </div>
+                <div class="row">
+                  <span class="field-label">手机号</span>
+                  <span class="field-value">{{ node.$$data.meta.phone || '-' }}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 商机节点：以卡片形式展示（直接使用节点 meta） -->
+            <div
+              v-else-if="String(node.id).startsWith('opp_') && node.$$data?.meta"
+              class="org-card opportunity-card"
+            >
+              <div class="card-title">
+                {{ node.$$data.meta.title || '-' }}
+              </div>
+              <div class="card-body">
+                <div class="row">
+                  <span class="field-label">阶段</span>
+                  <span class="field-value field-value-tags">
+                    <el-tag
+                      v-if="node.$$data.meta.stage"
+                      :type="getStageType(node.$$data.meta.stage)"
+                      size="small"
+                    >
+                      {{ getStageName(node.$$data.meta.stage) }}
+                    </el-tag>
+                    <span v-else>-</span>
+                  </span>
+                </div>
+                <div class="row">
+                  <span class="field-label">金额</span>
+                  <span class="field-value">
+                    {{
+                      node.$$data.meta.value != null
+                        ? formatCurrency(node.$$data.meta.value)
+                        : '-'
+                    }}
+                  </span>
+                </div>
+                <div class="row">
+                  <span class="field-label">概率</span>
+                  <span class="field-value">
+                    {{
+                      node.$$data.meta.probability != null
+                        ? `${node.$$data.meta.probability}%`
+                        : '-'
+                    }}
+                  </span>
+                </div>
+                <div class="row">
+                  <span class="field-label">预计成交日期</span>
+                  <span class="field-value">
+                    {{
+                      node.$$data.meta.expectedCloseDate
+                        ? formatDateOnly(node.$$data.meta.expectedCloseDate)
+                        : '-'
+                    }}
+                  </span>
+                </div>
+                <div class="row">
+                  <span class="field-label">负责人</span>
+                  <span class="field-value">
+                    {{ getUserName(node.$$data.meta.owner) || '-' }}
+                  </span>
+                </div>
+                <div class="row" v-if="node.$$data.meta.description">
+                  <span class="field-label">描述</span>
+                  <span class="field-value">
+                    {{ node.$$data.meta.description }}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 意向竞品节点：以卡片形式展示（直接使用节点 meta） -->
+            <div
+              v-else-if="String(node.id).startsWith('competitor_') && node.$$data?.meta"
+              class="org-card competitor-card"
+            >
+              <div class="card-title">
+                {{
+                  `${node.$$data.meta.manufacturer || '-'} / ${
+                    node.$$data.meta.productName || '-'
+                  }`
+                }}
+              </div>
+              <div class="card-body">
+                <div class="row">
+                  <span class="field-label">年用量</span>
+                  <span class="field-value">
+                    {{
+                      node.$$data.meta.annualUsageAmount != null
+                        ? `${node.$$data.meta.annualUsageAmount} 万元`
+                        : '-'
+                    }}
+                  </span>
+                </div>
+                <div class="row">
+                  <span class="field-label">单位</span>
+                  <span class="field-value">
+                    {{ node.$$data.meta.unit || '-' }}
+                  </span>
+                </div>
+                <div class="row">
+                  <span class="field-label">单价</span>
+                  <span class="field-value">
+                    {{
+                      node.$$data.meta.unitPrice != null
+                        ? `${node.$$data.meta.unitPrice} 元`
+                        : '-'
+                    }}
+                  </span>
+                </div>
+                <div class="row">
+                  <span class="field-label">政策</span>
+                  <span class="field-value">
+                    {{ node.$$data.meta.policy || '-' }}
+                  </span>
+                </div>
+                <div class="row">
+                  <span class="field-label">优势</span>
+                  <span class="field-value">
+                    {{ node.$$data.meta.advantages || '-' }}
+                  </span>
+                </div>
+                <div class="row">
+                  <span class="field-label">问题</span>
+                  <span class="field-value">
+                    {{ node.$$data.meta.problems || '-' }}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 可替代产品节点：以卡片形式展示（直接使用节点 meta） -->
+            <div
+              v-else-if="String(node.id).startsWith('alt_') && node.$$data?.meta"
+              class="org-card alternative-card"
+            >
+              <div class="card-title">
+                {{ node.$$data.meta.productName || '-' }}
+              </div>
+              <div class="card-body">
+                <div class="row">
+                  <span class="field-label">单位</span>
+                  <span class="field-value">
+                    {{ node.$$data.meta.unit || '-' }}
+                  </span>
+                </div>
+                <div class="row">
+                  <span class="field-label">单价</span>
+                  <span class="field-value">
+                    {{
+                      node.$$data.meta.unitPrice != null
+                        ? `${node.$$data.meta.unitPrice} 元`
+                        : '-'
+                    }}
+                  </span>
+                </div>
+                <div class="row">
+                  <span class="field-label">年用量</span>
+                  <span class="field-value">
+                    {{
+                      node.$$data.meta.annualPotentialAmount != null
+                        ? `${node.$$data.meta.annualPotentialAmount} 万元`
+                        : '-'
+                    }}
+                  </span>
+                </div>
+                <div class="row">
+                  <span class="field-label">优势</span>
+                  <span class="field-value">
+                    {{ node.$$data.meta.advantages || '-' }}
+                  </span>
+                </div>
+                <div class="row">
+                  <span class="field-label">劣势</span>
+                  <span class="field-value">
+                    {{ node.$$data.meta.disadvantages || '-' }}
+                  </span>
+                </div>
+                <div class="row">
+                  <span class="field-label">策略</span>
+                  <span class="field-value">
+                    {{ node.$$data.meta.strategy || '-' }}
+                  </span>
+                </div>
+                <div class="row">
+                  <span class="field-label">备注</span>
+                  <span class="field-value">
+                    {{ node.$$data.meta.notes || '-' }}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 需求节点：以卡片形式展示（直接使用节点 meta） -->
+            <div
+              v-else-if="String(node.id).startsWith('req_') && node.$$data?.meta"
+              class="org-card requirement-card"
+            >
+              <div class="card-title">{{ node.$$data.meta.content || '-' }}</div>
+              <div class="card-body">
+                <div class="row">
+                  <span class="field-label">要解决的问题</span>
+                  <span class="field-value">
+                    {{ node.$$data.meta.problemToSolve || '-' }}
+                  </span>
+                </div>
+                <div class="row">
+                  <span class="field-label">优先级</span>
+                  <span class="field-value field-value-tags">
+                    <el-tag
+                      v-if="node.$$data.meta.priority != null"
+                      :type="getRequirementPriorityTagType(node.$$data.meta.priority)"
+                      size="small"
+                    >
+                      {{ getRequirementPriorityLabel(node.$$data.meta.priority) }}
+                    </el-tag>
+                    <span v-else>-</span>
+                  </span>
+                </div>
+                <div class="row">
+                  <span class="field-label">状态</span>
+                  <span class="field-value field-value-tags">
+                    <el-tag
+                      v-if="node.$$data.meta.status"
+                      :type="getRequirementStatusTagType(node.$$data.meta.status)"
+                      size="small"
+                    >
+                      {{ getRequirementStatusLabel(node.$$data.meta.status) }}
+                    </el-tag>
+                    <span v-else>-</span>
+                  </span>
+                </div>
+                <div class="row" v-if="node.$$data.meta.tags && node.$$data.meta.tags.length > 0">
+                  <span class="field-label">标签</span>
+                  <span class="field-value field-value-tags">
+                    <el-tag
+                      v-for="(tag, index) in node.$$data.meta.tags"
+                      :key="index"
+                      size="small"
+                    >
+                      {{ tag }}
+                    </el-tag>
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 其他节点：保持原来的文本 label 展示 -->
+            <div v-else class="org-node-default">
+              {{ node.label }}
+            </div>
+          </template>
+        </Vue3TreeOrg>
+      </div>
+    </el-dialog>
 
     <!-- 完成活动弹窗 -->
     <el-dialog v-model="completeDialog.visible" title="完成活动" width="480px">
@@ -2381,80 +3190,15 @@
     />
 
     <!-- 新增/编辑需求对话框 -->
-    <el-dialog v-model="requirementDialog.visible" :title="requirementDialog.title" width="800px">
-      <el-form
-        ref="requirementFormRef"
-        :model="requirementForm"
-        :rules="requirementRules"
-        label-width="120px"
-      >
-        <el-form-item label="需求类型" prop="type">
-          <el-radio-group v-model="requirementForm.type">
-            <el-radio :label="RequirementType.EXPLICIT">显性需求（客户提出的需求）</el-radio>
-            <el-radio :label="RequirementType.IMPLICIT">隐性需求（客户可能会有的需求）</el-radio>
-            <el-radio :label="RequirementType.INTANGIBLE">无形需求（需要自己主动发现）</el-radio>
-          </el-radio-group>
-        </el-form-item>
-        <el-form-item label="需求内容" prop="content">
-          <el-input
-            v-model="requirementForm.content"
-            type="textarea"
-            :rows="3"
-            placeholder="请输入需求内容"
-          />
-        </el-form-item>
-        <el-form-item label="要解决的问题" prop="problemToSolve">
-          <el-input
-            v-model="requirementForm.problemToSolve"
-            type="textarea"
-            :rows="3"
-            placeholder="请输入需求背后要解决的问题"
-          />
-        </el-form-item>
-        <el-form-item label="优先级" prop="priority">
-          <el-radio-group v-model="requirementForm.priority">
-            <el-radio :label="0">低</el-radio>
-            <el-radio :label="1">中</el-radio>
-            <el-radio :label="2">高</el-radio>
-          </el-radio-group>
-        </el-form-item>
-        <el-form-item label="状态" prop="status">
-          <el-select v-model="requirementForm.status" placeholder="请选择状态" style="width: 100%">
-            <el-option label="待处理" value="pending" />
-            <el-option label="处理中" value="processing" />
-            <el-option label="已解决" value="resolved" />
-            <el-option label="已关闭" value="closed" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="标签" prop="tags">
-          <el-select
-            v-model="requirementForm.tags"
-            multiple
-            filterable
-            allow-create
-            default-first-option
-            placeholder="请输入或选择标签"
-            style="width: 100%"
-          >
-            <el-option v-for="tag in commonRequirementTags" :key="tag" :label="tag" :value="tag" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="备注" prop="notes">
-          <el-input
-            v-model="requirementForm.notes"
-            type="textarea"
-            :rows="3"
-            placeholder="请输入备注信息"
-          />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="requirementDialog.visible = false">取消</el-button>
-        <el-button type="primary" :loading="requirementDialog.saving" @click="submitRequirement"
-          >确定</el-button
-        >
-      </template>
-    </el-dialog>
+    <RequirementFormDialog
+      v-model="requirementDialog.visible"
+      :requirement="currentRequirement"
+      :default-related-type="RequirementRelatedType.CUSTOMER"
+      :default-related-id="selectedCustomer?.id"
+      :common-tags="commonRequirementTags"
+      @success="handleRequirementSuccess"
+      @cancel="currentRequirement = null"
+    />
 
     <!-- 新增/编辑联系人对话框 -->
     <el-dialog v-model="contactDialog.visible" :title="contactDialog.title" width="600px">
@@ -2564,6 +3308,44 @@
       </template>
     </el-dialog>
 
+    <!-- 分配对话框（公海列表） -->
+    <el-dialog
+      v-model="assignDialogVisible"
+      :title="assignMode === 'single' ? '分配客户' : `分配客户 (${selectedRows.length}个)`"
+      width="500px"
+    >
+      <el-form :model="{ ownerId: assignOwnerId }" label-width="100px">
+        <el-form-item label="选择负责人" required>
+          <el-select
+            v-model="assignOwnerId"
+            style="width: 100%"
+            placeholder="请选择负责人"
+            filterable
+            :loading="ownerLoading"
+          >
+            <el-option
+              v-for="user in ownerOptions"
+              :key="user.id"
+              :label="user.name"
+              :value="user.id"
+            />
+          </el-select>
+          <div class="text-sm text-gray-500 mt-1">
+            <template v-if="assignMode === 'single' && currentAssignCustomer">
+              将客户"{{ currentAssignCustomer.name }}"分配给所选负责人
+            </template>
+            <template v-else>
+              将选中的 {{ selectedRows.length }} 个客户分配给所选负责人
+            </template>
+          </div>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="assignDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="confirmBatchAssign">确定</el-button>
+      </template>
+    </el-dialog>
+
     <!-- 信用变更历史对话框 -->
     <el-dialog
       v-model="showCreditHistoryDialog"
@@ -2619,6 +3401,17 @@
       </template>
     </el-dialog>
   </div>
+
+  <!-- 方案沉淀对话框 -->
+  <SolutionFormDialog
+    v-if="solutionDialogSource"
+    v-model="solutionDialogVisible"
+    :source-type="solutionDialogSource.type"
+    :source-id="solutionDialogSource.id"
+    :result="solutionDialogSource.result"
+    @success="handleSolutionSuccess"
+    @cancel="solutionDialogSource = null"
+  />
 </template>
 
 <script setup lang="ts">
@@ -2656,6 +3449,9 @@ import {
   Expand,
   Loading,
   Printer,
+  FullScreen,
+  Download,
+  Switch,
 } from '@element-plus/icons-vue'
 import { Close } from '@element-plus/icons-vue'
 import * as echarts from 'echarts'
@@ -2674,6 +3470,7 @@ import customerApi, {
   type CreateCustomerProfileDto,
   type UpdateCreditInfoDto,
 } from '@/api/customer'
+import competitorApi, { type Competitor } from '@/api/competitor'
 import opportunityApi, { type Opportunity } from '@/api/opportunity'
 import activityApi, { type CreateActivityDto, type UpdateActivityDto } from '@/api/activity'
 import contactApi from '@/api/contact'
@@ -2681,7 +3478,10 @@ import leadApi from '@/api/lead'
 import customerRequirementApi, {
   type CustomerRequirement,
   RequirementType,
+  RequirementRelatedType,
 } from '@/api/customerRequirement'
+import RequirementFormDialog from '@/components/requirement/RequirementFormDialog.vue'
+import { competitorAlternativeApi, type CompetitorAlternative } from '@/api/competitorAlternative'
 import quoteApi, { type Quote, type CreateQuoteDto, type UpdateQuoteDto } from '@/api/quote'
 import contractApi, {
   type Contract,
@@ -2711,6 +3511,8 @@ import ContractFormDialog from '@/components/contract/ContractFormDialog.vue'
 import OrderFormDialog from '@/components/order/OrderFormDialog.vue'
 import OpportunityFormDialog from '@/components/opportunity/OpportunityFormDialog.vue'
 import DynamicForm from '@/components/custom-field/DynamicForm.vue'
+import CompetitorList from '@/components/competitor/CompetitorList.vue'
+import SolutionFormDialog from '@/components/solution/SolutionFormDialog.vue'
 import businessInfoApi, {
   type BusinessInfo,
   type BusinessPersonnel,
@@ -2812,6 +3614,8 @@ const customerOpportunities = ref<any[]>([])
 const customerContacts = ref<any[]>([])
 const customerActivities = ref<any[]>([])
 const customerRequirements = ref<CustomerRequirement[]>([])
+const customerCompetitors = ref<Competitor[]>([])
+const customerCompetitorAlternatives = ref<Record<string, CompetitorAlternative[]>>({})
 const customerQuotes = ref<Quote[]>([])
 const customerContracts = ref<Contract[]>([])
 const customerOrders = ref<Order[]>([])
@@ -2825,6 +3629,32 @@ const loadingDetails = ref(false)
 const visitDialogVisible = ref(false)
 const visitDialogTitle = ref('新增拜访')
 const editingVisit = ref<Visit | null>(null)
+
+// 客户图谱全屏预览
+const graphFullscreenVisible = ref(false)
+const graphFullscreenReady = ref(false)
+
+// 全屏对话框打开后的处理
+const handleGraphFullscreenOpened = async () => {
+  graphFullscreenReady.value = false
+  await nextTick()
+  // 使用 requestAnimationFrame 确保在下一帧渲染
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      // 再延迟一点确保对话框完全打开
+      setTimeout(() => {
+        graphFullscreenReady.value = true
+      }, 300)
+    })
+  })
+}
+
+// 监听全屏对话框关闭
+watch(graphFullscreenVisible, (visible) => {
+  if (!visible) {
+    graphFullscreenReady.value = false
+  }
+})
 
 // 工商信息相关
 const businessInfo = ref<BusinessInfo | null>(null)
@@ -2846,18 +3676,78 @@ const cooperationSaving = ref(false)
 const cooperationEditMode = ref(false)
 const showCreditHistoryDialog = ref(false)
 const creditHistory = ref<CustomerCreditHistory[]>([])
-const categoryOptions = ref<DictItem[]>([])
-const categoryOptionsLoading = ref(false)
+
+// 方案沉淀相关
+const solutionDialogVisible = ref(false)
+const solutionDialogSource = ref<{ type: 'customer' | 'opportunity'; id: number | string; result?: 'won' | 'lost' } | null>(null)
 const cooperationForm = reactive<CreateCustomerProfileDto & { level?: string }>({
   invoiceRequirement: undefined,
   invoiceRemark: '',
   shippingMethods: [],
-  mainCategoryIds: [],
-  competitorBrands: [],
   creditLimit: undefined,
   creditTier: undefined,
+  fundStatus: undefined,
+  businessYears: undefined,
+  industryReputation: undefined,
+  growthPotential: undefined,
+  ownerType: undefined,
+  overallComment: '',
   level: undefined,
 })
+
+const getFundStatusLabel = (value?: string) => {
+  if (!value) return ''
+  switch (value) {
+    case 'abundant':
+      return '充裕'
+    case 'normal':
+      return '一般'
+    case 'tight':
+      return '紧张'
+    default:
+      return value
+  }
+}
+
+const getIndustryReputationLabel = (value?: string) => {
+  if (!value) return ''
+  switch (value) {
+    case 'good':
+      return '优'
+    case 'fair':
+      return '良'
+    case 'bad':
+      return '差'
+    default:
+      return value
+  }
+}
+
+const getGrowthPotentialLabel = (value?: string) => {
+  if (!value) return ''
+  switch (value) {
+    case 'high':
+      return '大'
+    case 'medium':
+      return '中'
+    case 'low':
+      return '小'
+    default:
+      return value
+  }
+}
+
+const getOwnerTypeLabel = (value?: string) => {
+  if (!value) return ''
+  switch (value) {
+    case 'aggressive':
+      return '开拓型'
+    case 'conservative':
+      return '保守型'
+    default:
+      return value
+  }
+}
 
 // 订单图表相关
 const orderAmountTrendChart = ref<HTMLElement | null>(null)
@@ -2872,6 +3762,9 @@ type OrgNode = {
   label: string
   expand?: boolean
   children?: OrgNode[]
+  // 可选的节点类型和元数据，用于自定义渲染
+  type?: string
+  meta?: any
 }
 
 // 联系人类型中文
@@ -2891,19 +3784,53 @@ const getContactTypeLabel = (type?: string | null) => {
   }
 }
 
+// 意向竞品：从详情页打开新增表单
+const competitorListRef = ref<InstanceType<typeof CompetitorList> | null>(null)
+const openCreateCompetitor = () => {
+  competitorListRef.value?.openCreate()
+}
+
+// 根据节点 ID 获取竞品数据（用于图谱显示）
+const getCompetitorByNodeId = (nodeId: string | number) => {
+  const idStr = String(nodeId)
+  if (!idStr.startsWith('competitor_')) return null
+  const competitorId = idStr.replace('competitor_', '')
+  return customerCompetitors.value.find((c) => String(c.id) === competitorId) || null
+}
+
+// 根据节点 ID 获取可替代产品数据（用于图谱显示）
+const getAlternativeByNodeId = (nodeId: string | number) => {
+  const idStr = String(nodeId)
+  if (!idStr.startsWith('alt_')) return null
+  const alternativeId = idStr.replace('alt_', '')
+  // 遍历所有竞品的可替代产品列表
+  for (const competitorId in customerCompetitorAlternatives.value) {
+    const alternatives = customerCompetitorAlternatives.value[competitorId] || []
+    const found = alternatives.find((alt) => String(alt.id) === alternativeId)
+    if (found) return found
+  }
+  return null
+}
+
+// 根据节点 ID 获取需求数据（用于图谱显示）
+const getRequirementByNodeId = (nodeId: string | number) => {
+  const idStr = String(nodeId)
+  if (!idStr.startsWith('req_')) return null
+  const requirementId = idStr.replace('req_', '')
+  return customerRequirements.value.find((r) => String(r.id) === requirementId) || null
+}
+
+
 // 递归构建联系人节点（支持上下级联系人关系）
 const buildContactOrgNode = (contact: any): OrgNode => {
-  const parts: string[] = []
-  if (contact.name) parts.push(contact.name)
-  if (contact.position) parts.push(contact.position)
-  const typeLabel = getContactTypeLabel(contact.type)
-  if (typeLabel) parts.push(`【${typeLabel}】`)
-
   // 在 id 中包含类型信息，用于后续颜色区分
   const contactType = contact.type || 'secondary'
   const node: OrgNode = {
     id: `contact_${contactType}_${contact.id}`,
-    label: parts.join(' - '),
+    // label 仅作为兜底展示，主要展示交给 contact-card 卡片
+    label: contact.name || '-',
+    type: 'contact',
+    meta: contact,
   }
 
   if (Array.isArray(contact.children) && contact.children.length > 0) {
@@ -2977,6 +3904,7 @@ const customerOrgTree = computed<OrgNode | null>(() => {
       expand: true,
       children: customerContacts.value.map((contact) => buildContactOrgNode(contact)),
     })
+    console.log('customerContacts',children)
   }
 
   // 负责人
@@ -2996,7 +3924,18 @@ const customerOrgTree = computed<OrgNode | null>(() => {
       expand: true,
       children: customerOpportunities.value.map((opp) => ({
         id: `opp_${opp.id}`,
+        type: 'opportunity',
         label: `${opp.title || '-'}（${formatCurrency(opp.value || 0, false)}）`,
+        meta: {
+          title: opp.title,
+          stage: opp.stage,
+          value: opp.value,
+          probability: opp.probability,
+          expectedCloseDate: opp.expectedCloseDate,
+          owner: opp.owner,
+          description: opp.description,
+          status: opp.status,
+        },
         children: [],
       })),
     })
@@ -3016,7 +3955,16 @@ const customerOrgTree = computed<OrgNode | null>(() => {
       expand: true,
       children: explicitReq.map((req) => ({
         id: `req_${req.id}`,
+        type: 'requirement',
         label: req.content || '-',
+        meta: {
+          content: req.content,
+          problemToSolve: req.problemToSolve,
+          priority: req.priority,
+          status: req.status,
+          tags: req.tags,
+          type: req.type,
+        },
         children: [],
       })),
     })
@@ -3029,7 +3977,16 @@ const customerOrgTree = computed<OrgNode | null>(() => {
       expand: true,
       children: implicitReq.map((req) => ({
         id: `req_${req.id}`,
+        type: 'requirement',
         label: req.content || '-',
+        meta: {
+          content: req.content,
+          problemToSolve: req.problemToSolve,
+          priority: req.priority,
+          status: req.status,
+          tags: req.tags,
+          type: req.type,
+        },
         children: [],
       })),
     })
@@ -3042,7 +3999,16 @@ const customerOrgTree = computed<OrgNode | null>(() => {
       expand: true,
       children: intangibleReq.map((req) => ({
         id: `req_${req.id}`,
+        type: 'requirement',
         label: req.content || '-',
+        meta: {
+          content: req.content,
+          problemToSolve: req.problemToSolve,
+          priority: req.priority,
+          status: req.status,
+          tags: req.tags,
+          type: req.type,
+        },
         children: [],
       })),
     })
@@ -3054,6 +4020,65 @@ const customerOrgTree = computed<OrgNode | null>(() => {
       label: '需求',
       expand: true,
       children: requirementCategoryChildren,
+    })
+  }
+
+  // 意向竞品
+  if (customerCompetitors.value.length > 0) {
+    children.push({
+      id: 'competitors',
+      label: '意向竞品',
+      expand: true,
+      children: customerCompetitors.value.map((c) => {
+        const alts = customerCompetitorAlternatives.value[String(c.id)] || []
+
+        return {
+          id: `competitor_${c.id}`,
+          type: 'competitor',
+          label: `${c.manufacturer} / ${c.productName || '-'}`,
+          meta: {
+            manufacturer: c.manufacturer,
+            productName: c.productName,
+            annualUsageAmount: c.annualUsageAmount,
+            unit: c.unit,
+            unitPrice: c.unitPrice,
+            policy: c.policy,
+            advantages: c.advantages,
+            problems: c.problems,
+          },
+          expand: alts.length > 0,
+          children:
+            alts.length > 0
+              ? alts.map((alt) => {
+                  const altLines = [
+                    alt.productName || '-',
+                    alt.unit ? `单位: ${alt.unit}` : '',
+                    alt.unitPrice != null ? `单价: ${alt.unitPrice} 元` : '',
+                    alt.annualPotentialAmount != null
+                      ? `年用量: ${alt.annualPotentialAmount} 万元`
+                      : '',
+                  ].filter(Boolean)
+
+                  return {
+                    id: `alt_${alt.id}`,
+                    type: 'alternative',
+                    label: altLines.join('\n'),
+                    meta: {
+                      productName: alt.productName,
+                      unit: alt.unit,
+                      unitPrice: alt.unitPrice,
+                      annualPotentialAmount: alt.annualPotentialAmount,
+                      advantages: alt.advantages,
+                      disadvantages: alt.disadvantages,
+                      strategy: alt.strategy,
+                      notes: alt.notes,
+                    },
+                    children: [],
+                  }
+                })
+              : [],
+        }
+      }),
     })
   }
 
@@ -3114,6 +4139,7 @@ const detailSectionKeys = [
   'contacts',
   'cooperation',
   'requirements',
+  'competitors',
   'visits',
   'opportunities',
   'quotes',
@@ -3129,6 +4155,7 @@ const activeTab = ref<
   | 'contacts'
   | 'cooperation'
   | 'requirements'
+  | 'competitors'
   | 'visits'
   | 'opportunities'
   | 'quotes'
@@ -3181,6 +4208,9 @@ const formRules = {
 const ownerOptions = ref<Array<{ id: string; name: string }>>([])
 const ownerLoading = ref(false)
 const isDepartmentManager = ref(false)
+
+// 判断是否是公海列表
+const isPublicPool = computed(() => route.path === '/customers/public')
 
 const getCurrentUserName = () =>
   (authStore as any)?.user?.username ||
@@ -3569,6 +4599,7 @@ const handleDrawerClose = (done: () => void) => {
   customerContacts.value = []
   customerActivities.value = []
   customerRequirements.value = []
+  customerCompetitors.value = []
   customerVisits.value = []
   customerQuotes.value = []
   customerContracts.value = []
@@ -3589,8 +4620,6 @@ const handleDrawerClose = (done: () => void) => {
     invoiceRequirement: undefined,
     invoiceRemark: '',
     shippingMethods: [],
-    mainCategoryIds: [],
-    competitorBrands: [],
     creditLimit: undefined,
     creditTier: undefined,
     level: undefined,
@@ -3967,6 +4996,8 @@ const loadCustomerDetails = async (customerId: string | number) => {
       loadBusinessInfo().catch((err) => console.error('加载工商信息失败:', err)),
       // 合作与信用
       loadCustomerProfile().catch((err) => console.error('加载合作与信用失败:', err)),
+      // 意向竞品
+      loadCustomerCompetitors().catch((err) => console.error('加载意向竞品失败:', err)),
     ])
 
     // 重置已加载的tab标记（切换客户时重置）
@@ -4661,6 +5692,113 @@ const confirmBatchTransfer = async () => {
   }
 }
 
+// 单个领取客户（公海列表）
+const handleSingleClaim = async (customer: Customer) => {
+  try {
+    await ElMessageBox.confirm(
+      `确定要领取客户"${customer.name}"吗？`,
+      '确认领取',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning',
+      },
+    )
+
+    await customerApi.claimCustomers([customer.id])
+    ElMessage.success('领取成功')
+    loadCustomers()
+  } catch (error: any) {
+    if (error !== 'cancel') {
+      console.error('领取客户失败:', error)
+      ElMessage.error(error?.response?.data?.message || '领取失败')
+    }
+  }
+}
+
+// 批量领取客户（公海列表）
+const handleBatchClaim = async () => {
+  if (selectedRows.value.length === 0) {
+    ElMessage.warning('请先选择要领取的客户')
+    return
+  }
+
+  try {
+    await ElMessageBox.confirm(
+      `确定要领取选中的 ${selectedRows.value.length} 个客户吗？`,
+      '确认领取',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning',
+      },
+    )
+
+    const ids = selectedRows.value.map((customer) => customer.id)
+    await customerApi.claimCustomers(ids)
+    ElMessage.success(`成功领取 ${ids.length} 个客户`)
+    selectedRows.value = []
+    loadCustomers()
+  } catch (error: any) {
+    if (error !== 'cancel') {
+      console.error('批量领取客户失败:', error)
+      ElMessage.error(error?.response?.data?.message || '领取失败')
+    }
+  }
+}
+
+// 单个分配客户（公海列表，只有部门负责人可见）
+const currentAssignCustomer = ref<Customer | null>(null)
+const assignDialogVisible = ref(false)
+const assignOwnerId = ref<string>('')
+const assignMode = ref<'single' | 'batch'>('single')
+
+const openSingleAssign = (customer: Customer) => {
+  currentAssignCustomer.value = customer
+  assignMode.value = 'single'
+  assignOwnerId.value = ''
+  assignDialogVisible.value = true
+}
+
+// 批量分配客户（公海列表，只有部门负责人可见）
+const openBatchAssign = () => {
+  if (selectedRows.value.length === 0) {
+    ElMessage.warning('请先选择要分配的客户')
+    return
+  }
+  currentAssignCustomer.value = null
+  assignMode.value = 'batch'
+  assignOwnerId.value = ''
+  assignDialogVisible.value = true
+}
+
+const confirmBatchAssign = async () => {
+  if (!assignOwnerId.value) {
+    ElMessage.warning('请选择负责人')
+    return
+  }
+
+  try {
+    let ids: string[]
+    if (assignMode.value === 'single' && currentAssignCustomer.value) {
+      ids = [currentAssignCustomer.value.id]
+    } else {
+      ids = selectedRows.value.map((customer) => customer.id)
+    }
+
+    await customerApi.assignCustomers(ids, assignOwnerId.value)
+    const count = ids.length
+    ElMessage.success(`成功分配 ${count} 个客户`)
+    assignDialogVisible.value = false
+    selectedRows.value = []
+    currentAssignCustomer.value = null
+    loadCustomers()
+  } catch (error: any) {
+    console.error('分配客户失败:', error)
+    ElMessage.error(error?.response?.data?.message || '分配失败')
+  }
+}
+
 // 批量放入公海（清除负责人）
 const handleBatchRelease = async () => {
   if (selectedRows.value.length === 0) return
@@ -4989,6 +6127,18 @@ const initKanbanSortable = () => {
             // 更新本地数据
             customer.status = toStatus as any
             console.log('更新成功，新状态:', toStatus)
+
+            // 如果状态更新为 closed_lost 或 closed_won，弹出方案沉淀对话框
+            if (toStatus === 'closed_lost' || toStatus === 'closed_won') {
+              nextTick(() => {
+                solutionDialogVisible.value = true
+                solutionDialogSource.value = {
+                  type: 'customer',
+                  id: customer.id,
+                  result: toStatus === 'closed_won' ? 'won' : 'lost',
+                }
+              })
+            }
           } else {
             console.error('API 返回错误:', response)
             throw new Error((response as any)?.message || '更新失败')
@@ -5038,13 +6188,30 @@ onMounted(async () => {
   // 监听窗口大小变化
   window.addEventListener('resize', handleResize)
   try {
-    const resp = await leadApi.sources()
-    sourceOptions.value = (resp as any).data || []
-  } catch {}
-  try {
-    const resp2 = await commonApi.industries()
-    industryOptions.value = (resp2 as any).data || []
-  } catch {}
+    // 优先使用字典API
+    const [sourceResp, industryResp] = await Promise.all([
+      dictionaryApi.getItems('lead_source'),
+      dictionaryApi.getItems('industry'),
+    ])
+    sourceOptions.value = sourceResp.data.map((item: DictItem) => ({
+      key: item.value,
+      label: item.label,
+    }))
+    industryOptions.value = industryResp.data.map((item: DictItem) => ({
+      key: item.value,
+      label: item.label,
+    }))
+  } catch {
+    // 如果字典API失败，尝试使用旧API（兼容性）
+    try {
+      const resp = await leadApi.sources()
+      sourceOptions.value = (resp as any).data || []
+    } catch {}
+    try {
+      const resp2 = await commonApi.industries()
+      industryOptions.value = (resp2 as any).data || []
+    } catch {}
+  }
   try {
     const resp3 = await commonApi.regions()
     regionOptions.value = (resp3 as any).data || []
@@ -5210,10 +6377,14 @@ const loadCustomerProfile = async () => {
         invoiceRequirement: customerProfile.value.invoiceRequirement,
         invoiceRemark: customerProfile.value.invoiceRemark || '',
         shippingMethods: customerProfile.value.shippingMethods || [],
-        mainCategoryIds: customerProfile.value.mainCategoryIds || [],
-        competitorBrands: customerProfile.value.competitorBrands || [],
         creditLimit: customerProfile.value.creditLimit,
         creditTier: customerProfile.value.creditTier,
+        fundStatus: customerProfile.value.fundStatus,
+        businessYears: customerProfile.value.businessYears,
+        industryReputation: customerProfile.value.industryReputation,
+        growthPotential: customerProfile.value.growthPotential,
+        ownerType: customerProfile.value.ownerType,
+        overallComment: customerProfile.value.overallComment || '',
         level: selectedCustomer.value.level,
       })
     } else {
@@ -5222,36 +6393,23 @@ const loadCustomerProfile = async () => {
         invoiceRequirement: undefined,
         invoiceRemark: '',
         shippingMethods: [],
-        mainCategoryIds: [],
-        competitorBrands: [],
         creditLimit: undefined,
         creditTier: undefined,
+        fundStatus: undefined,
+        businessYears: undefined,
+        industryReputation: undefined,
+        growthPotential: undefined,
+        ownerType: undefined,
+        overallComment: '',
         level: selectedCustomer.value.level,
       })
     }
 
-    // 加载品类选项（如果还没有加载）
-    if (categoryOptions.value.length === 0) {
-      await loadCategoryOptions()
-    }
   } catch (error: any) {
     console.error('加载合作与信用信息失败:', error)
     ElMessage.error(error.response?.data?.message || '加载合作与信用信息失败')
   } finally {
     cooperationLoading.value = false
-  }
-}
-
-// 加载品类选项
-const loadCategoryOptions = async () => {
-  categoryOptionsLoading.value = true
-  try {
-    const response = await dictionaryApi.getItems('product_category')
-    categoryOptions.value = response.data || []
-  } catch (error: any) {
-    console.error('加载品类选项失败:', error)
-  } finally {
-    categoryOptionsLoading.value = false
   }
 }
 
@@ -5310,15 +6468,19 @@ const doSaveCooperationProfile = async (changeReason?: string) => {
   try {
     const customerId = String(selectedCustomer.value.id)
 
-    // 始终更新合作习惯信息（开票要求、货运方式、主要采购品类、意向竞品等）
+    // 始终更新合作习惯信息（开票要求、货运方式等）
     const profileData: CreateCustomerProfileDto = {
       invoiceRequirement: cooperationForm.invoiceRequirement,
       invoiceRemark: cooperationForm.invoiceRemark,
       shippingMethods: cooperationForm.shippingMethods,
-      mainCategoryIds: cooperationForm.mainCategoryIds,
-      competitorBrands: cooperationForm.competitorBrands,
       creditLimit: cooperationForm.creditLimit,
       creditTier: cooperationForm.creditTier,
+      fundStatus: cooperationForm.fundStatus,
+      businessYears: cooperationForm.businessYears,
+      industryReputation: cooperationForm.industryReputation,
+      growthPotential: cooperationForm.growthPotential,
+      ownerType: cooperationForm.ownerType,
+      overallComment: cooperationForm.overallComment,
     }
 
     if (changeReason) {
@@ -5362,10 +6524,14 @@ const cancelCooperationEdit = () => {
       invoiceRequirement: customerProfile.value.invoiceRequirement,
       invoiceRemark: customerProfile.value.invoiceRemark || '',
       shippingMethods: customerProfile.value.shippingMethods || [],
-      mainCategoryIds: customerProfile.value.mainCategoryIds || [],
-      competitorBrands: customerProfile.value.competitorBrands || [],
       creditLimit: customerProfile.value.creditLimit,
       creditTier: customerProfile.value.creditTier,
+      fundStatus: customerProfile.value.fundStatus,
+      businessYears: customerProfile.value.businessYears,
+      industryReputation: customerProfile.value.industryReputation,
+      growthPotential: customerProfile.value.growthPotential,
+      ownerType: customerProfile.value.ownerType,
+      overallComment: customerProfile.value.overallComment || '',
       level: selectedCustomer.value.level,
     })
   }
@@ -5404,12 +6570,6 @@ const getShippingMethodLabel = (value: string) => {
     courier: '快递',
   }
   return map[value] || value
-}
-
-// 获取品类标签
-const getCategoryLabel = (categoryId: number) => {
-  const category = categoryOptions.value.find((c) => c.id === categoryId)
-  return category?.label || `品类${categoryId}`
 }
 
 // 获取信用额度档位标签
@@ -5583,10 +6743,11 @@ watch(activeTab, async (tab) => {
       await loadCustomerProfile()
       loadedTabs.value.add('cooperation')
     } else if (tab === 'graph') {
-      // 客户图谱：每次切换都强制重新加载联系人、商机、需求数据
+      // 客户图谱：每次切换都强制重新加载联系人、商机、需求、意向竞品
       await loadContacts()
       await loadOpportunities()
       await loadRequirements()
+      await loadCustomerCompetitors()
     }
   } catch (error: any) {
     console.error(`加载${tab}数据失败:`, error)
@@ -6369,6 +7530,46 @@ const loadRequirements = async () => {
   }
 }
 
+// 意向竞品相关
+const loadCustomerCompetitors = async () => {
+  if (!selectedCustomer.value) return
+  try {
+    const resp = await competitorApi.list({
+      relatedType: 'customer',
+      relatedId: selectedCustomer.value.id,
+    })
+    const body = resp as { code: number; message: string; data: Competitor[] }
+    customerCompetitors.value = body.data || []
+    // 加载每个竞品下的可替代产品
+    await loadCustomerCompetitorAlternatives()
+  } catch (error) {
+    console.error('加载意向竞品失败:', error)
+  }
+}
+
+const loadCustomerCompetitorAlternatives = async () => {
+  if (!selectedCustomer.value || customerCompetitors.value.length === 0) {
+    customerCompetitorAlternatives.value = {}
+    return
+  }
+  const result: Record<string, CompetitorAlternative[]> = {}
+  await Promise.all(
+    customerCompetitors.value.map(async (c) => {
+      try {
+        const resp = await competitorAlternativeApi.list({
+          competitorId: c.id,
+          relatedType: 'customer',
+          relatedId: selectedCustomer.value!.id,
+        })
+        result[String(c.id)] = resp.data || []
+      } catch (e) {
+        console.error('加载可替代产品失败:', e)
+      }
+    }),
+  )
+  customerCompetitorAlternatives.value = result
+}
+
 // 拜访记录相关
 const loadVisits = async () => {
   if (!selectedCustomer.value) return
@@ -6387,23 +7588,8 @@ const loadVisits = async () => {
 
 // （已改用 vue3-tree-org，这里废弃 SimpleMindMap 相关逻辑）
 
-const requirementFormRef = ref()
-const requirementForm = reactive({
-  id: undefined as number | undefined,
-  customerId: 0,
-  type: RequirementType.EXPLICIT,
-  content: '',
-  problemToSolve: '',
-  tags: [] as string[],
-  priority: 0,
-  status: 'pending',
-  notes: '',
-})
-const requirementRules = {
-  content: [{ required: true, message: '请输入需求内容', trigger: 'blur' }],
-  type: [{ required: true, message: '请选择需求类型', trigger: 'change' }],
-}
-const requirementDialog = reactive({ visible: false, title: '', saving: false })
+const requirementDialog = reactive({ visible: false })
+const currentRequirement = ref<CustomerRequirement | null>(null)
 
 // 常用标签
 const commonRequirementTags = [
@@ -6424,41 +7610,14 @@ const commonRequirementTags = [
 
 // 新增需求
 const openCreateRequirement = () => {
+  currentRequirement.value = null
   requirementDialog.visible = true
-  requirementDialog.title = '新增需求'
-  Object.assign(requirementForm, {
-    id: undefined,
-    customerId:
-      typeof selectedCustomer.value?.id === 'string'
-        ? parseInt(selectedCustomer.value.id)
-        : selectedCustomer.value?.id || 0,
-    type: RequirementType.EXPLICIT,
-    content: '',
-    problemToSolve: '',
-    tags: [],
-    priority: 0,
-    status: 'pending',
-    notes: '',
-  })
-  if (requirementFormRef.value) requirementFormRef.value.clearValidate?.()
 }
 
 // 编辑需求
 const openEditRequirement = (requirement: CustomerRequirement) => {
+  currentRequirement.value = requirement
   requirementDialog.visible = true
-  requirementDialog.title = '编辑需求'
-  Object.assign(requirementForm, {
-    id: requirement.id,
-    customerId: requirement.customerId,
-    type: requirement.type,
-    content: requirement.content,
-    problemToSolve: requirement.problemToSolve || '',
-    tags: requirement.tags || [],
-    priority: requirement.priority,
-    status: requirement.status,
-    notes: requirement.notes || '',
-  })
-  if (requirementFormRef.value) requirementFormRef.value.clearValidate?.()
 }
 
 // 删除需求
@@ -6481,43 +7640,15 @@ const deleteRequirement = async (requirement: CustomerRequirement) => {
   }
 }
 
-// 提交需求
-const submitRequirement = async () => {
-  if (!requirementFormRef.value) return
+// 需求提交成功回调
+const handleRequirementSuccess = async () => {
+  await loadRequirements()
+}
 
-  try {
-    await requirementFormRef.value.validate()
-    requirementDialog.saving = true
-
-    const payload = {
-      customerId: requirementForm.customerId,
-      type: requirementForm.type,
-      content: requirementForm.content,
-      problemToSolve: requirementForm.problemToSolve,
-      tags: requirementForm.tags,
-      priority: requirementForm.priority,
-      status: requirementForm.status,
-      notes: requirementForm.notes,
-    }
-
-    if (requirementForm.id) {
-      // 编辑需求
-      await customerRequirementApi.update(requirementForm.id, payload)
-      ElMessage.success('更新需求成功')
-    } else {
-      // 新建需求
-      await customerRequirementApi.create(payload)
-      ElMessage.success('创建需求成功')
-    }
-
-    requirementDialog.visible = false
-    await loadRequirements()
-  } catch (error: any) {
-    console.error('提交需求失败:', error)
-    ElMessage.error(error.message || '操作失败，请稍后重试')
-  } finally {
-    requirementDialog.saving = false
-  }
+// 方案沉淀成功回调
+const handleSolutionSuccess = () => {
+  ElMessage.success('方案已保存到方案库')
+  solutionDialogSource.value = null
 }
 
 // 新增联系人
@@ -7744,6 +8875,87 @@ const submitContact = async () => {
       height: 100% !important;
       display: block;
     }
+
+    // 卡片样式（联系人 / 商机 / 意向竞品 / 可替代产品 / 需求）
+    :deep(.org-card.competitor-card),
+    :deep(.org-card.alternative-card),
+    :deep(.org-card.requirement-card),
+    :deep(.org-card.contact-card),
+    :deep(.org-card.opportunity-card) {
+      min-width: 220px;
+      padding: 8px 12px;
+      border-radius: 4px;
+      background: #fff;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+      border: 1px solid #ebeef5;
+      box-sizing: border-box;
+
+      .card-title {
+        font-weight: 600;
+        margin-bottom: 6px;
+        font-size: 13px;
+        color: #303133;
+      }
+
+      .card-body {
+        .row {
+          display: flex;
+          font-size: 12px;
+          line-height: 1.6;
+          white-space: nowrap;
+        }
+
+        .field-label {
+          flex: 0 0 56px;
+          color: #909399;
+          text-align: left;
+        }
+
+        .field-value {
+          flex: 1;
+          color: #303133;
+          word-break: break-all;
+          text-align: left;
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          gap: 4px;
+          min-width: 0;
+
+          // 当只有文本节点时，保持正常显示
+          > span:only-child {
+            display: block;
+            width: 100%;
+          }
+
+          // 标签不占满整行，只占用实际宽度
+          .el-tag {
+            flex-shrink: 0;
+            width: auto;
+            margin: 0;
+          }
+
+          // 标签容器：不占满整行，根据内容自适应
+          &.field-value-tags {
+            flex: 0 1 auto;
+            width: auto;
+            max-width: 100%;
+
+            // 当只有文本节点（如 "-"）时，保持正常显示
+            > span:only-child:not(.el-tag) {
+              display: inline;
+            }
+          }
+        }
+      }
+    }
+
+    // 其他普通节点
+    :deep(.org-node-default) {
+      font-size: 13px;
+      line-height: 1.4;
+      white-space: pre-line;
+    }
   }
 }
 </style>
@@ -8060,6 +9272,180 @@ const submitContact = async () => {
 
     .el-button {
       flex-shrink: 0;
+    }
+  }
+}
+
+// 客户图谱全屏预览对话框样式
+.graph-fullscreen-dialog {
+  :deep(.el-dialog) {
+    display: flex;
+    flex-direction: column;
+    margin: 0;
+    max-height: 100vh;
+    height: 100vh;
+  }
+
+  :deep(.el-dialog__header) {
+    flex-shrink: 0;
+  }
+
+  :deep(.el-dialog__body) {
+    padding: 0 !important;
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    height: calc(100vh - 55px) !important;
+    max-height: calc(100vh - 55px) !important;
+  }
+
+  .customer-graph-container-fullscreen {
+    flex: 1;
+    width: 100%;
+    min-height: calc(100vh - 55px);
+    height: calc(100vh - 55px) !important;
+    max-height: calc(100vh - 55px) !important;
+    overflow: hidden;
+    background: #fafafa;
+    position: relative;
+
+    .graph-empty-state,
+    .graph-loading-state {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    // 确保 Vue3TreeOrg 及其所有子容器都有正确的样式
+    // Vue3TreeOrg 实际渲染的类名是 zm-tree-org
+    :deep(.zm-tree-org),
+    :deep(.vue3-tree-org) {
+      width: 100% !important;
+      height: 100% !important;
+      display: block !important;
+      position: relative !important;
+      visibility: visible !important;
+      opacity: 1 !important;
+      z-index: 1;
+    }
+
+    // zoom-container 是缩放容器
+    :deep(.zoom-container) {
+      width: 100% !important;
+      height: 100% !important;
+      position: relative !important;
+      visibility: visible !important;
+      opacity: 1 !important;
+    }
+
+    // draggable 是可拖拽容器
+    :deep(.zm-draggable),
+    :deep(.draggable) {
+      width: 100% !important;
+      height: 100% !important;
+      position: relative !important;
+      visibility: visible !important;
+      opacity: 1 !important;
+      transform: translate(0, 0) !important;
+    }
+
+    // tree-org 是实际的树结构容器
+    :deep(.tree-org-container),
+    :deep(.tree-org) {
+      width: 100% !important;
+      height: 100% !important;
+      position: relative !important;
+      display: block !important;
+      visibility: visible !important;
+      opacity: 1 !important;
+    }
+
+    // tree-org 节点
+    :deep(.tree-org__node) {
+      visibility: visible !important;
+      opacity: 1 !important;
+    }
+
+    // SVG 元素
+    :deep(svg) {
+      width: 100% !important;
+      height: 100% !important;
+      display: block !important;
+      visibility: visible !important;
+      opacity: 1 !important;
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
+
+    // 卡片样式（与普通视图保持一致）
+    :deep(.org-card.competitor-card),
+    :deep(.org-card.alternative-card),
+    :deep(.org-card.requirement-card),
+    :deep(.org-card.contact-card),
+    :deep(.org-card.opportunity-card) {
+      min-width: 220px;
+      padding: 8px 12px;
+      border-radius: 4px;
+      background: #fff;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+      border: 1px solid #ebeef5;
+      box-sizing: border-box;
+
+      .card-title {
+        font-weight: 600;
+        margin-bottom: 6px;
+        font-size: 13px;
+        color: #303133;
+      }
+
+      .card-body {
+        .row {
+          display: flex;
+          font-size: 12px;
+          line-height: 1.6;
+          white-space: nowrap;
+        }
+
+        .field-label {
+          flex: 0 0 56px;
+          color: #909399;
+          text-align: left;
+        }
+
+        .field-value {
+          flex: 1;
+          color: #303133;
+          word-break: break-all;
+          text-align: left;
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          gap: 4px;
+          min-width: 0;
+
+          > span:only-child {
+            display: block;
+            width: 100%;
+          }
+
+          .el-tag {
+            flex-shrink: 0;
+            width: auto;
+            margin: 0;
+          }
+
+          &.field-value-tags {
+            flex: 0 1 auto;
+            width: auto;
+          }
+        }
+      }
     }
   }
 }

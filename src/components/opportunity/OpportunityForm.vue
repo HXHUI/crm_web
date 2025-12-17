@@ -163,7 +163,8 @@ const formRules: FormRules = {
     { required: true, message: '请选择成交概率', trigger: 'change' },
     { type: 'number', min: 10, max: 100, message: '成交概率必须在10-100之间', trigger: 'change' },
   ],
-  expectedCloseDate: [{ required: true, message: '请选择预计成交日期', trigger: 'change' }],
+  // 预计成交日期改为非必填
+  // expectedCloseDate: [{ required: true, message: '请选择预计成交日期', trigger: 'change' }],
 }
 
 // 客户选项

@@ -61,6 +61,20 @@
             <span>{{ getPurposeName(v.purpose as any) || '-' }}</span>
           </div>
 
+          <div v-if="v.preparation && v.preparation.length" class="line2">
+            <span class="label">拜访准备：</span>
+            <span>
+              <el-tag
+                v-for="item in v.preparation"
+                :key="item"
+                size="small"
+                class="mr-4"
+              >
+                {{ getPreparationName(item) }}
+              </el-tag>
+            </span>
+          </div>
+
           <!-- 关键信息：地址 / 时长 / 优先级 -->
           <div class="info-row">
             <span class="info-item">
@@ -164,10 +178,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, watch, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import visitApi, { type Visit } from '@/api/visit'
 import VisitForm from '@/components/visit/VisitForm.vue'
+import dictionaryApi from '@/api/dictionary'
 
 type RelatedToType = 'customer' | 'contact' | 'opportunity'
 
@@ -186,6 +201,9 @@ const props = withDefaults(defineProps<Props>(), {
 
 const loading = ref(false)
 const visits = ref<Visit[]>([])
+const preparationMap = ref<Record<string, string>>({})
+const purposeMap = ref<Record<string, string>>({})
+const typeMap = ref<Record<string, string>>({})
 
 const createDialogVisible = ref(false)
 const completeDialog = ref<{
@@ -268,34 +286,11 @@ const getStatusColor = (status?: string) => {
 }
 
 const getTypeName = (type?: string) => {
-  const map: Record<string, string> = {
-    first_visit: '首次拜访',
-    follow_up: '跟进拜访',
-    maintenance: '维护拜访',
-    business_negotiation: '商务洽谈',
-    technical_support: '技术支持',
-    training: '培训',
-    other: '其他'
-  }
-  return map[type || ''] || type || '-'
+  return typeMap.value[type || ''] || type || '-'
 }
 
 const getPurposeName = (purpose?: string) => {
-  const map: Record<string, string> = {
-    understand_needs: '了解需求',
-    monthly_performance: '月度履约',
-    performance_increment: '业绩增量',
-    product_promotion: '产品推广',
-    holiday_visit: '节日走访',
-    contract_signing: '合同签订',
-    sign_statement: '签对账单',
-    price_policy: '价格政策',
-    after_sales_service: '售后服务',
-    negotiate_cooperation: '协商合作细节',
-    understand_business: '了解客户经营状况',
-    sample_tracking: '样品跟踪测试'
-  }
-  return map[purpose || ''] || purpose || ''
+  return purposeMap.value[purpose || ''] || purpose || ''
 }
 
 // 地址格式化
@@ -308,6 +303,43 @@ const formatAddress = (region?: string[] | null, detailAddress?: string) => {
     parts.push(detailAddress)
   }
   return parts.join(' - ')
+}
+
+// 拜访准备展示（中文标签）
+const getPreparationName = (value?: string) => {
+  if (!value) return ''
+  return preparationMap.value[value] || value
+}
+
+// 加载字典
+const loadDictionaries = async () => {
+  try {
+    // 加载拜访准备字典
+    const prepRes = await dictionaryApi.getItems('visit_preparation')
+    const prepMap: Record<string, string> = {}
+    ;(prepRes.data || []).forEach((item) => {
+      prepMap[item.value] = item.label
+    })
+    preparationMap.value = prepMap
+
+    // 加载拜访目的字典
+    const purposeRes = await dictionaryApi.getItems('visit_purpose')
+    const purposeMapData: Record<string, string> = {}
+    ;(purposeRes.data || []).forEach((item) => {
+      purposeMapData[item.value] = item.label
+    })
+    purposeMap.value = purposeMapData
+
+    // 加载拜访类型字典
+    const typeRes = await dictionaryApi.getItems('visit_type')
+    const typeMapData: Record<string, string> = {}
+    ;(typeRes.data || []).forEach((item) => {
+      typeMapData[item.value] = item.label
+    })
+    typeMap.value = typeMapData
+  } catch (e) {
+    console.error('加载字典失败', e)
+  }
 }
 
 // 计算拜访时长
@@ -448,6 +480,10 @@ watch(
   },
   { immediate: true }
 )
+
+onMounted(() => {
+  loadDictionaries()
+})
 </script>
 
 <style scoped lang="scss">

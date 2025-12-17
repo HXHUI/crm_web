@@ -88,6 +88,11 @@ const leadApi = {
       leadIds,
       newOwnerId,
     }),
+  assign: (leadIds: string[] | number[], newOwnerId: string | number) =>
+    request.post<{ code: number; message: string; data: { affected: number; leadIds: number[] } }>('/leads/assign', {
+      leadIds,
+      newOwnerId,
+    }),
   moveToPool: (leadIds: string[] | number[]) =>
     request.post<{ code: number; message: string; data: { affected: number; leadIds: number[] } }>('/leads/move-to-pool', {
       leadIds,
@@ -174,6 +179,11 @@ const leadApi = {
         }
       }
     }>('/leads/statistics'),
+  checkDuplicateCompany: (company: string) =>
+    request.get<{ code: number; message: string; data: { isDuplicate: boolean } }>(
+      '/leads/check-duplicate-company',
+      { params: { company } },
+    ),
 }
 
 export default leadApi

@@ -30,6 +30,19 @@ export const useAuthStore = defineStore('auth', () => {
     return user.value?.isSystemAdmin === true
   })
 
+  // 判断当前用户是否为租户管理员（基于角色系统，租户负责人自动拥有权限）
+  const isTenantAdmin = computed(() => {
+    if (isTenantOwner.value) {
+      return true // 租户负责人自动拥有管理员权限
+    }
+    if (member.value?.memberRoles && member.value.memberRoles.length > 0) {
+      return member.value.memberRoles.some(
+        (mr: any) => mr.role?.name === '租户管理员'
+      )
+    }
+    return false
+  })
+
   // 登录
   const loginUser = async (loginData: LoginRequest) => {
     try {
@@ -331,6 +344,7 @@ export const useAuthStore = defineStore('auth', () => {
     currentTenant,
     isTenantOwner,
     isSystemAdmin,
+    isTenantAdmin,
 
     // 方法
     loginUser,

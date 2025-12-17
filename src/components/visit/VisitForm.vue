@@ -6,31 +6,82 @@
     label-width="110px"
     class="visit-form"
   >
+    <el-form-item label="拜访对象类型" prop="relatedType">
+      <el-select
+        v-model="formData.relatedType"
+        placeholder="请选择拜访对象类型"
+        style="width: 100%"
+        @change="handleRelatedTypeChange"
+        :disabled="!!defaultRelatedType"
+      >
+        <el-option label="客户" value="customer" />
+        <el-option label="联系人" value="contact" />
+        <el-option label="商机" value="opportunity" />
+      </el-select>
+    </el-form-item>
+    <el-form-item v-if="formData.relatedType" label="拜访对象" prop="relatedId">
+      <el-select
+        v-model="formData[formData.relatedType + 'Id']"
+        placeholder="请选择拜访对象"
+        filterable
+        clearable
+        style="width: 100%"
+        :disabled="!!defaultRelatedId"
+      >
+        <el-option
+          v-for="item in relatedOptions"
+          :key="item.id"
+          :label="item.name || item.title"
+          :value="item.id"
+        />
+      </el-select>
+    </el-form-item>
     <el-form-item label="拜访目的" prop="purpose">
-      <el-select v-model="formData.purpose" placeholder="请选择拜访目的" style="width: 100%">
-        <el-option label="了解需求" value="understand_needs" />
-        <el-option label="月度履约" value="monthly_performance" />
-        <el-option label="业绩增量" value="performance_increment" />
-        <el-option label="产品推广" value="product_promotion" />
-        <el-option label="节日走访" value="holiday_visit" />
-        <el-option label="合同签订" value="contract_signing" />
-        <el-option label="签对账单" value="sign_statement" />
-        <el-option label="价格政策" value="price_policy" />
-        <el-option label="售后服务" value="after_sales_service" />
-        <el-option label="协商合作细节" value="negotiate_cooperation" />
-        <el-option label="了解客户经营状况" value="understand_business" />
-        <el-option label="样品跟踪测试" value="sample_tracking" />
+      <el-select
+        v-model="formData.purpose"
+        placeholder="请选择拜访目的"
+        filterable
+        clearable
+        style="width: 100%"
+      >
+        <el-option
+          v-for="item in purposeOptions"
+          :key="item.value"
+          :label="item.label"
+          :value="item.value"
+        />
       </el-select>
     </el-form-item>
     <el-form-item label="拜访类型" prop="type">
-      <el-select v-model="formData.type" placeholder="请选择拜访类型" style="width: 100%">
-        <el-option label="首次拜访" value="first_visit" />
-        <el-option label="跟进拜访" value="follow_up" />
-        <el-option label="维护拜访" value="maintenance" />
-        <el-option label="商务洽谈" value="business_negotiation" />
-        <el-option label="技术支持" value="technical_support" />
-        <el-option label="培训" value="training" />
-        <el-option label="其他" value="other" />
+      <el-select
+        v-model="formData.type"
+        placeholder="请选择拜访类型"
+        filterable
+        clearable
+        style="width: 100%"
+      >
+        <el-option
+          v-for="item in typeOptions"
+          :key="item.value"
+          :label="item.label"
+          :value="item.value"
+        />
+      </el-select>
+    </el-form-item>
+    <el-form-item label="拜访准备" prop="preparation">
+      <el-select
+        v-model="formData.preparation"
+        placeholder="请选择拜访准备"
+        multiple
+        clearable
+        style="width: 100%"
+      >
+        <el-option
+          v-for="item in preparationOptions"
+          :key="item.value"
+          :label="item.label"
+          :value="item.value"
+        />
       </el-select>
     </el-form-item>
     <el-form-item label="计划开始时间" prop="plannedStartTime">
@@ -106,6 +157,7 @@
         v-model="formData.region"
         :options="regionOptions"
         placeholder="请选择所在地区"
+        filterable
         clearable
         style="width: 100%"
         :props="{ expandTrigger: 'hover' }"
@@ -114,22 +166,9 @@
     <el-form-item label="详情地址" prop="detailAddress">
       <el-input v-model="formData.detailAddress" placeholder="请输入详情地址" />
     </el-form-item>
-    <el-form-item label="拜访对象类型" prop="relatedType">
+    <el-form-item v-if="formData.relatedType" label="拜访对象" prop="relatedId">
       <el-select
-        v-model="relatedType"
-        placeholder="请选择拜访对象类型"
-        style="width: 100%"
-        @change="handleRelatedTypeChange"
-        :disabled="!!defaultRelatedType"
-      >
-        <el-option label="客户" value="customer" />
-        <el-option label="联系人" value="contact" />
-        <el-option label="商机" value="opportunity" />
-      </el-select>
-    </el-form-item>
-    <el-form-item v-if="relatedType" label="拜访对象" prop="relatedId">
-      <el-select
-        v-model="formData[relatedType + 'Id']"
+        v-model="formData[formData.relatedType + 'Id']"
         placeholder="请选择拜访对象"
         filterable
         clearable
@@ -178,6 +217,7 @@ import customerApi from '@/api/customer'
 import contactApi from '@/api/contact'
 import opportunityApi from '@/api/opportunity'
 import commonApi from '@/api/common'
+import dictionaryApi from '@/api/dictionary'
 
 interface Props {
   visit?: Visit | null
@@ -200,16 +240,18 @@ const emit = defineEmits<{
 const formRef = ref<FormInstance>()
 const submitting = ref(false)
 
-const relatedType = ref<'customer' | 'contact' | 'opportunity' | ''>('')
 const customerOptions = ref<Array<{ id: number; name: string }>>([])
 const contactOptions = ref<Array<{ id: number; name: string }>>([])
 const opportunityOptions = ref<Array<{ id: number; title: string }>>([])
 const regionOptions = ref<any[]>([])
+const preparationOptions = ref<Array<{ label: string; value: string }>>([])
+const purposeOptions = ref<Array<{ label: string; value: string }>>([])
+const typeOptions = ref<Array<{ label: string; value: string }>>([])
 
 const relatedOptions = computed(() => {
-  if (relatedType.value === 'customer') return customerOptions.value
-  if (relatedType.value === 'contact') return contactOptions.value
-  if (relatedType.value === 'opportunity') return opportunityOptions.value
+  if (formData.relatedType === 'customer') return customerOptions.value
+  if (formData.relatedType === 'contact') return contactOptions.value
+  if (formData.relatedType === 'opportunity') return opportunityOptions.value
   return []
 })
 
@@ -340,6 +382,7 @@ const formData = reactive<
       plannedStartDate?: string
       plannedEndDate?: string
       duration?: string
+      relatedType?: 'customer' | 'contact' | 'opportunity' | ''
     }
 >({
   description: '',
@@ -353,12 +396,15 @@ const formData = reactive<
   region: undefined,
   detailAddress: '',
   purpose: undefined,
+  preparation: [],
+  relatedType: '',
   customerId: undefined,
   contactId: undefined,
   opportunityId: undefined,
 })
 
 const rules: FormRules = {
+  relatedType: [{ required: true, message: '请选择拜访对象类型', trigger: 'change' }],
   plannedStartTime: [
     {
       required: true,
@@ -433,6 +479,39 @@ const loadOptions = async () => {
     } catch (error) {
       console.error('加载地区选项失败:', error)
     }
+
+    // 加载拜访准备字典选项
+    try {
+      const prepRes = await dictionaryApi.getItems('visit_preparation')
+      preparationOptions.value = (prepRes.data || []).map((item: any) => ({
+        label: item.label,
+        value: item.value,
+      }))
+    } catch (error) {
+      console.error('加载拜访准备字典失败:', error)
+    }
+
+    // 加载拜访目的字典选项
+    try {
+      const purposeRes = await dictionaryApi.getItems('visit_purpose')
+      purposeOptions.value = (purposeRes.data || []).map((item: any) => ({
+        label: item.label,
+        value: item.value,
+      }))
+    } catch (error) {
+      console.error('加载拜访目的字典失败:', error)
+    }
+
+    // 加载拜访类型字典选项
+    try {
+      const typeRes = await dictionaryApi.getItems('visit_type')
+      typeOptions.value = (typeRes.data || []).map((item: any) => ({
+        label: item.label,
+        value: item.value,
+      }))
+    } catch (error) {
+      console.error('加载拜访类型字典失败:', error)
+    }
   } catch (error) {
     console.error('加载选项数据失败:', error)
   }
@@ -444,7 +523,7 @@ const applyDefaultRelated = () => {
     return
   }
 
-  relatedType.value = props.defaultRelatedType
+  formData.relatedType = props.defaultRelatedType
   if (props.defaultRelatedType === 'customer') {
     formData.customerId = props.defaultRelatedId
   } else if (props.defaultRelatedType === 'contact') {
@@ -473,13 +552,13 @@ const initFormData = () => {
 
     // 确定关联类型
     if (props.visit.customerId) {
-      relatedType.value = 'customer'
+      formData.relatedType = 'customer'
     } else if (props.visit.contactId) {
-      relatedType.value = 'contact'
+      formData.relatedType = 'contact'
     } else if (props.visit.opportunityId) {
-      relatedType.value = 'opportunity'
+      formData.relatedType = 'opportunity'
     } else {
-      relatedType.value = ''
+      formData.relatedType = ''
     }
 
     Object.assign(formData, {
@@ -494,6 +573,7 @@ const initFormData = () => {
       region: props.visit.region,
       detailAddress: props.visit.detailAddress || '',
       purpose: props.visit.purpose,
+      preparation: props.visit.preparation || [],
       customerId: props.visit.customerId,
       contactId: props.visit.contactId,
       opportunityId: props.visit.opportunityId,
@@ -507,7 +587,7 @@ const initFormData = () => {
     const defaultDuration = 30
     const endTime = calculateEndTime(currentDate, currentTime, defaultDuration)
 
-    relatedType.value = ''
+    formData.relatedType = ''
     Object.assign(formData, {
       description: '',
       type: 'follow_up',
@@ -520,6 +600,7 @@ const initFormData = () => {
       region: undefined,
       detailAddress: '',
       purpose: undefined,
+      preparation: [],
       customerId: undefined,
       contactId: undefined,
       opportunityId: undefined,
@@ -594,6 +675,7 @@ const handleSubmit = async () => {
           region: formData.region,
           detailAddress: formData.detailAddress,
           purpose: formData.purpose,
+          preparation: formData.preparation && formData.preparation.length > 0 ? formData.preparation : undefined,
           customerId: formData.customerId,
           contactId: formData.contactId,
           opportunityId: formData.opportunityId,

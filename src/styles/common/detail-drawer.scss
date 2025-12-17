@@ -305,3 +305,13 @@
   }
 }
 
+// 可替代产品对话框的遮罩层，确保在表格等元素之上
+.alternative-dialog-modal {
+  z-index: 3050 !important;
+}
+
+// 确保下拉选择的弹层在对话框遮罩之上
+.el-select__popper {
+  z-index: 4000 !important;
+}
+

@@ -269,7 +269,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, watch, ref } from 'vue'
+import { computed, onMounted, watch, ref, type Component } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/modules/auth'
 import { useTenantStore } from '@/stores/modules/tenant'
@@ -297,6 +297,13 @@ import {
   UserFilled,
   Bell,
   DataBoard,
+  Setting,
+  Money,
+  Goods,
+  List,
+  DocumentChecked,
+  Edit,
+  Box,
 } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import NotificationBell from '../NotificationBell.vue'
@@ -431,13 +438,14 @@ const topPath = computed(() => {
   if (p.startsWith('/quotes')) return '/quotes'
   if (p.startsWith('/contracts')) return '/contracts'
   if (p.startsWith('/orders')) return '/orders'
+  if (p.startsWith('/tenant-settings')) return '/tenant-settings'
   if (p.startsWith('/tenant')) return '/tenant'
   if (p.startsWith('/calendar')) return '/calendar'
   if (p.startsWith('/workflow/my-approvals')) return '/workflow/my-approvals'
   return '/dashboard'
 })
 
-type SubMenuItem = { index: string; title: string; icon?: any }
+type SubMenuItem = { index: string; title: string; icon?: Component }
 
 const subMenus = computed<SubMenuItem[]>(() => {
   switch (topPath.value) {
@@ -448,6 +456,8 @@ const subMenus = computed<SubMenuItem[]>(() => {
         { index: '/customers/tags', title: '标签管理', icon: CollectionTag },
         { index: '/customers/contacts', title: '联系人', icon: UserFilled },
         { index: '/customers/requirements', title: '需求管理', icon: Document },
+        { index: '/customers/competitors', title: '意向竞品', icon: Document },
+        { index: '/customers/solutions', title: '方案库', icon: Box },
       ]
     case '/contacts':
       return [
@@ -480,6 +490,30 @@ const subMenus = computed<SubMenuItem[]>(() => {
         { index: '/workflow/my-approvals/pending', title: '待审批', icon: Clock },
         { index: '/workflow/my-approvals/approved', title: '已审批', icon: Document },
       ]
+    case '/tenant-settings':
+      // 企业信息二级导航，根据权限显示不同菜单
+      const tenantSettingsMenus = [
+        { index: '/tenant-settings/basic', title: '基本信息', icon: OfficeBuilding },
+      ]
+      // 租户管理员（包括租户负责人）可以访问的菜单
+      if (authStore.isTenantAdmin) {
+        tenantSettingsMenus.push(
+          { index: '/tenant-settings/config', title: '租户配置', icon: Setting },
+          { index: '/tenant-settings/pricing', title: '价格配置', icon: Money },
+          { index: '/tenant-settings/product-config', title: '产品配置', icon: Goods },
+          { index: '/tenant-settings/dictionary', title: '字典管理', icon: List },
+          { index: '/tenant-settings/custom-fields', title: '扩展字段管理', icon: Edit },
+          { index: '/tenant-settings/workflow', title: '审批流配置', icon: DocumentChecked },
+          { index: '/tenant-settings/subsidiaries', title: '子公司管理', icon: Connection }
+        )
+        // 只有租户负责人可以管理租户管理员
+        if (isTenantOwner.value) {
+          tenantSettingsMenus.push(
+            { index: '/tenant-settings/admins', title: '租户管理员管理', icon: User }
+          )
+        }
+      }
+      return tenantSettingsMenus
     // 仪表盘 / 商机 / 租户 / 日历 无二级导航，返回空数组以隐藏左侧栏
     case '/dashboard':
     case '/opportunities':
@@ -516,6 +550,8 @@ const sideTitle = computed(() => {
       return '订单'
     case '/tenant':
       return '租户'
+    case '/tenant-settings':
+      return '企业信息'
     case '/workflow/my-approvals':
       return '我的审批'
     default:

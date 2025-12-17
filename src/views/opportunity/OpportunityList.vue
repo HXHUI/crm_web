@@ -310,6 +310,26 @@
             </li>
             <li
               class="side-item"
+              :class="{ active: activeTab === 'requirements' }"
+              @click="handleNavClick('requirements')"
+            >
+              <span class="item-btn" :title="menuCollapsed ? '客户需求' : ''">
+                <el-icon class="item-icon"><Document /></el-icon>
+                <span v-show="!menuCollapsed" class="item-text">客户需求</span>
+              </span>
+            </li>
+            <li
+              class="side-item"
+              :class="{ active: activeTab === 'competitors' }"
+              @click="handleNavClick('competitors')"
+            >
+              <span class="item-btn" :title="menuCollapsed ? '意向竞品' : ''">
+                <el-icon class="item-icon"><Trophy /></el-icon>
+                <span v-show="!menuCollapsed" class="item-text">意向竞品</span>
+              </span>
+            </li>
+            <li
+              class="side-item"
               :class="{ active: activeTab === 'orders' }"
               @click="handleNavClick('orders')"
             >
@@ -467,6 +487,111 @@
               </div>
             </el-card>
 
+            <!-- 客户需求 -->
+            <el-card
+              shadow="never"
+              id="opportunity-section-requirements"
+              class="tab-content detail-section section-card"
+            >
+              <template #header>
+                <div style="display: flex; justify-content: space-between; align-items: center">
+                  <h3 class="section-title" style="margin: 0">客户需求</h3>
+                  <el-button
+                    v-if="selectedOpportunity"
+                    type="primary"
+                    size="small"
+                    @click="openCreateRequirement"
+                  >
+                    新增需求
+                  </el-button>
+                </div>
+              </template>
+              <div class="list-padding">
+                <el-table :data="opportunityRequirements" border style="width: 100%">
+                  <el-table-column label="需求类型" width="120">
+                    <template #default="{ row }">
+                      <el-tag :type="getRequirementTypeTagType(row.type)" size="small">
+                        {{ getRequirementTypeLabel(row.type) }}
+                      </el-tag>
+                    </template>
+                  </el-table-column>
+                  <el-table-column
+                    prop="content"
+                    label="需求内容"
+                    min-width="200"
+                    show-overflow-tooltip
+                  />
+                  <el-table-column
+                    prop="problemToSolve"
+                    label="要解决的问题"
+                    min-width="200"
+                    show-overflow-tooltip
+                  />
+                  <el-table-column label="优先级" width="100">
+                    <template #default="{ row }">
+                      <el-tag :type="getRequirementPriorityTagType(row.priority)" size="small">
+                        {{ getRequirementPriorityLabel(row.priority) }}
+                      </el-tag>
+                    </template>
+                  </el-table-column>
+                  <el-table-column label="状态" width="100">
+                    <template #default="{ row }">
+                      <el-tag :type="getRequirementStatusTagType(row.status)" size="small">
+                        {{ getRequirementStatusLabel(row.status) }}
+                      </el-tag>
+                    </template>
+                  </el-table-column>
+                  <el-table-column prop="createdAt" label="创建时间" width="180">
+                    <template #default="{ row }">
+                      {{ formatDate(row.createdAt) }}
+                    </template>
+                  </el-table-column>
+                  <el-table-column label="操作" width="200" fixed="right">
+                    <template #default="{ row }">
+                      <el-button size="small" type="primary" @click="openEditRequirement(row)">
+                        编辑
+                      </el-button>
+                      <el-button size="small" type="danger" @click="deleteRequirement(row)">
+                        删除
+                      </el-button>
+                    </template>
+                  </el-table-column>
+                </el-table>
+                <div v-if="opportunityRequirements.length === 0" class="empty-state">
+                  <el-empty description="暂无需求记录" />
+                </div>
+              </div>
+            </el-card>
+
+            <!-- 意向竞品 -->
+            <el-card
+              shadow="never"
+              id="opportunity-section-competitors"
+              class="tab-content detail-section section-card"
+            >
+              <template #header>
+                <div style="display: flex; justify-content: space-between; align-items: center">
+                  <h3 class="section-title" style="margin: 0">意向竞品</h3>
+                  <el-button
+                    v-if="selectedOpportunity"
+                    type="primary"
+                    size="small"
+                    @click="openCreateCompetitor"
+                  >
+                    新增竞品
+                  </el-button>
+                </div>
+              </template>
+              <div class="list-padding">
+                <CompetitorList
+                  v-if="selectedOpportunity"
+                  ref="competitorListRef"
+                  related-type="opportunity"
+                  :related-id="selectedOpportunity.id"
+                />
+              </div>
+            </el-card>
+
             <!-- 订单内容 -->
             <el-card shadow="never" id="opportunity-section-orders" class="tab-content detail-section section-card">
               <template #header>
@@ -508,6 +633,27 @@
         </div>
       </div>
     </el-drawer>
+
+    <!-- 新增/编辑需求对话框 -->
+    <RequirementFormDialog
+      v-model="requirementDialogVisible"
+      :requirement="currentRequirement"
+      :default-related-type="RequirementRelatedType.OPPORTUNITY"
+      :default-related-id="selectedOpportunity?.id"
+      @success="handleRequirementSuccess"
+      @cancel="currentRequirement = null"
+    />
+
+    <!-- 方案沉淀对话框 -->
+    <SolutionFormDialog
+      v-if="solutionDialogSource"
+      v-model="solutionDialogVisible"
+      :source-type="solutionDialogSource.type"
+      :source-id="solutionDialogSource.id"
+      :result="solutionDialogSource.result"
+      @success="handleSolutionSuccess"
+      @cancel="solutionDialogSource = null"
+    />
   </div>
 </template>
 
@@ -515,7 +661,7 @@
 import { ref, reactive, onMounted, nextTick, onBeforeUnmount, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Search, Edit, Delete, View, List, Grid, Clock, Location, Files, ShoppingCart, User, Fold, Expand } from '@element-plus/icons-vue'
+import { Plus, Search, Edit, Delete, View, List, Grid, Clock, Location, Files, ShoppingCart, User, Fold, Expand, Document, Trophy } from '@element-plus/icons-vue'
 import Sortable from 'sortablejs'
 import opportunityApi, {
   type Opportunity,
@@ -527,6 +673,14 @@ import ActivityList from '@/components/activity/ActivityList.vue'
 import ContactVisitList from '@/components/visit/ContactVisitList.vue'
 import contractApi, { type Contract } from '@/api/contract'
 import orderApi, { type Order } from '@/api/order'
+import customerRequirementApi, {
+  type CustomerRequirement,
+  RequirementType,
+  RequirementRelatedType,
+} from '@/api/customerRequirement'
+import CompetitorList from '@/components/competitor/CompetitorList.vue'
+import RequirementFormDialog from '@/components/requirement/RequirementFormDialog.vue'
+import SolutionFormDialog from '@/components/solution/SolutionFormDialog.vue'
 
 const router = useRouter()
 
@@ -595,12 +749,24 @@ const currentOpportunity = ref<Opportunity | null>(null)
 // 详情抽屉相关
 const drawerVisible = ref(false)
 const selectedOpportunity = ref<Opportunity | null>(null)
-const activeTab = ref<'basic' | 'activities' | 'visits' | 'contracts' | 'orders'>('basic')
+const activeTab = ref<'basic' | 'activities' | 'visits' | 'contracts' | 'requirements' | 'competitors' | 'orders'>('basic')
 const opportunityContracts = ref<Contract[]>([])
 const opportunityOrders = ref<Order[]>([])
+const opportunityRequirements = ref<CustomerRequirement[]>([])
 const loadingDetails = ref(false)
 const menuCollapsed = ref(false)
 const detailContentRef = ref<HTMLElement | null>(null)
+
+// 需求管理相关
+const requirementDialogVisible = ref(false)
+const currentRequirement = ref<CustomerRequirement | null>(null)
+
+// 竞品管理相关
+const competitorListRef = ref<InstanceType<typeof CompetitorList> | null>(null)
+
+// 方案沉淀相关
+const solutionDialogVisible = ref(false)
+const solutionDialogSource = ref<{ type: 'customer' | 'opportunity'; id: number | string; result?: 'won' | 'lost' } | null>(null)
 
 // 获取阶段类型
 const getStageType = (stage: string) => {
@@ -711,12 +877,13 @@ const handleDrawerClose = (done: () => void) => {
   selectedOpportunity.value = null
   opportunityContracts.value = []
   opportunityOrders.value = []
+  opportunityRequirements.value = []
   activeTab.value = 'basic'
   done()
 }
 
 // 锚点导航点击处理
-const handleNavClick = (tab: 'basic' | 'activities' | 'visits' | 'contracts' | 'orders') => {
+const handleNavClick = (tab: 'basic' | 'activities' | 'visits' | 'contracts' | 'requirements' | 'competitors' | 'orders') => {
   activeTab.value = tab
   scrollToSection(tab)
 }
@@ -749,6 +916,8 @@ const handleDetailScroll = () => {
     { id: 'opportunity-section-activities', tab: 'activities' },
     { id: 'opportunity-section-visits', tab: 'visits' },
     { id: 'opportunity-section-contracts', tab: 'contracts' },
+    { id: 'opportunity-section-requirements', tab: 'requirements' },
+    { id: 'opportunity-section-competitors', tab: 'competitors' },
     { id: 'opportunity-section-orders', tab: 'orders' },
   ]
 
@@ -768,10 +937,11 @@ const handleDetailScroll = () => {
 const loadOpportunityDetails = async (opportunityId: string) => {
   try {
     loadingDetails.value = true
-    // 并行加载销售合同、销售订单
-    const [contractsResponse, ordersResponse] = await Promise.all([
+    // 并行加载销售合同、销售订单、需求
+    const [contractsResponse, ordersResponse, requirementsResponse] = await Promise.all([
       contractApi.getList({ opportunityId: Number(opportunityId), page: 1, limit: 1000 }),
       orderApi.getList({ opportunityId: Number(opportunityId), page: 1, limit: 1000 }),
+      customerRequirementApi.getByOpportunity(Number(opportunityId)),
     ])
 
     if ((contractsResponse as any).data?.code === 200) {
@@ -784,6 +954,12 @@ const loadOpportunityDetails = async (opportunityId: string) => {
       opportunityOrders.value = (ordersResponse as any).data.data?.orders || []
     } else if ((ordersResponse as any).data?.orders) {
       opportunityOrders.value = (ordersResponse as any).data.orders || []
+    }
+
+    if (requirementsResponse.code === 200) {
+      opportunityRequirements.value = requirementsResponse.data || []
+    } else if (Array.isArray(requirementsResponse)) {
+      opportunityRequirements.value = requirementsResponse
     }
   } catch (error) {
     console.error('加载商机详情失败:', error)
@@ -1238,6 +1414,19 @@ const initKanbanSortable = () => {
                 }
               }
               console.log('更新成功，新阶段:', toStage)
+
+              // 如果阶段更新为 closed_lost 或 closed_won，弹出方案沉淀对话框
+              if (toStage === 'closed_lost' || toStage === 'closed_won') {
+                nextTick(() => {
+                  solutionDialogVisible.value = true
+                  solutionDialogSource.value = {
+                    type: 'opportunity',
+                    id: opportunity.id,
+                    result: toStage === 'closed_won' ? 'won' : 'lost',
+                  }
+                })
+              }
+
               // 重新加载列表以确保数据同步
               await loadOpportunities()
             } else {
@@ -1316,6 +1505,123 @@ watch(drawerVisible, (visible) => {
     }
   }
 })
+
+// 需求管理相关函数
+const openCreateRequirement = () => {
+  if (!selectedOpportunity.value) return
+  currentRequirement.value = null
+  requirementDialogVisible.value = true
+}
+
+const openEditRequirement = (requirement: CustomerRequirement) => {
+  currentRequirement.value = requirement
+  requirementDialogVisible.value = true
+}
+
+const deleteRequirement = async (requirement: CustomerRequirement) => {
+  try {
+    await ElMessageBox.confirm('确定要删除该需求吗？', '提示', {
+      type: 'warning',
+    })
+    await customerRequirementApi.delete(requirement.id)
+    ElMessage.success('删除成功')
+    // 重新加载需求列表
+    if (selectedOpportunity.value) {
+      const response = await customerRequirementApi.getByOpportunity(Number(selectedOpportunity.value.id))
+      if (response.code === 200) {
+        opportunityRequirements.value = response.data || []
+      } else if (Array.isArray(response)) {
+        opportunityRequirements.value = response
+      }
+    }
+  } catch (error: any) {
+    if (error !== 'cancel') {
+      console.error('删除需求失败:', error)
+      ElMessage.error('删除失败')
+    }
+  }
+}
+
+// 需求相关辅助函数
+const getRequirementTypeLabel = (type: RequirementType) => {
+  const typeMap: Record<RequirementType, string> = {
+    [RequirementType.EXPLICIT]: '显性需求',
+    [RequirementType.IMPLICIT]: '隐性需求',
+    [RequirementType.INTANGIBLE]: '无形需求',
+  }
+  return typeMap[type] || type
+}
+
+const getRequirementTypeTagType = (type: RequirementType) => {
+  const typeMap: Record<RequirementType, string> = {
+    [RequirementType.EXPLICIT]: 'success',
+    [RequirementType.IMPLICIT]: 'warning',
+    [RequirementType.INTANGIBLE]: 'info',
+  }
+  return typeMap[type] || 'default'
+}
+
+const getRequirementPriorityLabel = (priority: number) => {
+  const priorityMap: Record<number, string> = {
+    0: '低',
+    1: '中',
+    2: '高',
+  }
+  return priorityMap[priority] || '低'
+}
+
+const getRequirementPriorityTagType = (priority: number) => {
+  const typeMap: Record<number, string> = {
+    0: 'info',
+    1: 'warning',
+    2: 'danger',
+  }
+  return typeMap[priority] || 'info'
+}
+
+const getRequirementStatusLabel = (status: string) => {
+  const statusMap: Record<string, string> = {
+    pending: '待处理',
+    processing: '处理中',
+    resolved: '已解决',
+    closed: '已关闭',
+  }
+  return statusMap[status] || status
+}
+
+const getRequirementStatusTagType = (status: string) => {
+  const typeMap: Record<string, string> = {
+    pending: 'info',
+    processing: 'warning',
+    resolved: 'success',
+    closed: 'default',
+  }
+  return typeMap[status] || 'info'
+}
+
+// 竞品管理相关函数
+const openCreateCompetitor = () => {
+  competitorListRef.value?.openCreate()
+}
+
+// 需求提交成功回调
+const handleRequirementSuccess = async () => {
+  // 重新加载需求列表
+  if (selectedOpportunity.value) {
+    const response = await customerRequirementApi.getByOpportunity(Number(selectedOpportunity.value.id))
+    if (response.code === 200) {
+      opportunityRequirements.value = response.data || []
+    } else if (Array.isArray(response)) {
+      opportunityRequirements.value = response
+    }
+  }
+}
+
+// 方案沉淀成功回调
+const handleSolutionSuccess = () => {
+  ElMessage.success('方案已保存到方案库')
+  solutionDialogSource.value = null
+}
 
 onMounted(() => {
   loadOpportunities()

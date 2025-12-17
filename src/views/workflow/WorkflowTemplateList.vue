@@ -1,6 +1,6 @@
 <template>
-  <div class="workflow-template-management" :class="{ 'embedded-mode': embedded }">
-    <div v-if="!embedded" class="main-container">
+  <div class="table-page" :class="{ 'embedded-mode': embedded }">
+    <div class="main-container" :style="embedded ? { padding: 0 } : {}">
       <!-- 工具栏 -->
       <div class="toolbar">
         <div class="toolbar-left">
@@ -32,7 +32,7 @@
       <!-- 数据表格 -->
       <div class="table-section">
         <el-table
-          :data="templates"
+          :data="pagedTemplates"
           v-loading="loading"
           style="width: 100%"
           border
@@ -79,101 +79,32 @@
           </el-table-column>
         </el-table>
       </div>
+
+      <!-- 分页 -->
+      <div class="pagination-section" v-if="pagination.total > 0">
+        <el-pagination
+          v-model:current-page="pagination.page"
+          v-model:page-size="pagination.pageSize"
+          :page-sizes="[10, 20, 50, 100]"
+          :total="pagination.total"
+          layout="total, sizes, prev, pager, next, jumper"
+          @size-change="handleSizeChange"
+          @current-change="handleCurrentChange"
+        />
+      </div>
+
+      <!-- 编辑对话框 -->
+      <WorkflowTemplateForm
+        v-model="dialogVisible"
+        :template="currentTemplate"
+        @success="handleSuccess"
+      />
     </div>
-
-    <!-- 嵌入模式：直接显示内容，不包含外层容器 -->
-    <template v-else>
-      <!-- 工具栏 -->
-      <div class="toolbar">
-        <div class="toolbar-left">
-          <el-form :model="searchForm" :inline="true" class="search-form">
-            <el-form-item>
-              <el-select
-                v-model="searchForm.businessType"
-                placeholder="业务类型"
-                clearable
-                style="width: 150px"
-              >
-                <el-option label="全部" :value="undefined" />
-                <el-option label="报价" value="quote" />
-                <el-option label="合同" value="contract" />
-                <el-option label="订单" value="order" />
-              </el-select>
-            </el-form-item>
-            <el-form-item>
-              <el-button type="primary" :icon="Search" @click="handleSearch"> 搜索 </el-button>
-              <el-button :icon="Refresh" @click="handleReset"> 重置 </el-button>
-            </el-form-item>
-          </el-form>
-        </div>
-        <div class="toolbar-right">
-          <el-button type="primary" :icon="Plus" @click="handleCreate"> 新增审批流模板 </el-button>
-        </div>
-      </div>
-
-      <!-- 数据表格 -->
-      <div class="table-section">
-        <el-table
-          :data="templates"
-          v-loading="loading"
-          style="width: 100%"
-          border
-        >
-          <el-table-column prop="name" label="模板名称" width="200" />
-          <el-table-column prop="description" label="描述" min-width="200" show-overflow-tooltip />
-          <el-table-column prop="businessType" label="业务类型" width="120">
-            <template #default="{ row }">
-              <el-tag :type="getBusinessTypeTag(row.businessType)">
-                {{ getBusinessTypeName(row.businessType) }}
-              </el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column prop="nodes" label="节点数量" width="100" align="center">
-            <template #default="{ row }">
-              {{ row.nodes?.length || 0 }}
-            </template>
-          </el-table-column>
-          <el-table-column prop="isActive" label="状态" width="100" align="center">
-            <template #default="{ row }">
-              <el-tag :type="row.isActive ? 'success' : 'info'">
-                {{ row.isActive ? '启用' : '禁用' }}
-              </el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column prop="version" label="版本" width="80" align="center" />
-          <el-table-column prop="createdAt" label="创建时间" width="180">
-            <template #default="{ row }">
-              {{ formatDate(row.createdAt) }}
-            </template>
-          </el-table-column>
-          <el-table-column label="操作" width="280" fixed="right">
-            <template #default="{ row }">
-              <el-button link type="primary" :icon="Edit" @click="handleEdit(row)"> 编辑 </el-button>
-              <el-button
-                link
-                :type="row.isActive ? 'warning' : 'success'"
-                @click="handleToggleStatus(row)"
-              >
-                {{ row.isActive ? '禁用' : '启用' }}
-              </el-button>
-              <el-button link type="danger" :icon="Delete" @click="handleDelete(row)"> 删除 </el-button>
-            </template>
-          </el-table-column>
-        </el-table>
-      </div>
-    </template>
-
-    <!-- 编辑对话框 -->
-    <WorkflowTemplateForm
-      v-model="dialogVisible"
-      :template="currentTemplate"
-      @success="handleSuccess"
-    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Refresh, Plus, Edit, Delete } from '@element-plus/icons-vue'
 import {
@@ -202,6 +133,13 @@ const searchForm = reactive<{
 // 模板列表
 const templates = ref<WorkflowTemplate[]>([])
 const loading = ref(false)
+
+// 分页信息（前端分页）
+const pagination = reactive({
+  page: 1,
+  pageSize: 10,
+  total: 0,
+})
 
 // 对话框相关
 const dialogVisible = ref(false)
@@ -239,6 +177,12 @@ const loadTemplates = async () => {
     const response = await getWorkflowTemplates(searchForm.businessType) as unknown as { code: number; data?: WorkflowTemplate[] }
     if (response.code === 200) {
       templates.value = response.data || []
+      pagination.total = templates.value.length
+      // 防止当前页超出范围
+      const maxPage = Math.max(1, Math.ceil(pagination.total / pagination.pageSize))
+      if (pagination.page > maxPage) {
+        pagination.page = maxPage
+      }
     }
   } catch (error) {
     console.error('加载审批流模板列表失败:', error)
@@ -248,15 +192,36 @@ const loadTemplates = async () => {
   }
 }
 
+// 计算当前页数据
+const pagedTemplates = computed(() => {
+  if (!templates.value || templates.value.length === 0) return []
+  const start = (pagination.page - 1) * pagination.pageSize
+  const end = start + pagination.pageSize
+  return templates.value.slice(start, end)
+})
+
 // 搜索
 const handleSearch = () => {
+  pagination.page = 1
   loadTemplates()
 }
 
 // 重置
 const handleReset = () => {
   searchForm.businessType = undefined
+  pagination.page = 1
   loadTemplates()
+}
+
+// 分页大小变化
+const handleSizeChange = (size: number) => {
+  pagination.pageSize = size
+  pagination.page = 1
+}
+
+// 当前页变化
+const handleCurrentChange = (page: number) => {
+  pagination.page = page
 }
 
 // 创建
@@ -339,7 +304,7 @@ onMounted(() => {
 })
 </script>
 
-<style scoped lang="scss">
+<!-- <style scoped lang="scss">
 .workflow-template-management {
   padding: 20px;
 
@@ -368,4 +333,7 @@ onMounted(() => {
     border-radius: 4px;
   }
 }
+</style> -->
+<style lang="scss" scoped>
+  @use '@/styles/common/table-layout.scss';
 </style>
